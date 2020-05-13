@@ -1,8 +1,63 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod backup;
-pub mod repo;
+pub mod backup {
+    use super::repo;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct Name(pub String);
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct Path(pub String);
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct Exclude(pub String);
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub enum Trigger {
+        Cron { cron: String },
+    }
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    pub struct Definition {
+        pub repository: repo::Name,
+        pub path: Path,
+        #[serde(default)]
+        pub excludes: Vec<Exclude>,
+        #[serde(default)]
+        pub extra_args: Vec<String>,
+        pub triggers: Vec<Trigger>,
+    }
+}
+
+pub mod repo {
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub enum Password {
+        FromEnvVar { env_var: String },
+    }
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct Name(pub String);
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct Url(pub String);
+
+    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    pub struct Definition {
+        pub url: Url,
+        pub password: Password,
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]

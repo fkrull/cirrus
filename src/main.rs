@@ -1,29 +1,37 @@
 #![feature(proc_macro_hygiene, decl_macro)]
+use anyhow::anyhow;
 use rocket::{get, routes};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 pub mod config;
+pub mod scheduler;
 
 #[derive(Debug)]
 pub struct PauseState {
-    running: RwLock<bool>,
+    paused: RwLock<bool>,
 }
 
 impl PauseState {
+    pub fn new() -> Self {
+        Self {
+            paused: RwLock::new(true),
+        }
+    }
+
     pub fn pause(&self) {
-        self.set_running(false);
+        self.set_paused(false);
     }
 
     pub fn resume(&self) {
-        self.set_running(true);
+        self.set_paused(true);
     }
 
-    pub fn running(&self) -> bool {
-        *self.running.read().unwrap()
+    pub fn paused(&self) -> bool {
+        *self.paused.read().unwrap()
     }
 
-    fn set_running(&self, running: bool) {
-        *self.running.write().unwrap() = running;
+    fn set_paused(&self, paused: bool) {
+        *self.paused.write().unwrap() = paused;
     }
 }
 
@@ -39,6 +47,22 @@ fn index() -> &'static str {
     "hello world"
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
+    let config_file = dirs::config_dir()
+        .ok_or_else(|| anyhow!("can't find config directory"))?
+        .join("restic-controller")
+        .join("config.toml");
+    let cfg_data = std::fs::read_to_string(config_file)?;
+    let cfg: config::Config = toml::from_str(&cfg_data)?;
+    let app = Arc::new(App {
+        pause_state: PauseState::new(),
+        repositories: cfg.repositories,
+        backups: cfg.backups,
+    });
+
+    // TODO: handle panics in scheduler thread
+    scheduler::start_scheduler(app)?;
     rocket::ignite().mount("/", routes![index]).launch();
+
+    Ok(())
 }

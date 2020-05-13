@@ -1,6 +1,8 @@
 #![feature(proc_macro_hygiene, decl_macro)]
+
 use anyhow::anyhow;
 use rocket::{get, routes};
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 pub mod config;
@@ -47,12 +49,19 @@ fn index() -> &'static str {
     "hello world"
 }
 
+fn default_config_path() -> Option<PathBuf> {
+    dirs::config_dir().map(|dir| dir.join("restic-controller").join("config.toml"))
+}
+
+fn config_path() -> anyhow::Result<PathBuf> {
+    std::env::var_os("RESTIC_CONTROLLER_CONFIG")
+        .map(PathBuf::from)
+        .or_else(default_config_path)
+        .ok_or_else(|| anyhow!("can't find config file"))
+}
+
 fn main() -> anyhow::Result<()> {
-    let config_file = dirs::config_dir()
-        .ok_or_else(|| anyhow!("can't find config directory"))?
-        .join("restic-controller")
-        .join("config.toml");
-    let cfg_data = std::fs::read_to_string(config_file)?;
+    let cfg_data = std::fs::read_to_string(config_path()?)?;
     let cfg: config::Config = toml::from_str(&cfg_data)?;
     let app = Arc::new(App {
         pause_state: PauseState::new(),

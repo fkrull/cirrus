@@ -67,10 +67,18 @@ pub mod backup {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
+#[serde(transparent)]
+pub struct Repositories(HashMap<repo::Name, repo::Definition>);
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
+#[serde(transparent)]
+pub struct Backups(HashMap<backup::Name, backup::Definition>);
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Config {
-    pub repositories: HashMap<repo::Name, repo::Definition>,
-    pub backups: HashMap<backup::Name, backup::Definition>,
+    pub repositories: Repositories,
+    pub backups: Backups,
 }
 
 #[cfg(test)]
@@ -123,7 +131,7 @@ mod tests {
         assert_eq!(
             config,
             Config {
-                repositories: hashmap! {
+                repositories: Repositories(hashmap! {
                     repo::Name("local".to_string()) => repo::Definition {
                         url: repo::Url("/srv/restic-repo".to_string()),
                         password: repo::Secret::FromEnvVar { env_var: "LOCAL_PASSWORD".to_string() },
@@ -136,8 +144,8 @@ mod tests {
                             repo::SecretName("UNUSED_SECRET".to_string()) => repo::Secret::FromEnvVar { env_var: "SECRET_ENV".to_string() }
                         }
                     },
-                },
-                backups: hashmap! {
+                }),
+                backups: Backups(hashmap! {
                     backup::Name("home".to_string()) => backup::Definition {
                         repository: repo::Name("local".to_string()),
                         path: backup::Path("/home/user".to_string()),
@@ -158,7 +166,7 @@ mod tests {
                         extra_args: vec![],
                         triggers: vec![]
                     },
-                },
+                }),
             }
         )
     }

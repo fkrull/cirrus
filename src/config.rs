@@ -190,12 +190,12 @@ pub struct Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{DateTime, Utc};
+    use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
     use maplit::hashmap;
     use std::str::FromStr;
 
     #[test]
-    fn should_parse_complex_config() {
+    fn should_parse_complex_config() -> anyhow::Result<()> {
         let input: toml::Value = toml::from_str(
             //language=TOML
             r#"
@@ -231,10 +231,9 @@ mod tests {
             path = "/srv"
             triggers = []
             "#,
-        )
-        .unwrap();
+        )?;
 
-        let config: Config = input.try_into().unwrap();
+        let config: Config = input.try_into()?;
 
         assert_eq!(
             config,
@@ -284,78 +283,101 @@ mod tests {
                     },
                 }),
             }
-        )
+        );
+        Ok(())
     }
 
     mod timezone {
         use super::*;
 
         #[test]
-        fn should_deserialize_utc_timezone() {
-            let tz: backup::Timezone = serde_json::from_str(r#""utc""#).unwrap();
+        fn should_deserialize_utc_timezone() -> anyhow::Result<()> {
+            let tz: backup::Timezone = serde_json::from_str(r#""utc""#)?;
             assert_eq!(tz, backup::Timezone::Utc);
+            Ok(())
         }
 
         #[test]
-        fn should_deserialize_local_timezone() {
-            let tz: backup::Timezone = serde_json::from_str(r#""local""#).unwrap();
+        fn should_deserialize_local_timezone() -> anyhow::Result<()> {
+            let tz: backup::Timezone = serde_json::from_str(r#""local""#)?;
             assert_eq!(tz, backup::Timezone::Local);
+            Ok(())
         }
 
         #[test]
-        fn should_deserialize_other_timezone() {
-            let tz: backup::Timezone = serde_json::from_str(r#""Antarctica/Troll""#).unwrap();
+        fn should_deserialize_other_timezone() -> anyhow::Result<()> {
+            let tz: backup::Timezone = serde_json::from_str(r#""Antarctica/Troll""#)?;
             assert_eq!(tz, backup::Timezone::Other("Antarctica/Troll".to_string()));
+            Ok(())
         }
 
         #[test]
-        fn should_serialize_utc_timezone() {
-            let s = serde_json::to_string(&backup::Timezone::Utc).unwrap();
+        fn should_serialize_utc_timezone() -> anyhow::Result<()> {
+            let s = serde_json::to_string(&backup::Timezone::Utc)?;
             assert_eq!(&s, r#""utc""#);
+            Ok(())
         }
 
         #[test]
-        fn should_serialize_local_timezone() {
-            let s = serde_json::to_string(&backup::Timezone::Local).unwrap();
+        fn should_serialize_local_timezone() -> anyhow::Result<()> {
+            let s = serde_json::to_string(&backup::Timezone::Local)?;
             assert_eq!(&s, r#""local""#);
+            Ok(())
         }
 
         #[test]
-        fn should_serialize_other_timezone() {
+        fn should_serialize_other_timezone() -> anyhow::Result<()> {
             let s =
-                serde_json::to_string(&backup::Timezone::Other("Africa/Casablanca".to_string()))
-                    .unwrap();
+                serde_json::to_string(&backup::Timezone::Other("Africa/Casablanca".to_string()))?;
             assert_eq!(&s, r#""Africa/Casablanca""#);
+            Ok(())
         }
     }
 
     #[test]
-    fn should_get_next_schedule_for_cron_expression() {
+    fn should_get_next_schedule_for_cron_expression() -> anyhow::Result<()> {
         let trigger = backup::Trigger::Cron {
             cron: "30 10 * * *".to_string(),
             timezone: backup::Timezone::Utc,
         };
-        let next = trigger
-            .next_schedule(DateTime::from_str("2020-05-14T9:56:13.123Z").unwrap())
-            .unwrap();
+        let next = trigger.next_schedule(DateTime::from_str("2020-05-14T9:56:13.123Z")?)?;
         assert_eq!(
             next,
-            DateTime::from_str("2020-05-14T10:30:00Z").unwrap() as DateTime<Utc>
+            DateTime::from_str("2020-05-14T10:30:00Z")? as DateTime<Utc>
         );
+        Ok(())
     }
 
     #[test]
-    fn should_get_next_schedule_for_another_cron_expression() {
+    fn should_get_next_schedule_for_another_cron_expression() -> anyhow::Result<()> {
         let trigger = backup::Trigger::Cron {
             cron: "0 */6 * * *".to_string(),
             timezone: backup::Timezone::Utc,
         };
-        let next = trigger
-            .next_schedule(DateTime::from_str("2020-05-15T00:04:52.123Z").unwrap())
-            .unwrap();
+        let next = trigger.next_schedule(DateTime::from_str("2020-05-15T00:04:52.123Z")?)?;
         assert_eq!(
             next,
-            DateTime::from_str("2020-05-15T06:00:00Z").unwrap() as DateTime<Utc>
+            DateTime::from_str("2020-05-15T06:00:00Z")? as DateTime<Utc>
         );
+        Ok(())
+    }
+
+    #[test]
+    fn should_get_next_schedule_for_a_cron_expression_using_local_time() -> anyhow::Result<()> {
+        let trigger = backup::Trigger::Cron {
+            cron: "34 13 15 5 *".to_string(),
+            timezone: backup::Timezone::Local,
+        };
+        let local = Local
+            .from_local_datetime(&NaiveDateTime::from_str("2020-04-16T07:13:31.666")?)
+            .unwrap();
+        let expected_local = Local
+            .from_local_datetime(&NaiveDateTime::from_str("2020-05-15T13:34:00")?)
+            .unwrap();
+
+        let next = trigger.next_schedule(local.with_timezone(&Utc))?;
+
+        assert_eq!(next, expected_local.with_timezone(&Utc));
+        Ok(())
     }
 }

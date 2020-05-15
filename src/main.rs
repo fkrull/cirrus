@@ -1,25 +1,22 @@
-#![feature(proc_macro_hygiene, decl_macro)]
+#![feature(proc_macro_hygiene, decl_macro, try_find)]
 
+use crate::scheduler::JobsRepo;
 use anyhow::anyhow;
 use rocket::{get, routes};
-use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::{
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 pub mod config;
 pub mod scheduler;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PauseState {
     paused: RwLock<bool>,
 }
 
 impl PauseState {
-    pub fn new() -> Self {
-        Self {
-            paused: RwLock::new(true),
-        }
-    }
-
     pub fn pause(&self) {
         self.set_paused(false);
     }
@@ -40,6 +37,7 @@ impl PauseState {
 #[derive(Debug)]
 pub struct App {
     pub pause_state: PauseState,
+    pub jobs: JobsRepo,
     pub repositories: config::Repositories,
     pub backups: config::Backups,
 }
@@ -61,10 +59,12 @@ fn config_path() -> anyhow::Result<PathBuf> {
 }
 
 fn main() -> anyhow::Result<()> {
+    env_logger::init();
     let cfg_data = std::fs::read_to_string(config_path()?)?;
     let cfg: config::Config = toml::from_str(&cfg_data)?;
     let app = Arc::new(App {
-        pause_state: PauseState::new(),
+        pause_state: PauseState::default(),
+        jobs: JobsRepo::default(),
         repositories: cfg.repositories,
         backups: cfg.backups,
     });

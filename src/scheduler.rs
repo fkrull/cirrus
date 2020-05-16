@@ -1,9 +1,9 @@
-use crate::{config::backup, App};
+use crate::jobs::Job;
+use crate::App;
 use chrono::{DateTime, Utc};
-use log::{debug, error, info};
+use log::debug;
 use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::Arc,
     thread::{self, JoinHandle},
     time::Duration,
 };
@@ -20,23 +20,23 @@ fn scheduler(app: Arc<App>) {
     loop {
         let now = Utc::now();
         debug!("running scheduler at {})", now);
-        if let Err(err) = schedule(app.clone(), last_schedule, now, run_backup) {
+        /*if let Err(err) = schedule_v1(app.clone(), last_schedule, now, run_backup) {
             error!("scheduling failure, will retry next time: {:?}", err);
-        }
+        }*/
         last_schedule = now;
         thread::sleep(Duration::from_secs(10));
     }
 }
 
-fn run_backup(app: Arc<App>, backup: backup::Name) {
+/*fn run_backup(app: Arc<App>, backup: backup::Name) {
     info!("running {}", backup.0);
     if let Some(mut job) = app.jobs.get(&backup) {
         job.finish_successful();
         app.jobs.update(job);
     }
-}
+}*/
 
-fn schedule(
+/*fn schedule_v1(
     app: Arc<App>,
     last_schedule: DateTime<Utc>,
     now: DateTime<Utc>,
@@ -81,9 +81,9 @@ fn schedule(
     }
 
     Ok(())
-}
+}*/
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+/*#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum JobStatus {
     NotRun,
     Running,
@@ -141,5 +141,149 @@ impl JobsRepo {
 
     pub fn update(&self, job: Job) {
         self.jobs.write().unwrap().insert(job.backup.clone(), job);
+    }
+}*/
+
+fn schedule(
+    previous: DateTime<Utc>,
+    now: DateTime<Utc>,
+    jobs: impl Iterator<Item = Job>,
+) -> impl Iterator<Item = Job> {
+    jobs.filter(|job| !job.running())
+        .filter(move |job| {
+            let matching_trigger =
+                job.definition
+                    .triggers
+                    .iter()
+                    .try_find(|&trigger| -> anyhow::Result<bool> {
+                        let next_schedule: DateTime<Utc> = trigger.next_schedule(previous)?;
+                        let matches = next_schedule <= now;
+                        if matches {
+                            debug!(
+                                "found matching trigger for {} at {}",
+                                job.name.0, next_schedule
+                            );
+                            Ok(true)
+                        } else {
+                            Ok(false)
+                        }
+                    });
+            matching_trigger.map(|t| t.is_some()).unwrap_or(false)
+        })
+        .map(move |mut job| {
+            job.set_started(now);
+            job
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::jobs::JobStatus;
+    use std::iter;
+    use std::str::FromStr;
+
+    #[test]
+    fn should_schedule_waiting_backup() -> anyhow::Result<()> {
+        let previous: DateTime<Utc> = DateTime::from_str("2020-05-16T01:05:50Z")?;
+        let now: DateTime<Utc> = DateTime::from_str("2020-05-16T01:06:10Z")?;
+        let job = Job::new(
+            backup::Name("test".to_string()),
+            backup::Definition {
+                triggers: vec![backup::Trigger::Cron {
+                    cron: "6 1 * * *".to_string(),
+                    timezone: backup::Timezone::Utc,
+                }],
+                ..Default::default()
+            },
+        );
+
+        let scheduled = schedule(previous, now, iter::once(job.clone())).collect::<Vec<_>>();
+
+        assert_eq!(
+            scheduled,
+            vec![Job {
+                status: JobStatus::Running,
+                last_start: Some(now),
+                ..job
+            }]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn should_schedule_failed_backup() -> anyhow::Result<()> {
+        let previous: DateTime<Utc> = DateTime::from_str("2020-05-16T12:00:00Z")?;
+        let now: DateTime<Utc> = DateTime::from_str("2020-05-16T13:00:00Z")?;
+        let job = Job {
+            status: JobStatus::FinishedWithError,
+            ..Job::new(
+                backup::Name("test".to_string()),
+                backup::Definition {
+                    triggers: vec![backup::Trigger::Cron {
+                        cron: "30 * * * *".to_string(),
+                        timezone: backup::Timezone::Utc,
+                    }],
+                    ..Default::default()
+                },
+            )
+        };
+
+        let scheduled = schedule(previous, now, iter::once(job.clone())).collect::<Vec<_>>();
+
+        assert_eq!(
+            scheduled,
+            vec![Job {
+                status: JobStatus::Running,
+                last_start: Some(now),
+                ..job
+            }]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn should_not_schedule_backup_thats_not_triggered() -> anyhow::Result<()> {
+        let previous: DateTime<Utc> = DateTime::from_str("2020-05-16T12:00:00Z")?;
+        let now: DateTime<Utc> = DateTime::from_str("2020-05-16T13:00:00Z")?;
+        let job = Job::new(
+            backup::Name("test".to_string()),
+            backup::Definition {
+                triggers: vec![backup::Trigger::Cron {
+                    cron: "30 12 6 4 *".to_string(),
+                    timezone: backup::Timezone::Utc,
+                }],
+                ..Default::default()
+            },
+        );
+
+        let scheduled = schedule(previous, now, iter::once(job.clone())).collect::<Vec<_>>();
+
+        assert_eq!(scheduled, vec![]);
+        Ok(())
+    }
+
+    #[test]
+    fn should_not_schedule_backup_thats_running() -> anyhow::Result<()> {
+        let previous: DateTime<Utc> = DateTime::from_str("2020-05-16T12:00:00Z")?;
+        let now: DateTime<Utc> = DateTime::from_str("2020-05-16T13:00:00Z")?;
+        let job = Job {
+            status: JobStatus::Running,
+            ..Job::new(
+                backup::Name("test".to_string()),
+                backup::Definition {
+                    triggers: vec![backup::Trigger::Cron {
+                        cron: "30 * * * *".to_string(),
+                        timezone: backup::Timezone::Utc,
+                    }],
+                    ..Default::default()
+                },
+            )
+        };
+
+        let scheduled = schedule(previous, now, iter::once(job.clone())).collect::<Vec<_>>();
+
+        assert_eq!(scheduled, vec![]);
+        Ok(())
     }
 }

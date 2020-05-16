@@ -1,6 +1,6 @@
 #![feature(proc_macro_hygiene, decl_macro, try_find)]
 
-use crate::scheduler::JobsRepo;
+use crate::jobs::JobsRepo;
 use anyhow::anyhow;
 use env_logger::Env;
 use rocket::{get, routes};
@@ -41,7 +41,6 @@ pub struct App {
     pub pause_state: PauseState,
     pub jobs: JobsRepo,
     pub repositories: config::Repositories,
-    pub backups: config::Backups,
 }
 
 #[get("/")]
@@ -66,9 +65,8 @@ fn main() -> anyhow::Result<()> {
     let cfg: config::Config = toml::from_str(&cfg_data)?;
     let app = Arc::new(App {
         pause_state: PauseState::default(),
-        jobs: JobsRepo::default(),
+        jobs: JobsRepo::new(cfg.backups.0),
         repositories: cfg.repositories,
-        backups: cfg.backups,
     });
 
     // TODO: handle panics in scheduler thread

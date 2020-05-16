@@ -19,7 +19,7 @@ pub struct Job {
 }
 
 impl Job {
-    fn new(name: backup::Name, definition: backup::Definition) -> Self {
+    pub fn new(name: backup::Name, definition: backup::Definition) -> Self {
         Job {
             name,
             definition,
@@ -106,6 +106,7 @@ mod tests {
         });
 
         let mut jobs1 = repo.jobs().collect::<Vec<_>>();
+        jobs1.sort_by_key(|job| job.name.clone());
         assert_eq!(
             jobs1,
             vec![
@@ -118,8 +119,8 @@ mod tests {
         job.set_started(timestamp);
         repo.update(iter::once(job));
 
-        let jobs2 = repo.jobs().collect::<Vec<_>>();
-
+        let mut jobs2 = repo.jobs().collect::<Vec<_>>();
+        jobs2.sort_by_key(|job| job.name.clone());
         assert_eq!(
             jobs2,
             vec![

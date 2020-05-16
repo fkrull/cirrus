@@ -11,7 +11,7 @@ pub mod repo {
         FromEnvVar { env_var: String },
     }
 
-    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct Name(pub String);
 
@@ -38,7 +38,7 @@ pub mod backup {
     use chrono::{DateTime, Local, Utc};
     use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-    #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct Name(pub String);
 
@@ -146,20 +146,8 @@ pub mod backup {
         pub triggers: Vec<Trigger>,
     }
 
-    impl Default for Definition {
-        fn default() -> Self {
-            Definition {
-                repository: repo::Name(String::new()),
-                path: Path(String::new()),
-                excludes: vec![],
-                extra_args: vec![],
-                triggers: vec![],
-            }
-        }
-    }
-
     impl Trigger {
-        pub fn next_schedule(&self, after: &DateTime<Utc>) -> anyhow::Result<DateTime<Utc>> {
+        pub fn next_schedule(&self, after: DateTime<Utc>) -> anyhow::Result<DateTime<Utc>> {
             match self {
                 Trigger::Cron {
                     cron,
@@ -180,6 +168,18 @@ pub mod backup {
                     // TODO: arbitrary timezones?
                     Err(anyhow!("arbitrary timezones aren't supported (yet?)"))
                 }
+            }
+        }
+    }
+
+    impl Default for Definition {
+        fn default() -> Self {
+            Definition {
+                repository: repo::Name(String::new()),
+                path: Path(String::new()),
+                excludes: vec![],
+                extra_args: vec![],
+                triggers: vec![],
             }
         }
     }
@@ -353,7 +353,7 @@ mod tests {
             cron: "30 10 * * *".to_string(),
             timezone: backup::Timezone::Utc,
         };
-        let next = trigger.next_schedule(&DateTime::from_str("2020-05-14T9:56:13.123Z")?)?;
+        let next = trigger.next_schedule(DateTime::from_str("2020-05-14T9:56:13.123Z")?)?;
         assert_eq!(
             next,
             DateTime::from_str("2020-05-14T10:30:00Z")? as DateTime<Utc>
@@ -367,7 +367,7 @@ mod tests {
             cron: "0 */6 * * *".to_string(),
             timezone: backup::Timezone::Utc,
         };
-        let next = trigger.next_schedule(&DateTime::from_str("2020-05-15T00:04:52.123Z")?)?;
+        let next = trigger.next_schedule(DateTime::from_str("2020-05-15T00:04:52.123Z")?)?;
         assert_eq!(
             next,
             DateTime::from_str("2020-05-15T06:00:00Z")? as DateTime<Utc>
@@ -388,7 +388,7 @@ mod tests {
             .from_local_datetime(&NaiveDateTime::from_str("2020-05-15T13:34:00")?)
             .unwrap();
 
-        let next = trigger.next_schedule(&local.with_timezone(&Utc))?;
+        let next = trigger.next_schedule(local.with_timezone(&Utc))?;
 
         assert_eq!(next, expected_local.with_timezone(&Utc));
         Ok(())

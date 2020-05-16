@@ -10,6 +10,7 @@ use std::{
 };
 
 pub mod config;
+pub mod jobs;
 pub mod scheduler;
 
 #[derive(Debug, Default)]

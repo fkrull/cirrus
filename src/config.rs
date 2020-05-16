@@ -146,6 +146,18 @@ pub mod backup {
         pub triggers: Vec<Trigger>,
     }
 
+    impl Default for Definition {
+        fn default() -> Self {
+            Definition {
+                repository: repo::Name(String::new()),
+                path: Path(String::new()),
+                excludes: vec![],
+                extra_args: vec![],
+                triggers: vec![],
+            }
+        }
+    }
+
     impl Trigger {
         pub fn next_schedule(&self, after: &DateTime<Utc>) -> anyhow::Result<DateTime<Utc>> {
             match self {

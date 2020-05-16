@@ -2,6 +2,7 @@
 
 use crate::scheduler::JobsRepo;
 use anyhow::anyhow;
+use env_logger::Env;
 use rocket::{get, routes};
 use std::{
     path::PathBuf,
@@ -59,7 +60,7 @@ fn config_path() -> anyhow::Result<PathBuf> {
 }
 
 fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    env_logger::from_env(Env::default().default_filter_or("info")).init();
     let cfg_data = std::fs::read_to_string(config_path()?)?;
     let cfg: config::Config = toml::from_str(&cfg_data)?;
     let app = Arc::new(App {

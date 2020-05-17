@@ -1,4 +1,4 @@
-#![feature(proc_macro_hygiene, decl_macro, try_find)]
+#![feature(proc_macro_hygiene, decl_macro)]
 
 use crate::jobs::JobsRepo;
 use anyhow::anyhow;

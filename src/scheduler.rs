@@ -1,7 +1,7 @@
-use crate::jobs::Job;
-use crate::App;
+use crate::{jobs::Job, App};
+use anyhow::Error;
 use chrono::{DateTime, Utc};
-use log::debug;
+use log::{debug, error};
 use std::{
     sync::Arc,
     thread::{self, JoinHandle},
@@ -150,25 +150,13 @@ fn schedule(
     jobs: impl Iterator<Item = Job>,
 ) -> impl Iterator<Item = Job> {
     jobs.filter(|job| !job.running())
-        .filter(move |job| {
-            let matching_trigger =
-                job.definition
-                    .triggers
-                    .iter()
-                    .try_find(|&trigger| -> anyhow::Result<bool> {
-                        let next_schedule: DateTime<Utc> = trigger.next_schedule(previous)?;
-                        let matches = next_schedule <= now;
-                        if matches {
-                            debug!(
-                                "found matching trigger for {} at {}",
-                                job.name.0, next_schedule
-                            );
-                            Ok(true)
-                        } else {
-                            Ok(false)
-                        }
-                    });
-            matching_trigger.map(|t| t.is_some()).unwrap_or(false)
+        .filter(move |job| match job.definition.next_schedule(previous) {
+            Ok(Some(schedule)) if schedule <= now => true,
+            Ok(_) => false,
+            Err(err) => {
+                error!("{}: failed to schedule: {:?}", job.name.0, err);
+                false
+            }
         })
         .map(move |mut job| {
             job.set_started(now);
@@ -179,7 +167,7 @@ fn schedule(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jobs::JobStatus;
+    use crate::{config::backup, jobs::JobStatus};
     use std::iter;
     use std::str::FromStr;
 

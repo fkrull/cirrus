@@ -34,9 +34,10 @@ pub mod repo {
 
 pub mod backup {
     use super::repo;
-    use anyhow::{anyhow, Context};
+    use anyhow::Context;
     use chrono::{DateTime, Local, Utc};
     use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
+    use std::cmp::min;
 
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
     #[serde(transparent)]
@@ -166,7 +167,9 @@ pub mod backup {
                     ..
                 } => {
                     // TODO: arbitrary timezones?
-                    Err(anyhow!("arbitrary timezones aren't supported (yet?)"))
+                    Err(anyhow::anyhow!(
+                        "arbitrary timezones aren't supported (yet?)"
+                    ))
                 }
             }
         }
@@ -181,6 +184,21 @@ pub mod backup {
                 extra_args: vec![],
                 triggers: vec![],
             }
+        }
+    }
+
+    impl Definition {
+        pub fn next_schedule(&self, after: DateTime<Utc>) -> anyhow::Result<Option<DateTime<Utc>>> {
+            self.triggers
+                .iter()
+                .map(|trigger| trigger.next_schedule(after))
+                .try_fold(None, |acc, next| {
+                    let next = next?;
+                    Ok(Some(match acc {
+                        Some(schedule) => min(schedule, next),
+                        None => next,
+                    }))
+                })
         }
     }
 }
@@ -203,7 +221,7 @@ pub struct Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+    use chrono::{DateTime, TimeZone, Utc};
     use maplit::hashmap;
     use std::str::FromStr;
 
@@ -347,50 +365,147 @@ mod tests {
         }
     }
 
-    #[test]
-    fn should_get_next_schedule_for_cron_expression() -> anyhow::Result<()> {
-        let trigger = backup::Trigger::Cron {
-            cron: "30 10 * * *".to_string(),
-            timezone: backup::Timezone::Utc,
-        };
-        let next = trigger.next_schedule(DateTime::from_str("2020-05-14T9:56:13.123Z")?)?;
-        assert_eq!(
-            next,
-            DateTime::from_str("2020-05-14T10:30:00Z")? as DateTime<Utc>
-        );
-        Ok(())
+    mod trigger {
+        use super::*;
+        use chrono::{Local, NaiveDateTime};
+
+        #[test]
+        fn should_get_next_schedule_for_cron_expression() -> anyhow::Result<()> {
+            let trigger = backup::Trigger::Cron {
+                cron: "30 10 * * *".to_string(),
+                timezone: backup::Timezone::Utc,
+            };
+            let next = trigger.next_schedule(DateTime::from_str("2020-05-14T9:56:13.123Z")?)?;
+            assert_eq!(
+                next,
+                DateTime::from_str("2020-05-14T10:30:00Z")? as DateTime<Utc>
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn should_get_next_schedule_for_another_cron_expression() -> anyhow::Result<()> {
+            let trigger = backup::Trigger::Cron {
+                cron: "0 */6 * * *".to_string(),
+                timezone: backup::Timezone::Utc,
+            };
+            let next = trigger.next_schedule(DateTime::from_str("2020-05-15T00:04:52.123Z")?)?;
+            assert_eq!(
+                next,
+                DateTime::from_str("2020-05-15T06:00:00Z")? as DateTime<Utc>
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn should_get_next_schedule_for_a_cron_expression_using_local_time() -> anyhow::Result<()> {
+            let trigger = backup::Trigger::Cron {
+                cron: "34 13 15 5 *".to_string(),
+                timezone: backup::Timezone::Local,
+            };
+            let local = Local
+                .from_local_datetime(&NaiveDateTime::from_str("2020-04-16T07:13:31.666")?)
+                .unwrap();
+            let expected_local = Local
+                .from_local_datetime(&NaiveDateTime::from_str("2020-05-15T13:34:00")?)
+                .unwrap();
+
+            let next = trigger.next_schedule(local.with_timezone(&Utc))?;
+
+            assert_eq!(next, expected_local.with_timezone(&Utc));
+            Ok(())
+        }
     }
 
-    #[test]
-    fn should_get_next_schedule_for_another_cron_expression() -> anyhow::Result<()> {
-        let trigger = backup::Trigger::Cron {
-            cron: "0 */6 * * *".to_string(),
-            timezone: backup::Timezone::Utc,
-        };
-        let next = trigger.next_schedule(DateTime::from_str("2020-05-15T00:04:52.123Z")?)?;
-        assert_eq!(
-            next,
-            DateTime::from_str("2020-05-15T06:00:00Z")? as DateTime<Utc>
-        );
-        Ok(())
-    }
+    mod definition {
+        use super::*;
 
-    #[test]
-    fn should_get_next_schedule_for_a_cron_expression_using_local_time() -> anyhow::Result<()> {
-        let trigger = backup::Trigger::Cron {
-            cron: "34 13 15 5 *".to_string(),
-            timezone: backup::Timezone::Local,
-        };
-        let local = Local
-            .from_local_datetime(&NaiveDateTime::from_str("2020-04-16T07:13:31.666")?)
-            .unwrap();
-        let expected_local = Local
-            .from_local_datetime(&NaiveDateTime::from_str("2020-05-15T13:34:00")?)
-            .unwrap();
+        #[test]
+        fn should_get_next_schedule_from_a_single_trigger() -> anyhow::Result<()> {
+            let definition = backup::Definition {
+                triggers: vec![backup::Trigger::Cron {
+                    cron: "10 * * * *".to_string(),
+                    timezone: backup::Timezone::Utc,
+                }],
+                ..Default::default()
+            };
 
-        let next = trigger.next_schedule(local.with_timezone(&Utc))?;
+            let next = definition
+                .next_schedule(DateTime::from_str("2020-05-17T12:11:16.666Z")?)?
+                .unwrap();
 
-        assert_eq!(next, expected_local.with_timezone(&Utc));
-        Ok(())
+            assert_eq!(
+                next,
+                DateTime::from_str("2020-05-17T13:10:00Z")? as DateTime<Utc>
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn should_get_first_next_schedule_from_first_trigger() -> anyhow::Result<()> {
+            let definition = backup::Definition {
+                triggers: vec![
+                    backup::Trigger::Cron {
+                        cron: "* 16 * * *".to_string(),
+                        timezone: backup::Timezone::Utc,
+                    },
+                    backup::Trigger::Cron {
+                        cron: "* 17 * * *".to_string(),
+                        timezone: backup::Timezone::Utc,
+                    },
+                ],
+                ..Default::default()
+            };
+
+            let next = definition
+                .next_schedule(DateTime::from_str("2020-05-17T00:00:00Z")?)?
+                .unwrap();
+
+            assert_eq!(
+                next,
+                DateTime::from_str("2020-05-17T16:00:00Z")? as DateTime<Utc>
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn should_get_first_next_schedule_from_second_trigger() -> anyhow::Result<()> {
+            let definition = backup::Definition {
+                triggers: vec![
+                    backup::Trigger::Cron {
+                        cron: "* 18 * * *".to_string(),
+                        timezone: backup::Timezone::Utc,
+                    },
+                    backup::Trigger::Cron {
+                        cron: "* 17 * * *".to_string(),
+                        timezone: backup::Timezone::Utc,
+                    },
+                ],
+                ..Default::default()
+            };
+
+            let next = definition
+                .next_schedule(DateTime::from_str("2020-05-17T00:00:00Z")?)?
+                .unwrap();
+
+            assert_eq!(
+                next,
+                DateTime::from_str("2020-05-17T17:00:00Z")? as DateTime<Utc>
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn should_get_no_schedule_if_no_triggers() -> anyhow::Result<()> {
+            let definition = backup::Definition {
+                triggers: vec![],
+                ..Default::default()
+            };
+
+            let next = definition.next_schedule(DateTime::from_str("2020-05-17T00:00:00Z")?)?;
+
+            assert_eq!(next, None);
+            Ok(())
+        }
     }
 }

@@ -1,40 +1,15 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-use crate::jobs::JobsRepo;
+use crate::{jobs::JobsRepo, pause::PauseState};
 use anyhow::anyhow;
 use env_logger::Env;
 use rocket::{get, routes};
-use std::{
-    path::PathBuf,
-    sync::{Arc, RwLock},
-};
+use std::{path::PathBuf, sync::Arc};
 
 pub mod config;
 pub mod jobs;
+pub mod pause;
 pub mod scheduler;
-
-#[derive(Debug, Default)]
-pub struct PauseState {
-    paused: RwLock<bool>,
-}
-
-impl PauseState {
-    pub fn pause(&self) {
-        self.set_paused(true);
-    }
-
-    pub fn resume(&self) {
-        self.set_paused(false);
-    }
-
-    pub fn paused(&self) -> bool {
-        *self.paused.read().unwrap()
-    }
-
-    fn set_paused(&self, paused: bool) {
-        *self.paused.write().unwrap() = paused;
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct App {

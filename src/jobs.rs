@@ -1,6 +1,6 @@
 use crate::config::backup;
 use chrono::{DateTime, Utc};
-use std::{collections::HashMap, sync::Mutex};
+use std::sync::Mutex;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum JobStatus {
@@ -49,13 +49,13 @@ impl Job {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct JobsRepo {
     jobs: Mutex<Vec<Job>>,
 }
 
 impl JobsRepo {
-    pub fn new(backups: HashMap<backup::Name, backup::Definition>) -> Self {
+    pub fn new(backups: impl IntoIterator<Item = (backup::Name, backup::Definition)>) -> Self {
         let jobs = backups
             .into_iter()
             .map(|(name, definition)| Job::new(name, definition))
@@ -76,6 +76,15 @@ impl JobsRepo {
                 *old = job;
             }
         }
+    }
+
+    pub fn get(&self, name: &backup::Name) -> Option<Job> {
+        self.jobs
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|&job| &job.name == name)
+            .cloned()
     }
 }
 
@@ -133,6 +142,29 @@ mod tests {
             ]
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn should_get_job_by_name() -> anyhow::Result<()> {
+        let backup1 = (backup::Name("1".to_string()), backup::Definition::default());
+        let backup2 = (backup::Name("2".to_string()), backup::Definition::default());
+        let repo = JobsRepo::new(vec![backup1.clone(), backup2.clone()]);
+
+        let job = repo.get(&backup::Name("1".to_string())).unwrap();
+
+        assert_eq!(job.name, backup1.0);
+        assert_eq!(job.definition, backup1.1);
+        Ok(())
+    }
+
+    #[test]
+    fn should_not_get_missing_job_by_name() -> anyhow::Result<()> {
+        let repo = JobsRepo::new(iter::empty());
+
+        let result = repo.get(&backup::Name("test".to_string()));
+
+        assert_eq!(result, None);
         Ok(())
     }
 }

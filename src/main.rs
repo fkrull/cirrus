@@ -20,11 +20,11 @@ pub struct PauseState {
 
 impl PauseState {
     pub fn pause(&self) {
-        self.set_paused(false);
+        self.set_paused(true);
     }
 
     pub fn resume(&self) {
-        self.set_paused(true);
+        self.set_paused(false);
     }
 
     pub fn paused(&self) -> bool {
@@ -36,7 +36,7 @@ impl PauseState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct App {
     pub pause_state: PauseState,
     pub jobs: JobsRepo,

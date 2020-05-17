@@ -1,8 +1,8 @@
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Default)]
 pub struct PauseState {
-    paused: Mutex<bool>,
+    paused: AtomicBool,
 }
 
 impl PauseState {
@@ -15,11 +15,11 @@ impl PauseState {
     }
 
     pub fn paused(&self) -> bool {
-        *self.paused.lock().unwrap()
+        self.paused.load(Ordering::Relaxed)
     }
 
     fn set_paused(&self, paused: bool) {
-        *self.paused.lock().unwrap() = paused;
+        self.paused.store(paused, Ordering::Relaxed);
     }
 }
 

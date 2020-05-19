@@ -46,6 +46,12 @@ fn main() -> anyhow::Result<()> {
 
     // TODO: handle panics in scheduler thread
     scheduler::start_scheduler(app)?;
+
+    #[cfg(feature = "desktop-integration")]
+    if let Err(err) = webbrowser::open("http://localhost:8000") {
+        log::error!("failed to open web browser: {:?}", err);
+    }
+
     rocket::ignite().mount("/", routes![index]).launch();
 
     Ok(())

@@ -9,6 +9,7 @@ use std::{path::PathBuf, sync::Arc};
 pub mod config;
 pub mod jobs;
 pub mod pause;
+pub mod restic;
 pub mod scheduler;
 
 #[derive(Debug, Default)]

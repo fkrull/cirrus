@@ -1,7 +1,8 @@
-use crate::{jobs::Job, App};
+use crate::{jobs::Job, restic, App};
 use chrono::{DateTime, Utc};
 use log::{debug, error, info};
 use std::{
+    iter,
     sync::Arc,
     thread::{self, JoinHandle},
     time::Duration,
@@ -42,8 +43,50 @@ fn scheduler_loop(
     now
 }
 
-fn run_backup(_app: Arc<App>, job: &Job) {
-    info!("(not yet) running {}", job.name.0);
+fn run_backup(app: Arc<App>, job: &Job) {
+    let f = |app: Arc<App>| -> anyhow::Result<()> {
+        let repo = app
+            .repositories
+            .0
+            .iter()
+            .find(|&(name, definition)| name == &job.definition.repository)
+            .map(|(_, definition)| definition.clone());
+
+        let repo = repo.ok_or_else(|| {
+            anyhow::anyhow!("missing repo definition '{}'", job.definition.repository.0)
+        })?;
+        let backup = job.definition.clone();
+        let name = job.name.clone();
+        thread::Builder::new()
+            .name(format!("backup-{}", name.0))
+            .spawn(move || {
+                info!("starting backup {}", name.0);
+                let result = restic::init(&repo).and_then(|_| restic::backup(&repo, &backup));
+                // TODO: handle errors somewhere
+                let mut job = app.jobs.get(&name).unwrap();
+                match result {
+                    Ok(_) => {
+                        info!("finished backup {}", name.0);
+                        job.set_finished_successful(Utc::now());
+                        app.jobs.update(iter::once(job));
+                    }
+                    Err(_) => {
+                        error!("backup {} failed", name.0);
+                        job.set_finished_failed(Utc::now());
+                        app.jobs.update(iter::once(job));
+                    }
+                }
+            });
+
+        Ok(())
+    };
+
+    if let Err(err) = f(app.clone()) {
+        error!("failed to schedule backup: {:?}", err);
+        let mut job = job.clone();
+        job.set_finished_failed(Utc::now());
+        app.jobs.update(iter::once(job));
+    }
 }
 
 fn schedule(

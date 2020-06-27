@@ -49,7 +49,7 @@ fn run_backup(app: Arc<App>, job: &Job) {
             .repositories
             .0
             .iter()
-            .find(|&(name, definition)| name == &job.definition.repository)
+            .find(|&(name, _definition)| name == &job.definition.repository)
             .map(|(_, definition)| definition.clone());
 
         let repo = repo.ok_or_else(|| {
@@ -76,7 +76,7 @@ fn run_backup(app: Arc<App>, job: &Job) {
                         app.jobs.update(iter::once(job));
                     }
                 }
-            });
+            })?;
 
         Ok(())
     };
@@ -115,7 +115,7 @@ mod tests {
 
     mod schedule {
         use super::*;
-        use crate::{config::backup, jobs::JobStatus};
+        use crate::{jobs::JobStatus, model::backup};
         use std::{iter, str::FromStr};
 
         #[test]
@@ -226,8 +226,8 @@ mod tests {
     mod scheduler_loop {
         use super::*;
         use crate::{
-            config::backup,
             jobs::{JobStatus, JobsRepo},
+            model::backup,
             PauseState,
         };
         use std::str::FromStr;

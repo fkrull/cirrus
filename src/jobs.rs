@@ -1,4 +1,4 @@
-use crate::config::backup;
+use crate::model::backup;
 use chrono::{DateTime, Utc};
 use std::sync::Mutex;
 
@@ -91,7 +91,7 @@ impl JobsRepo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::repo;
+    use crate::model::repo;
     use maplit::hashmap;
     use std::iter;
 

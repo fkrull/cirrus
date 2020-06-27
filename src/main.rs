@@ -1,23 +1,10 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-use crate::{jobs::JobsRepo, pause::PauseState};
 use anyhow::anyhow;
+use cirrus::{jobs::JobsRepo, model, pause::PauseState, scheduler, App};
 use env_logger::Env;
 use rocket::{get, routes};
 use std::{path::PathBuf, sync::Arc};
-
-pub mod config;
-pub mod jobs;
-pub mod pause;
-pub mod restic;
-pub mod scheduler;
-
-#[derive(Debug, Default)]
-pub struct App {
-    pub pause_state: PauseState,
-    pub jobs: JobsRepo,
-    pub repositories: config::Repositories,
-}
 
 #[get("/")]
 fn index() -> &'static str {
@@ -38,7 +25,7 @@ fn config_path() -> anyhow::Result<PathBuf> {
 fn main() -> anyhow::Result<()> {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
     let cfg_data = std::fs::read_to_string(config_path()?)?;
-    let cfg: config::Config = toml::from_str(&cfg_data)?;
+    let cfg: model::Config = toml::from_str(&cfg_data)?;
     let app = Arc::new(App {
         pause_state: PauseState::default(),
         jobs: JobsRepo::new(cfg.backups.0),

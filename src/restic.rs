@@ -16,20 +16,16 @@ impl Restic {
         Restic { bin }
     }
 
-    fn run_raw<S: AsRef<str>>(
+    pub fn run_raw<S: AsRef<str>>(
         &self,
-        secrets: &RepoSecrets,
         args: impl Iterator<Item = S>,
     ) -> anyhow::Result<ResticCmd> {
         let mut cmd = Command::new(&self.bin);
-        cmd.env("RESTIC_PASSWORD", &secrets.repo_password.0);
+
         for arg in args {
-            let arg = arg.as_ref();
-            cmd.arg(arg);
+            cmd.arg(arg.as_ref());
         }
-        for (name, value) in &secrets.secrets {
-            cmd.env(&name.0, &value.0);
-        }
+
         let child = cmd.spawn()?;
         Ok(ResticCmd::new(child))
     }
@@ -38,17 +34,22 @@ impl Restic {
         &self,
         repo: &repo::Definition,
         secrets: &RepoSecrets,
-        cmd: &str,
         extra_args: impl Iterator<Item = S>,
     ) -> anyhow::Result<ResticCmd> {
-        let mut args = Vec::new();
-        args.push("--repo".to_owned());
-        args.push(repo.url.0.clone());
-        args.push(cmd.to_owned());
-        for arg in extra_args {
-            args.push(arg.as_ref().to_owned());
+        let mut cmd = Command::new(&self.bin);
+
+        cmd.env("RESTIC_PASSWORD", &secrets.repo_password.0);
+        for (name, value) in &secrets.secrets {
+            cmd.env(&name.0, &value.0);
         }
-        self.run_raw(secrets, args.into_iter())
+
+        cmd.arg("--repo").arg(&repo.url.0);
+        for arg in extra_args {
+            cmd.arg(arg.as_ref());
+        }
+
+        let child = cmd.spawn()?;
+        Ok(ResticCmd::new(child))
     }
 
     pub fn backup(
@@ -58,6 +59,7 @@ impl Restic {
         backup: &backup::Definition,
     ) -> anyhow::Result<ResticCmd> {
         let mut args = Vec::new();
+        args.push("backup".to_owned());
         args.push(backup.path.0.clone());
         for exclude in &backup.excludes {
             args.push("--exclude".to_owned());
@@ -66,7 +68,7 @@ impl Restic {
         for arg in &backup.extra_args {
             args.push(arg.clone());
         }
-        self.run(repo, secrets, "backup", args.into_iter())
+        self.run(repo, secrets, args.into_iter())
     }
 }
 

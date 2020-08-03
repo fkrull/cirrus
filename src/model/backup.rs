@@ -106,6 +106,7 @@ pub struct Definition {
     pub excludes: Vec<Exclude>,
     #[serde(default)]
     pub extra_args: Vec<String>,
+    #[serde(default)]
     pub triggers: Vec<Trigger>,
 }
 

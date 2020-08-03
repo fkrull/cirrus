@@ -1,5 +1,6 @@
 use crate::model::repo;
 use crate::model::repo::{Secret, SecretName};
+use anyhow::Context;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -14,8 +15,13 @@ pub struct RepoSecrets {
 fn get_secret(secret: &Secret) -> anyhow::Result<SecretValue> {
     match secret {
         Secret::FromEnvVar { env_var } => {
-            let value = std::env::var(env_var)?;
+            let value = std::env::var(env_var)
+                .context(format!("environment variable '{}' not set", env_var))?;
             Ok(SecretValue(value))
+        }
+        Secret::InlinePlain { plain } => {
+            // TODO: remove this maybe?
+            Ok(SecretValue(plain.clone()))
         }
     }
 }

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 #[serde(untagged)]
 pub enum Secret {
     FromEnvVar { env_var: String },
+    InlinePlain { plain: String },
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]

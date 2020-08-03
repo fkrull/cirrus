@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use thiserror::Error;
 
 pub mod backup;
 pub mod repo;
@@ -17,6 +18,37 @@ pub struct Backups(pub HashMap<backup::Name, backup::Definition>);
 pub struct Config {
     pub repositories: Repositories,
     pub backups: Backups,
+}
+
+#[derive(Debug, Error)]
+#[error("unknown repository '{}'", (self.0).0)]
+pub struct UnknownRepository(repo::Name);
+
+#[derive(Debug, Error)]
+#[error("unknown backup '{}'", (self.0).0)]
+pub struct UnknownBackup(backup::Name);
+
+impl Config {
+    pub fn repository(&self, name: &repo::Name) -> Result<&repo::Definition, UnknownRepository> {
+        self.repositories
+            .0
+            .get(name)
+            .ok_or_else(|| UnknownRepository(name.clone()))
+    }
+
+    pub fn backup(&self, name: &backup::Name) -> Result<&backup::Definition, UnknownBackup> {
+        self.backups
+            .0
+            .get(name)
+            .ok_or_else(|| UnknownBackup(name.clone()))
+    }
+
+    pub fn repository_for_backup(
+        &self,
+        backup: &backup::Definition,
+    ) -> Result<&repo::Definition, UnknownRepository> {
+        self.repository(&backup.repository)
+    }
 }
 
 #[cfg(test)]

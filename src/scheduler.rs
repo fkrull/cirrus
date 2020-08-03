@@ -61,7 +61,7 @@ fn run_backup(app: Arc<App>, job: &Job) {
             .name(format!("backup-{}", name.0))
             .spawn(move || {
                 info!("starting backup {}", name.0);
-                let result = restic::init(&repo).and_then(|_| restic::backup(&repo, &backup));
+                /*let result = restic::init(&repo).and_then(|_| restic::backup(&repo, &backup));
                 // TODO: handle errors somewhere
                 let mut job = app.jobs.get(&name).unwrap();
                 match result {
@@ -75,7 +75,7 @@ fn run_backup(app: Arc<App>, job: &Job) {
                         job.set_finished_failed(Utc::now());
                         app.jobs.update(iter::once(job));
                     }
-                }
+                }*/
             })?;
 
         Ok(())

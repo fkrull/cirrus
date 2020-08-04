@@ -1,9 +1,16 @@
-use crate::model::repo;
-use crate::model::repo::{Secret, SecretName};
-use anyhow::anyhow;
-use anyhow::Context;
+use crate::{
+    model::repo,
+    model::repo::{Secret, SecretName},
+};
+use anyhow::{anyhow, Context};
 use keyring::Keyring;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    error::Error,
+    fmt::{Debug, Display},
+    sync::Mutex,
+};
+use thiserror::Error;
 
 pub struct SecretValue(pub(crate) String);
 
@@ -21,8 +28,18 @@ pub struct RepoSecrets {
 #[derive(Debug)]
 pub struct Secrets;
 
+#[derive(Debug, Error)]
+#[error("{}", self.0.lock().unwrap())]
+struct SyncError<E: Debug + Display + Error>(Mutex<E>);
+
+impl<E: Debug + Display + Error> SyncError<E> {
+    fn new(error: E) -> Self {
+        SyncError(Mutex::new(error))
+    }
+}
+
 impl Secrets {
-    const KEYRING_SERVICE: &'static str = "cirrus-backup";
+    const KEYRING_SERVICE: &'static str = "io.gitlab.fkrull.cirrus";
 
     fn get_secret(&self, secret: &Secret) -> anyhow::Result<SecretValue> {
         match secret {
@@ -34,6 +51,7 @@ impl Secrets {
             Secret::FromOsKeyring { keyring } => {
                 let value = Keyring::new(Self::KEYRING_SERVICE, keyring)
                     .get_password()
+                    .map_err(SyncError::new)
                     .context(format!("no stored password for key '{}'", keyring))?;
                 Ok(SecretValue(value))
             }
@@ -64,6 +82,7 @@ impl Secrets {
         match secret {
             Secret::FromOsKeyring { keyring } => Keyring::new(Self::KEYRING_SERVICE, keyring)
                 .set_password(&value.0)
+                .map_err(SyncError::new)
                 .context(format!("failed to set value for key '{}'", keyring)),
             _ => Err(anyhow!(
                 "{} secret must be configured externally",

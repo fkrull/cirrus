@@ -5,6 +5,7 @@ use crate::restic::Restic;
 use crate::secrets::Secrets;
 
 //pub mod jobs;
+pub mod commands;
 pub mod model;
 //pub mod pause;
 pub mod restic;

@@ -1,120 +1,15 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 use anyhow::{anyhow, Context};
-use cirrus::{
-    model::{self, backup, repo},
-    restic::Restic,
-    secrets::SecretValue,
-    secrets::Secrets,
-    Cirrus,
-};
-use clap::{App, AppSettings, Arg, ArgMatches, ArgSettings};
+use cirrus::{commands, model::Config, restic::Restic, secrets::Secrets, Cirrus};
+use clap::{App, AppSettings, Arg, ArgSettings};
 use env_logger::Env;
-use std::io::Write;
 use std::path::PathBuf;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 fn default_config_path() -> anyhow::Result<PathBuf> {
     dirs::config_dir()
         .map(|dir| dir.join("cirrus").join("config.toml"))
         .ok_or_else(|| anyhow!("can't find config file"))
-}
-
-fn run_restic(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
-    let cmd = matches.values_of("cmd").unwrap();
-    match matches.value_of("repo") {
-        Some(repo_name) => {
-            let repo_name = repo::Name(repo_name.to_owned());
-            let repo = app.config.repository(&repo_name)?;
-            let secrets = app.secrets.get_secrets(repo)?;
-            app.restic.run(repo, &secrets, cmd)?.wait()?;
-        }
-        None => {
-            app.restic.run_raw(cmd)?.wait()?;
-        }
-    }
-
-    Ok(())
-}
-
-fn run_backup(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
-    let backup_name = backup::Name(matches.value_of("backup").unwrap().to_owned());
-    let backup = app.config.backup(&backup_name)?;
-    let repo = app.config.repository_for_backup(backup)?;
-    let secrets = app.secrets.get_secrets(repo)?;
-    app.restic.backup(repo, &secrets, backup)?.wait()
-}
-
-fn write_color(text: &str, fg_color: Color) -> std::io::Result<()> {
-    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-    stdout.set_color(ColorSpec::new().set_fg(Some(fg_color)))?;
-    let result = stdout.write_all(text.as_bytes());
-    stdout.reset().ok();
-    result
-}
-
-fn run_secret(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
-    match matches.subcommand() {
-        ("list", Some(matches)) => {
-            let show_passwords = matches.is_present("secret-list-show-passwords");
-
-            let print_secret = |repo_name: &repo::Name,
-                                secret_name: &str,
-                                secret: &repo::Secret|
-             -> anyhow::Result<()> {
-                print!("{}.{} [{}] = ", repo_name.0, secret_name, secret.label());
-                match app.secrets.get_secret(secret) {
-                    Ok(value) => {
-                        let msg = if show_passwords {
-                            value.0.as_str()
-                        } else {
-                            "***"
-                        };
-                        write_color(msg, Color::Green)?
-                    }
-                    Err(_) => write_color("<UNSET>", Color::Red)?,
-                };
-
-                println!();
-                Ok(())
-            };
-
-            for (repo_name, repo) in &app.config.repositories.0 {
-                print_secret(repo_name, "<password>", &repo.password)?;
-                for (secret_name, secret) in &repo.secrets {
-                    print_secret(repo_name, &secret_name.0, secret)?;
-                }
-            }
-
-            Ok(())
-        }
-        ("set", Some(matches)) => {
-            let repo_name = repo::Name(matches.value_of("secret-set-repo").unwrap().to_owned());
-            let secret_name = matches
-                .value_of("secret-set-secret")
-                .map(|s| repo::SecretName(s.to_owned()));
-            let repo = app.config.repository(&repo_name)?;
-
-            let (secret, value) = match secret_name {
-                None => {
-                    let prompt = format!("Password for repository '{}': ", repo_name.0);
-                    let value = SecretValue::new(rpassword::read_password_from_tty(Some(&prompt))?);
-                    (&repo.password, value)
-                }
-                Some(secret_name) => {
-                    let secret = repo
-                        .secrets
-                        .get(&secret_name)
-                        .ok_or_else(|| anyhow!("no such secret '{}'", secret_name.0))?;
-                    let prompt = format!("Value for secret '{}.{}': ", repo_name.0, secret_name.0);
-                    let value = SecretValue::new(rpassword::read_password_from_tty(Some(&prompt))?);
-                    (secret, value)
-                }
-            };
-            app.secrets.set_secret(secret, value)
-        }
-        _ => unreachable!("unexpected secret subcommand"),
-    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -221,7 +116,7 @@ fn main() -> anyhow::Result<()> {
         "failed to read config file '{}'",
         config_path.display()
     ))?;
-    let config: model::Config = toml::from_str(&cfg_data).context(format!(
+    let config: Config = toml::from_str(&cfg_data).context(format!(
         "failed to parse config file '{}'",
         config_path.display()
     ))?;
@@ -233,9 +128,13 @@ fn main() -> anyhow::Result<()> {
     };
 
     match matches.subcommand() {
-        ("restic", Some(matches)) => run_restic(&app, matches),
-        ("backup", Some(matches)) => run_backup(&app, matches),
-        ("secret", Some(matches)) => run_secret(&app, matches),
+        ("restic", Some(matches)) => commands::restic(&app, matches),
+        ("backup", Some(matches)) => commands::backup(&app, matches),
+        ("secret", Some(matches)) => match matches.subcommand() {
+            ("list", Some(matches)) => commands::secret::list(&app, matches),
+            ("set", Some(matches)) => commands::secret::list(&app, matches),
+            _ => unreachable!("unexpected subcommand for secret"),
+        },
         _ => todo!(),
     }
 }

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 pub enum Secret {
     FromEnvVar { env_var: String },
     FromOsKeyring { keyring: String },
+    FromToml { toml: String, key: String },
     InlinePlain { inline: String },
 }
 
@@ -14,6 +15,7 @@ impl Secret {
         match self {
             Secret::FromEnvVar { .. } => "environment variable",
             Secret::FromOsKeyring { .. } => "OS keyring",
+            Secret::FromToml { .. } => "TOML value",
             Secret::InlinePlain { .. } => "inline",
         }
     }
@@ -29,6 +31,11 @@ impl std::fmt::Debug for Secret {
             Secret::FromOsKeyring { keyring } => f
                 .debug_struct("Secret::FromOsKeyring")
                 .field("keyring", keyring)
+                .finish(),
+            Secret::FromToml { toml, key } => f
+                .debug_struct("Secret::FromToml")
+                .field("toml", toml)
+                .field("key", key)
                 .finish(),
             Secret::InlinePlain { .. } => f
                 .debug_struct("Secret::InlinePlain")

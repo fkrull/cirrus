@@ -38,6 +38,17 @@ impl Secrets {
                 Ok(SecretValue(value))
             }
             Secret::FromOsKeyring { keyring } => get_secret(keyring),
+            Secret::FromToml { toml, key } => {
+                let secrets_file = std::fs::read_to_string(toml)
+                    .context(format!("failed to read secrets file '{}'", toml))?;
+                let secrets: HashMap<&str, &str> = toml::from_str(&secrets_file)
+                    .context(format!("failed to parse secrets file '{}'", toml))?;
+                secrets
+                    .get(key.as_str())
+                    .map(|s| s.to_owned())
+                    .ok_or_else(|| anyhow!("key '{}' not found in secrets file '{}'", key, toml))
+                    .map(SecretValue::new)
+            }
             Secret::InlinePlain { inline } => {
                 // TODO: remove this maybe?
                 Ok(SecretValue(inline.clone()))

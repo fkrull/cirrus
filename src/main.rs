@@ -10,7 +10,9 @@ use cirrus::{
 };
 use clap::{App, AppSettings, Arg, ArgMatches, ArgSettings};
 use env_logger::Env;
+use std::io::Write;
 use std::path::PathBuf;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 fn default_config_path() -> anyhow::Result<PathBuf> {
     dirs::config_dir()
@@ -43,28 +45,35 @@ fn run_backup(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
     app.restic.backup(repo, &secrets, backup)?.wait()
 }
 
+fn write_color(text: &str, fg_color: Color) -> std::io::Result<()> {
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+    stdout.set_color(ColorSpec::new().set_fg(Some(fg_color)))?;
+    let result = stdout.write_all(text.as_bytes());
+    stdout.reset().ok();
+    result
+}
+
 fn run_secret(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
     match matches.subcommand() {
         ("list", Some(_)) => {
-            let print_secret =
-                |repo_name: &repo::Name, secret_name: &str, secret: &repo::Secret| {
-                    let value_string = match app.secrets.get_secret(secret) {
-                        Ok(_) => "<present>",
-                        Err(_) => "<UNSET>",
-                    };
-                    println!(
-                        "{}.{} [{}] = {}",
-                        repo_name.0,
-                        secret_name,
-                        secret.label(),
-                        value_string
-                    );
+            let print_secret = |repo_name: &repo::Name,
+                                secret_name: &str,
+                                secret: &repo::Secret|
+             -> anyhow::Result<()> {
+                print!("{}.{} [{}] = ", repo_name.0, secret_name, secret.label());
+                match app.secrets.get_secret(secret) {
+                    Ok(_) => write_color("<present>", Color::Green)?,
+                    Err(_) => write_color("<UNSET>", Color::Red)?,
                 };
 
+                println!();
+                Ok(())
+            };
+
             for (repo_name, repo) in &app.config.repositories.0 {
-                print_secret(repo_name, "<password>", &repo.password);
+                print_secret(repo_name, "<password>", &repo.password)?;
                 for (secret_name, secret) in &repo.secrets {
-                    print_secret(repo_name, &secret_name.0, secret);
+                    print_secret(repo_name, &secret_name.0, secret)?;
                 }
             }
 

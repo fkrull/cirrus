@@ -49,10 +49,6 @@ impl Secrets {
                     .ok_or_else(|| anyhow!("key '{}' not found in secrets file '{}'", key, toml))
                     .map(SecretValue::new)
             }
-            Secret::InlinePlain { inline } => {
-                // TODO: remove this maybe?
-                Ok(SecretValue(inline.clone()))
-            }
         }
     }
 

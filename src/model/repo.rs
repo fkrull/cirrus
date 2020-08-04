@@ -1,13 +1,12 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Secret {
     FromEnvVar { env_var: String },
     FromOsKeyring { keyring: String },
     FromToml { toml: String, key: String },
-    InlinePlain { inline: String },
 }
 
 impl Secret {
@@ -16,31 +15,6 @@ impl Secret {
             Secret::FromEnvVar { .. } => "environment variable",
             Secret::FromOsKeyring { .. } => "OS keyring",
             Secret::FromToml { .. } => "TOML value",
-            Secret::InlinePlain { .. } => "inline",
-        }
-    }
-}
-
-impl std::fmt::Debug for Secret {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Secret::FromEnvVar { env_var } => f
-                .debug_struct("Secret::FromEnvVar")
-                .field("env_var", env_var)
-                .finish(),
-            Secret::FromOsKeyring { keyring } => f
-                .debug_struct("Secret::FromOsKeyring")
-                .field("keyring", keyring)
-                .finish(),
-            Secret::FromToml { toml, key } => f
-                .debug_struct("Secret::FromToml")
-                .field("toml", toml)
-                .field("key", key)
-                .finish(),
-            Secret::InlinePlain { .. } => f
-                .debug_struct("Secret::InlinePlain")
-                .field("inline", &"***")
-                .finish(),
         }
     }
 }

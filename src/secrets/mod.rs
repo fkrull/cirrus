@@ -52,6 +52,16 @@ impl Secrets {
         }
     }
 
+    pub fn set_secret(&self, secret: &Secret, value: SecretValue) -> anyhow::Result<()> {
+        match secret {
+            Secret::FromOsKeyring { keyring } => set_secret(keyring, value),
+            _ => Err(anyhow!(
+                "{} secret must be configured externally",
+                secret.label()
+            )),
+        }
+    }
+
     pub fn get_secrets(&self, repo: &repo::Definition) -> anyhow::Result<RepoSecrets> {
         let password = self.get_secret(&repo.password)?;
         let secrets = repo
@@ -66,15 +76,5 @@ impl Secrets {
             repo_password: password,
             secrets,
         })
-    }
-
-    pub fn set_secret(&self, secret: &Secret, value: SecretValue) -> anyhow::Result<()> {
-        match secret {
-            Secret::FromOsKeyring { keyring } => set_secret(keyring, value),
-            _ => Err(anyhow!(
-                "{} secret must be configured externally",
-                secret.label()
-            )),
-        }
     }
 }

@@ -1,8 +1,5 @@
 use super::repo;
-use anyhow::Context;
-use chrono::{DateTime, Local, Utc};
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-use std::cmp::min;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -110,7 +107,7 @@ pub struct Definition {
     pub triggers: Vec<Trigger>,
 }
 
-impl Trigger {
+/*impl Trigger {
     pub fn next_schedule(&self, after: DateTime<Utc>) -> anyhow::Result<DateTime<Utc>> {
         match self {
             Trigger::Cron {
@@ -136,7 +133,7 @@ impl Trigger {
             }
         }
     }
-}
+}*/
 
 impl Default for Definition {
     fn default() -> Self {
@@ -150,7 +147,7 @@ impl Default for Definition {
     }
 }
 
-impl Definition {
+/*impl Definition {
     pub fn next_schedule(&self, after: DateTime<Utc>) -> anyhow::Result<Option<DateTime<Utc>>> {
         self.triggers
             .iter()
@@ -163,13 +160,11 @@ impl Definition {
                 }))
             })
     }
-}
+}*/
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Local, NaiveDateTime, TimeZone};
-    use std::str::FromStr;
 
     mod timezone {
         use super::*;
@@ -217,7 +212,7 @@ mod tests {
         }
     }
 
-    mod trigger {
+    /*mod trigger {
         use super::*;
 
         #[test]
@@ -237,7 +232,7 @@ mod tests {
         #[test]
         fn should_get_next_schedule_for_another_cron_expression() -> anyhow::Result<()> {
             let trigger = Trigger::Cron {
-                cron: "0 */6 * * *".to_string(),
+                cron: "0 * /6 * * *".to_string(),
                 timezone: Timezone::Utc,
             };
             let next = trigger.next_schedule(DateTime::from_str("2020-05-15T00:04:52.123Z")?)?;
@@ -359,5 +354,5 @@ mod tests {
             assert_eq!(next, None);
             Ok(())
         }
-    }
+    }*/
 }

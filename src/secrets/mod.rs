@@ -1,16 +1,17 @@
-use crate::{
-    model::repo,
-    model::repo::{Secret, SecretName},
-};
+use crate::model::repo;
+use crate::model::repo::{Secret, SecretName};
 use anyhow::{anyhow, Context};
-use keyring::Keyring;
-use std::{
-    collections::HashMap,
-    error::Error,
-    fmt::{Debug, Display},
-    sync::Mutex,
-};
-use thiserror::Error;
+use std::collections::HashMap;
+
+#[cfg(not(feature = "os-keyring"))]
+mod keyring_disabled;
+#[cfg(feature = "os-keyring")]
+mod os_keyring;
+
+#[cfg(not(feature = "os-keyring"))]
+use keyring_disabled::*;
+#[cfg(feature = "os-keyring")]
+use os_keyring::*;
 
 pub struct SecretValue(pub(crate) String);
 
@@ -28,19 +29,7 @@ pub struct RepoSecrets {
 #[derive(Debug)]
 pub struct Secrets;
 
-#[derive(Debug, Error)]
-#[error("{}", self.0.lock().unwrap())]
-struct SyncError<E: Debug + Display + Error>(Mutex<E>);
-
-impl<E: Debug + Display + Error> SyncError<E> {
-    fn new(error: E) -> Self {
-        SyncError(Mutex::new(error))
-    }
-}
-
 impl Secrets {
-    const KEYRING_SERVICE: &'static str = "io.gitlab.fkrull.cirrus";
-
     fn get_secret(&self, secret: &Secret) -> anyhow::Result<SecretValue> {
         match secret {
             Secret::FromEnvVar { env_var } => {
@@ -48,13 +37,7 @@ impl Secrets {
                     .context(format!("environment variable '{}' not set", env_var))?;
                 Ok(SecretValue(value))
             }
-            Secret::FromOsKeyring { keyring } => {
-                let value = Keyring::new(Self::KEYRING_SERVICE, keyring)
-                    .get_password()
-                    .map_err(SyncError::new)
-                    .context(format!("no stored password for key '{}'", keyring))?;
-                Ok(SecretValue(value))
-            }
+            Secret::FromOsKeyring { keyring } => get_secret(keyring),
             Secret::InlinePlain { inline } => {
                 // TODO: remove this maybe?
                 Ok(SecretValue(inline.clone()))
@@ -80,10 +63,7 @@ impl Secrets {
 
     pub fn set_secret(&self, secret: &Secret, value: SecretValue) -> anyhow::Result<()> {
         match secret {
-            Secret::FromOsKeyring { keyring } => Keyring::new(Self::KEYRING_SERVICE, keyring)
-                .set_password(&value.0)
-                .map_err(SyncError::new)
-                .context(format!("failed to set value for key '{}'", keyring)),
+            Secret::FromOsKeyring { keyring } => set_secret(keyring, value),
             _ => Err(anyhow!(
                 "{} secret must be configured externally",
                 secret.label()

@@ -55,14 +55,23 @@ fn write_color(text: &str, fg_color: Color) -> std::io::Result<()> {
 
 fn run_secret(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
     match matches.subcommand() {
-        ("list", Some(_)) => {
+        ("list", Some(matches)) => {
+            let show_passwords = matches.is_present("secret-list-show-passwords");
+
             let print_secret = |repo_name: &repo::Name,
                                 secret_name: &str,
                                 secret: &repo::Secret|
              -> anyhow::Result<()> {
                 print!("{}.{} [{}] = ", repo_name.0, secret_name, secret.label());
                 match app.secrets.get_secret(secret) {
-                    Ok(_) => write_color("<present>", Color::Green)?,
+                    Ok(value) => {
+                        let msg = if show_passwords {
+                            value.0.as_str()
+                        } else {
+                            "***"
+                        };
+                        write_color(msg, Color::Green)?
+                    }
                     Err(_) => write_color("<UNSET>", Color::Red)?,
                 };
 
@@ -172,7 +181,13 @@ fn main() -> anyhow::Result<()> {
                                 .takes_value(true),
                         ),
                 )
-                .subcommand(App::new("list")),
+                .subcommand(
+                    App::new("list").arg(
+                        Arg::with_name("secret-list-show-passwords")
+                            .long("show-passwords")
+                            .help("show passwords in clear text"),
+                    ),
+                ),
         )
         .subcommand(
             App::new("restic")

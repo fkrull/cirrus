@@ -13,7 +13,7 @@ use keyring_disabled::*;
 #[cfg(feature = "os-keyring")]
 use os_keyring::*;
 
-pub struct SecretValue(pub(crate) String);
+pub struct SecretValue(pub String);
 
 impl SecretValue {
     pub fn new(value: impl Into<String>) -> Self {

@@ -30,7 +30,7 @@ pub struct RepoSecrets {
 pub struct Secrets;
 
 impl Secrets {
-    fn get_secret(&self, secret: &Secret) -> anyhow::Result<SecretValue> {
+    pub fn get_secret(&self, secret: &Secret) -> anyhow::Result<SecretValue> {
         match secret {
             Secret::FromEnvVar { env_var } => {
                 let value = std::env::var(env_var)

@@ -1,10 +1,10 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 use anyhow::{anyhow, Context};
-use cirrus::secrets::SecretValue;
 use cirrus::{
     model::{self, backup, repo},
     restic::Restic,
+    secrets::SecretValue,
     secrets::Secrets,
     Cirrus,
 };
@@ -45,7 +45,31 @@ fn run_backup(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
 
 fn run_secret(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
     match matches.subcommand() {
-        ("list", Some(_)) => todo!(),
+        ("list", Some(_)) => {
+            let print_secret =
+                |repo_name: &repo::Name, secret_name: &str, secret: &repo::Secret| {
+                    let value_string = match app.secrets.get_secret(secret) {
+                        Ok(_) => "<present>",
+                        Err(_) => "<UNSET>",
+                    };
+                    println!(
+                        "{}.{} [{}] = {}",
+                        repo_name.0,
+                        secret_name,
+                        secret.label(),
+                        value_string
+                    );
+                };
+
+            for (repo_name, repo) in &app.config.repositories.0 {
+                print_secret(repo_name, "<password>", &repo.password);
+                for (secret_name, secret) in &repo.secrets {
+                    print_secret(repo_name, &secret_name.0, secret);
+                }
+            }
+
+            Ok(())
+        }
         ("set", Some(matches)) => {
             let repo_name = repo::Name(matches.value_of("secret-set-repo").unwrap().to_owned());
             let secret_name = matches

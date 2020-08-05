@@ -1,9 +1,13 @@
-use crate::model::backup;
-use crate::model::repo;
-use crate::secrets::RepoSecrets;
+use crate::{
+    model::{backup, repo},
+    secrets::RepoSecrets,
+};
 use anyhow::anyhow;
 use std::path::PathBuf;
-use std::process::{Child, Command};
+use tokio::{
+    process::{Child, Command},
+    runtime::Runtime,
+};
 
 #[derive(Debug)]
 pub struct Restic {
@@ -19,7 +23,7 @@ impl Restic {
     pub fn run_raw<S: AsRef<str>>(
         &self,
         args: impl Iterator<Item = S>,
-    ) -> anyhow::Result<ResticCmd> {
+    ) -> anyhow::Result<ResticProcess> {
         let mut cmd = Command::new(&self.bin);
 
         for arg in args {
@@ -27,7 +31,7 @@ impl Restic {
         }
 
         let child = cmd.spawn()?;
-        Ok(ResticCmd::new(child))
+        Ok(ResticProcess::new(child))
     }
 
     pub fn run<S: AsRef<str>>(
@@ -35,7 +39,7 @@ impl Restic {
         repo: &repo::Definition,
         secrets: &RepoSecrets,
         extra_args: impl Iterator<Item = S>,
-    ) -> anyhow::Result<ResticCmd> {
+    ) -> anyhow::Result<ResticProcess> {
         let mut cmd = Command::new(&self.bin);
 
         cmd.env("RESTIC_PASSWORD", &secrets.repo_password.0);
@@ -49,7 +53,7 @@ impl Restic {
         }
 
         let child = cmd.spawn()?;
-        Ok(ResticCmd::new(child))
+        Ok(ResticProcess::new(child))
     }
 
     pub fn backup(
@@ -57,7 +61,7 @@ impl Restic {
         repo: &repo::Definition,
         secrets: &RepoSecrets,
         backup: &backup::Definition,
-    ) -> anyhow::Result<ResticCmd> {
+    ) -> anyhow::Result<ResticProcess> {
         let mut args = Vec::new();
         args.push("backup".to_owned());
         args.push(backup.path.0.clone());
@@ -73,17 +77,17 @@ impl Restic {
 }
 
 #[derive(Debug)]
-pub struct ResticCmd {
+pub struct ResticProcess {
     process: Child,
 }
 
-impl ResticCmd {
+impl ResticProcess {
     fn new(process: Child) -> Self {
-        ResticCmd { process }
+        ResticProcess { process }
     }
 
-    pub fn wait(mut self) -> anyhow::Result<()> {
-        let status = self.process.wait()?;
+    pub async fn wait(self) -> anyhow::Result<()> {
+        let status = self.process.await?;
         if status.success() {
             Ok(())
         } else {
@@ -92,5 +96,9 @@ impl ResticCmd {
                 status.code().unwrap()
             ))
         }
+    }
+
+    pub fn wait_blocking(self) -> anyhow::Result<()> {
+        Runtime::new()?.block_on(self.wait())
     }
 }

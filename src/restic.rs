@@ -4,10 +4,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use std::path::PathBuf;
-use tokio::{
-    process::{Child, Command},
-    runtime::Runtime,
-};
+use tokio::process::{Child, Command};
 
 #[derive(Debug)]
 pub struct Restic {
@@ -96,9 +93,5 @@ impl ResticProcess {
                 status.code().unwrap()
             ))
         }
-    }
-
-    pub fn wait_blocking(self) -> anyhow::Result<()> {
-        Runtime::new()?.block_on(self.wait())
     }
 }

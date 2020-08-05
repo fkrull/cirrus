@@ -12,7 +12,8 @@ fn default_config_path() -> anyhow::Result<PathBuf> {
         .ok_or_else(|| anyhow!("can't find config file"))
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
 
     /*let app = Arc::new(App {
@@ -112,10 +113,12 @@ fn main() -> anyhow::Result<()> {
         .map(Ok)
         .unwrap_or_else(|| default_config_path())
         .context("failed to get path for the default config file")?;
-    let cfg_data = std::fs::read_to_string(&config_path).context(format!(
-        "failed to read config file '{}'",
-        config_path.display()
-    ))?;
+    let cfg_data = tokio::fs::read_to_string(&config_path)
+        .await
+        .context(format!(
+            "failed to read config file '{}'",
+            config_path.display()
+        ))?;
     let config: Config = toml::from_str(&cfg_data).context(format!(
         "failed to parse config file '{}'",
         config_path.display()
@@ -128,11 +131,11 @@ fn main() -> anyhow::Result<()> {
     };
 
     match matches.subcommand() {
-        ("restic", Some(matches)) => commands::restic(&app, matches),
-        ("backup", Some(matches)) => commands::backup(&app, matches),
+        ("restic", Some(matches)) => commands::restic(&app, matches).await,
+        ("backup", Some(matches)) => commands::backup(&app, matches).await,
         ("secret", Some(matches)) => match matches.subcommand() {
-            ("list", Some(matches)) => commands::secret::list(&app, matches),
-            ("set", Some(matches)) => commands::secret::list(&app, matches),
+            ("list", Some(matches)) => commands::secret::list(&app, matches).await,
+            ("set", Some(matches)) => commands::secret::set(&app, matches).await,
             _ => unreachable!("unexpected subcommand for secret"),
         },
         _ => todo!(),

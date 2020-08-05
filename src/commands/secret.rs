@@ -36,7 +36,7 @@ fn print_secret(
     Ok(())
 }
 
-pub fn list(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
+pub async fn list(app: &Cirrus, matches: &ArgMatches<'_>) -> anyhow::Result<()> {
     let show_passwords = matches.is_present("secret-list-show-passwords");
 
     for (repo_name, repo) in &app.config.repositories.0 {
@@ -49,7 +49,7 @@ pub fn list(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn set(app: &Cirrus, matches: &ArgMatches) -> anyhow::Result<()> {
+pub async fn set(app: &Cirrus, matches: &ArgMatches<'_>) -> anyhow::Result<()> {
     let repo_name = repo::Name(matches.value_of("secret-set-repo").unwrap().to_owned());
     let secret_name = matches
         .value_of("secret-set-secret")

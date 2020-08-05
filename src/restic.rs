@@ -108,26 +108,21 @@ impl ResticProcess {
 
     pub async fn next_event(&mut self) -> anyhow::Result<Event> {
         select! {
-            event = Self::process_exit_event(&mut self.child).fuse() => event,
-            event = Self::line_event(&mut self.stdout).fuse() => event,
-            event = Self::line_event(&mut self.stderr).fuse() => event,
+            status = (&mut self.child).fuse() => Ok(Event::ProcessExit(status?)),
+            line = Self::maybe_read_line(&mut self.stdout).fuse() => Ok(Event::StdoutLine(line?)),
+            line = Self::maybe_read_line(&mut self.stderr).fuse() => Ok(Event::StderrLine(line?)),
         }
     }
 
-    async fn process_exit_event(child: &mut Child) -> anyhow::Result<Event> {
-        Ok(Event::ProcessExit(child.await?))
-    }
-
-    async fn line_event(
-        reader_option: &mut Option<impl AsyncBufRead + Unpin>,
-    ) -> anyhow::Result<Event> {
-        if let Some(reader) = reader_option {
+    async fn maybe_read_line(
+        maybe_reader: &mut Option<impl AsyncBufRead + Unpin>,
+    ) -> std::io::Result<String> {
+        if let Some(reader) = maybe_reader {
             let mut buf = String::new();
             reader.read_line(&mut buf).await?;
-            Ok(Event::StdoutLine(buf))
+            Ok(buf)
         } else {
-            pending::<anyhow::Result<Event>>().await?;
-            unreachable!()
+            pending::<std::io::Result<String>>().await
         }
     }
 

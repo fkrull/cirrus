@@ -1,14 +1,17 @@
-use crate::{
-    model::{backup, repo},
-    secrets::RepoSecrets,
-};
+use crate::{model::backup, secrets::RepoWithSecrets};
 use anyhow::anyhow;
 use std::path::PathBuf;
+use std::process::Stdio;
 use tokio::process::{Child, Command};
 
 #[derive(Debug)]
 pub struct Restic {
     bin: PathBuf,
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Options {
+    pub capture_output: bool,
 }
 
 impl Restic {
@@ -17,36 +20,28 @@ impl Restic {
         Restic { bin }
     }
 
-    pub fn run_raw<S: AsRef<str>>(
-        &self,
-        args: impl Iterator<Item = S>,
-    ) -> anyhow::Result<ResticProcess> {
-        let mut cmd = Command::new(&self.bin);
-
-        for arg in args {
-            cmd.arg(arg.as_ref());
-        }
-
-        let child = cmd.spawn()?;
-        Ok(ResticProcess::new(child))
-    }
-
     pub fn run<S: AsRef<str>>(
         &self,
-        repo: &repo::Definition,
-        secrets: &RepoSecrets,
-        extra_args: impl Iterator<Item = S>,
+        repo_with_secrets: Option<RepoWithSecrets>,
+        extra_args: impl IntoIterator<Item = S>,
+        options: &Options,
     ) -> anyhow::Result<ResticProcess> {
         let mut cmd = Command::new(&self.bin);
 
-        cmd.env("RESTIC_PASSWORD", &secrets.repo_password.0);
-        for (name, value) in &secrets.secrets {
-            cmd.env(&name.0, &value.0);
+        if let Some(repo_with_secrets) = repo_with_secrets {
+            cmd.env("RESTIC_PASSWORD", &repo_with_secrets.repo_password.0);
+            for (name, value) in &repo_with_secrets.secrets {
+                cmd.env(&name.0, &value.0);
+            }
+            cmd.arg("--repo").arg(&repo_with_secrets.repo.url.0);
         }
 
-        cmd.arg("--repo").arg(&repo.url.0);
         for arg in extra_args {
             cmd.arg(arg.as_ref());
+        }
+
+        if options.capture_output {
+            cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
         }
 
         let child = cmd.spawn()?;
@@ -55,10 +50,14 @@ impl Restic {
 
     pub fn backup(
         &self,
-        repo: &repo::Definition,
-        secrets: &RepoSecrets,
+        repo_with_secrets: RepoWithSecrets,
         backup: &backup::Definition,
+        options: &Options,
     ) -> anyhow::Result<ResticProcess> {
+        self.run(Some(repo_with_secrets), Self::backup_args(backup), options)
+    }
+
+    fn backup_args(backup: &backup::Definition) -> Vec<String> {
         let mut args = Vec::new();
         args.push("backup".to_owned());
         args.push(backup.path.0.clone());
@@ -69,7 +68,7 @@ impl Restic {
         for arg in &backup.extra_args {
             args.push(arg.clone());
         }
-        self.run(repo, secrets, args.into_iter())
+        args
     }
 }
 

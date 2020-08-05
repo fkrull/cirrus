@@ -21,7 +21,8 @@ impl SecretValue {
     }
 }
 
-pub struct RepoSecrets {
+pub struct RepoWithSecrets<'a> {
+    pub repo: &'a repo::Definition,
     pub repo_password: SecretValue,
     pub secrets: HashMap<SecretName, SecretValue>,
 }
@@ -62,8 +63,11 @@ impl Secrets {
         }
     }
 
-    pub fn get_secrets(&self, repo: &repo::Definition) -> anyhow::Result<RepoSecrets> {
-        let password = self.get_secret(&repo.password)?;
+    pub fn get_secrets<'a>(
+        &self,
+        repo: &'a repo::Definition,
+    ) -> anyhow::Result<RepoWithSecrets<'a>> {
+        let repo_password = self.get_secret(&repo.password)?;
         let secrets = repo
             .secrets
             .iter()
@@ -72,8 +76,9 @@ impl Secrets {
                 Ok((name.clone(), value))
             })
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
-        Ok(RepoSecrets {
-            repo_password: password,
+        Ok(RepoWithSecrets {
+            repo,
+            repo_password,
             secrets,
         })
     }

@@ -1,8 +1,17 @@
 use crate::{model::backup, secrets::RepoWithSecrets};
 use anyhow::anyhow;
-use std::path::PathBuf;
-use std::process::Stdio;
-use tokio::process::{Child, Command};
+use futures::{
+    future::{pending, FutureExt},
+    select,
+};
+use std::{
+    path::PathBuf,
+    process::{ExitStatus, Stdio},
+};
+use tokio::{
+    prelude::io::*,
+    process::{Child, ChildStderr, ChildStdout, Command},
+};
 
 #[derive(Debug)]
 pub struct Restic {
@@ -74,23 +83,70 @@ impl Restic {
 
 #[derive(Debug)]
 pub struct ResticProcess {
-    process: Child,
+    child: Child,
+    stdout: Option<BufReader<ChildStdout>>,
+    stderr: Option<BufReader<ChildStderr>>,
+}
+
+#[derive(Debug)]
+pub enum Event {
+    ProcessExit(ExitStatus),
+    StdoutLine(String),
+    StderrLine(String),
 }
 
 impl ResticProcess {
-    fn new(process: Child) -> Self {
-        ResticProcess { process }
+    fn new(mut child: Child) -> Self {
+        let stdout = child.stdout.take().map(BufReader::new);
+        let stderr = child.stderr.take().map(BufReader::new);
+        ResticProcess {
+            child,
+            stdout,
+            stderr,
+        }
     }
 
-    pub async fn wait(self) -> anyhow::Result<()> {
-        let status = self.process.await?;
-        if status.success() {
-            Ok(())
+    pub async fn next_event(&mut self) -> anyhow::Result<Event> {
+        select! {
+            event = Self::process_exit_event(&mut self.child).fuse() => event,
+            event = Self::line_event(&mut self.stdout).fuse() => event,
+            event = Self::line_event(&mut self.stderr).fuse() => event,
+        }
+    }
+
+    async fn process_exit_event(child: &mut Child) -> anyhow::Result<Event> {
+        Ok(Event::ProcessExit(child.await?))
+    }
+
+    async fn line_event(
+        reader_option: &mut Option<impl AsyncBufRead + Unpin>,
+    ) -> anyhow::Result<Event> {
+        if let Some(reader) = reader_option {
+            let mut buf = String::new();
+            reader.read_line(&mut buf).await?;
+            Ok(Event::StdoutLine(buf))
         } else {
-            Err(anyhow!(
-                "restic exited with status {}",
-                status.code().unwrap()
-            ))
+            pending::<anyhow::Result<Event>>().await?;
+            unreachable!()
+        }
+    }
+
+    pub async fn wait(mut self) -> anyhow::Result<()> {
+        loop {
+            let event = self.next_event().await?;
+            match event {
+                Event::ProcessExit(status) => {
+                    return if status.success() {
+                        Ok(())
+                    } else {
+                        Err(anyhow!(
+                            "restic exited with status {}",
+                            status.code().unwrap()
+                        ))
+                    }
+                }
+                _ => continue,
+            }
         }
     }
 }

@@ -24,7 +24,7 @@ toml = "0.5.6"
 
 [dependencies.tokio]
 version = "0.2.22"
-features = ["rt-core", "fs", "process", "macros", "io-util"]
+features = ["rt-core", "fs", "process", "macros", "io-util", "sync"]
 
 [features]
 default = ["os-keyring"]

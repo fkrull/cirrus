@@ -41,28 +41,31 @@ impl JobsRunner {
 
     pub async fn run_jobs(&mut self) {
         loop {
+            let job_updates = self.running_jobs.iter_mut().map(|x| x.next());
+
             select! {
-                (job, idx, _) = select_all(self.running_jobs.iter_mut().map(|x| x.next())).fuse() => {
+                (job, idx, _) = select_all(job_updates).fuse() => {
                     if job.is_finished() {
                         self.running_jobs.remove(idx);
                     }
                     self.jobs_repo.save(job).await;
                 }
                 maybe_desc = self.recv.recv().fuse() => match maybe_desc {
-                    Some(desc) => {
-                        match desc {
-                            JobDescription::Backup { definition } => {
-                                // TODO: also save job
-                                todo!()
-                            }
-                        }
-                    },
+                    Some(desc) => self.spawn_job(desc),
                     None => {
                         info!("stopping job runner because all send ends were closed");
                         break;
                     }
                 }
             }
+        }
+    }
+
+    fn spawn_job(&mut self, description: JobDescription) {
+        // TODO: also save job
+
+        match description {
+            JobDescription::Backup { definition } => todo!(),
         }
     }
 }

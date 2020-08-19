@@ -1,12 +1,16 @@
+use crate::jobs::runner::backup::run_backup_job;
+use crate::jobs::JobStatus;
 use crate::{
     jobs::{repo::JobsRepo, Job, JobDescription},
     restic::Restic,
     secrets::Secrets,
 };
 use futures::{future::select_all, prelude::*, select};
-use log::{info, warn};
+use log::{error, info, warn};
 use std::{fmt::Debug, future::Future, sync::Arc};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+
+mod backup;
 
 trait RunningJob: Debug + Send {
     fn next(&mut self) -> Box<dyn Future<Output = Job> + Unpin + Send>;
@@ -51,7 +55,7 @@ impl JobsRunner {
                     self.jobs_repo.save(job).await;
                 }
                 maybe_desc = self.recv.recv().fuse() => match maybe_desc {
-                    Some(desc) => self.spawn_job(desc),
+                    Some(desc) => self.spawn_job(desc).await,
                     None => {
                         info!("stopping job runner because all send ends were closed");
                         break;
@@ -61,11 +65,29 @@ impl JobsRunner {
         }
     }
 
-    fn spawn_job(&mut self, description: JobDescription) {
-        // TODO: also save job
+    async fn spawn_job(&mut self, description: JobDescription) {
+        let job = Job {
+            id: self.jobs_repo.next_id(),
+            description: description.clone(),
+            status: JobStatus::Running,
+            started: crate::timestamp::now(),
+            finished: None,
+        };
 
-        match description {
-            JobDescription::Backup { definition } => todo!(),
+        let result = match description {
+            JobDescription::Backup { definition } => {
+                run_backup_job(&self.restic, &self.secrets, definition, &job)
+            }
+        };
+        match result {
+            Ok(running_job) => {
+                self.running_jobs.push(running_job);
+                self.jobs_repo.save(job).await;
+            }
+            Err(err) => {
+                error!("job failed to start: {}", err);
+                // TODO: any other reporting?
+            }
         }
     }
 }

@@ -3,6 +3,7 @@
 use crate::model::Config;
 use crate::restic::Restic;
 use crate::secrets::Secrets;
+use std::sync::Arc;
 
 pub mod commands;
 pub mod jobs;
@@ -16,7 +17,7 @@ pub type Timestamp = chrono::DateTime<chrono::Utc>;
 
 #[derive(Debug)]
 pub struct Cirrus {
-    pub config: Config,
-    pub restic: Restic,
-    pub secrets: Secrets,
+    pub config: Arc<Config>,
+    pub restic: Arc<Restic>,
+    pub secrets: Arc<Secrets>,
 }

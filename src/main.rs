@@ -5,6 +5,7 @@ use cirrus::{commands, model::Config, restic::Restic, secrets::Secrets, Cirrus};
 use clap::{App, AppSettings, Arg, ArgSettings};
 use env_logger::Env;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 fn default_config_path() -> anyhow::Result<PathBuf> {
     dirs::config_dir()
@@ -125,9 +126,9 @@ async fn main() -> anyhow::Result<()> {
     ))?;
 
     let app = Cirrus {
-        config,
-        restic: Restic::new(matches.value_of("restic-binary").unwrap()),
-        secrets: Secrets,
+        config: Arc::new(config),
+        restic: Arc::new(Restic::new(matches.value_of("restic-binary").unwrap())),
+        secrets: Arc::new(Secrets),
     };
 
     match matches.subcommand() {

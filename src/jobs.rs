@@ -1,11 +1,12 @@
-use crate::model::backup;
-use crate::Timestamp;
-use futures::future::select_all;
-use futures::prelude::*;
-use futures::select;
+use crate::{
+    model::{backup, Config},
+    restic::Restic,
+    secrets::Secrets,
+    Timestamp,
+};
+use futures::{future::select_all, prelude::*, select};
 use log::{info, warn};
-use std::fmt::Debug;
-use std::future::Future;
+use std::{fmt::Debug, future::Future, sync::Arc};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -50,15 +51,21 @@ trait RunningJob: Debug {
 
 #[derive(Debug)]
 pub struct Jobs {
+    restic: Arc<Restic>,
+    secrets: Arc<Secrets>,
+
     recv: UnboundedReceiver<JobDescription>,
     running_jobs: Vec<Box<dyn RunningJob>>,
     jobs: Vec<Job>,
 }
 
 impl Jobs {
-    pub fn new() -> (Jobs, JobsQueue) {
+    pub fn new(restic: Arc<Restic>, secrets: Arc<Secrets>) -> (Jobs, JobsQueue) {
         let (send, recv) = unbounded_channel();
         let jobs = Jobs {
+            restic,
+            secrets,
+
             recv,
             running_jobs: Vec::new(),
             jobs: Vec::new(),

@@ -1,18 +1,48 @@
-use crate::jobs::runner::RunningJob;
-use crate::jobs::Job;
-use crate::model::backup;
-use crate::restic::Restic;
-use crate::secrets::Secrets;
+use crate::{
+    jobs::{runner::RunningJob, Job, JobStatus},
+    model::{backup, repo},
+    restic::{Event, Options, Restic, ResticProcess},
+    secrets::Secrets,
+};
 use futures::Future;
+use log::warn;
+use std::pin::Pin;
 
 #[derive(Debug)]
-struct BackupJob {}
+struct BackupJob {
+    process: ResticProcess,
+    job: Job,
+}
 
-impl BackupJob {}
+impl BackupJob {
+    async fn handle_events(&mut self) -> anyhow::Result<Job> {
+        loop {
+            let event = self.process.next_event().await?;
+            if let Event::ProcessExit(exit_status) = event {
+                if !exit_status.success() {
+                    self.job.finish(JobStatus::Error);
+                } else {
+                    self.job.finish(JobStatus::Error);
+                }
+                return Ok(self.job.clone());
+            }
+        }
+    }
+}
 
 impl RunningJob for BackupJob {
-    fn next(&mut self) -> Box<dyn Future<Output = Job> + Unpin + Send> {
-        todo!()
+    fn next(&mut self) -> Pin<Box<dyn Future<Output = Job> + Send + '_>> {
+        Box::pin(async move {
+            match self.handle_events().await {
+                Ok(job) => job,
+                Err(err) => {
+                    warn!("backup job failed with internal error: {}", err);
+                    self.process.kill();
+                    self.job.finish(JobStatus::InternalError);
+                    self.job.clone()
+                }
+            }
+        })
     }
 }
 
@@ -20,8 +50,20 @@ pub(super) fn run_backup_job(
     restic: &Restic,
     secrets: &Secrets,
     backup: backup::Definition,
+    repo: repo::Definition,
     job: &Job,
 ) -> anyhow::Result<Box<dyn RunningJob>> {
-    todo!();
-    Ok(Box::new(BackupJob {}))
+    let repo_with_secrets = secrets.get_secrets(&repo)?;
+    let process = restic.backup(
+        repo_with_secrets,
+        &backup,
+        &Options {
+            capture_output: false,
+            ..Default::default()
+        },
+    )?;
+    Ok(Box::new(BackupJob {
+        process,
+        job: job.clone(),
+    }))
 }

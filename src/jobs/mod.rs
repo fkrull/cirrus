@@ -1,15 +1,20 @@
-use crate::{model::backup, Timestamp};
+use crate::{model, Timestamp};
 
 pub mod repo;
 pub mod runner;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum JobDescription {
-    Backup { definition: backup::Definition },
+    Backup {
+        backup: model::backup::Definition,
+        repo: model::repo::Definition,
+    },
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum JobStatus {
+    FailedToStart,
+    InternalError,
     Running,
     Successful,
     Error,
@@ -36,5 +41,10 @@ pub struct Job {
 impl Job {
     fn is_finished(&self) -> bool {
         !self.status.is_running()
+    }
+
+    fn finish(&mut self, status: JobStatus) {
+        self.finished = Some(crate::timestamp::now());
+        self.status = status;
     }
 }

@@ -144,4 +144,8 @@ impl ResticProcess {
             }
         }
     }
+
+    pub fn kill(&mut self) {
+        self.child.kill().ok();
+    }
 }

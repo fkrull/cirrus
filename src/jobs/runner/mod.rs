@@ -1,19 +1,24 @@
-use crate::jobs::runner::backup::run_backup_job;
-use crate::jobs::JobStatus;
 use crate::{
-    jobs::{repo::JobsRepo, Job, JobDescription},
+    jobs::{repo::JobsRepo, runner::backup::run_backup_job, Job, JobDescription, JobStatus},
     restic::Restic,
     secrets::Secrets,
 };
-use futures::{future::select_all, prelude::*, select};
-use log::{error, info, warn};
-use std::{fmt::Debug, future::Future, sync::Arc};
+use futures::{future::Either, pin_mut, prelude::*};
+use log::{error, info};
+use std::{fmt::Debug, future::Future, pin::Pin, sync::Arc};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 mod backup;
 
 trait RunningJob: Debug + Send {
-    fn next(&mut self) -> Box<dyn Future<Output = Job> + Unpin + Send>;
+    fn next(&mut self) -> Pin<Box<dyn Future<Output = Job> + Send + '_>>;
+}
+
+#[derive(Debug)]
+enum JobsRunnerSelect {
+    UpdatedJob { job: Job, running_job_idx: usize },
+    EnqueuedJob(JobDescription),
+    EndOfQueue,
 }
 
 #[derive(Debug)]
@@ -21,7 +26,6 @@ pub struct JobsRunner {
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     jobs_repo: Arc<JobsRepo>,
-
     recv: UnboundedReceiver<JobDescription>,
     running_jobs: Vec<Box<dyn RunningJob>>,
 }
@@ -45,28 +49,45 @@ impl JobsRunner {
 
     pub async fn run_jobs(&mut self) {
         loop {
-            let job_updates = self.running_jobs.iter_mut().map(|x| x.next());
-
-            select! {
-                (job, idx, _) = select_all(job_updates).fuse() => {
-                    if job.is_finished() {
-                        self.running_jobs.remove(idx);
-                    }
-                    self.jobs_repo.save(job).await;
+            match self.select().await {
+                JobsRunnerSelect::UpdatedJob {
+                    job,
+                    running_job_idx,
+                } => self.update_job(job, running_job_idx).await,
+                JobsRunnerSelect::EnqueuedJob(desc) => self.spawn_job(desc).await,
+                JobsRunnerSelect::EndOfQueue => {
+                    info!("stopping job runner because all send ends were closed");
+                    break;
                 }
-                maybe_desc = self.recv.recv().fuse() => match maybe_desc {
-                    Some(desc) => self.spawn_job(desc).await,
-                    None => {
-                        info!("stopping job runner because all send ends were closed");
-                        break;
-                    }
-                }
-            }
+            };
         }
     }
 
+    async fn select(&mut self) -> JobsRunnerSelect {
+        let job_updates = future::select_all(self.running_jobs.iter_mut().map(|x| x.next()));
+        pin_mut!(job_updates);
+        let recv = self.recv.recv();
+        pin_mut!(recv);
+
+        match future::select(job_updates, recv).await {
+            Either::Left(((job, running_job_idx, _), _)) => JobsRunnerSelect::UpdatedJob {
+                job,
+                running_job_idx,
+            },
+            Either::Right((Some(desc), _)) => JobsRunnerSelect::EnqueuedJob(desc),
+            Either::Right((None, _)) => JobsRunnerSelect::EndOfQueue,
+        }
+    }
+
+    async fn update_job(&mut self, job: Job, running_job_idx: usize) {
+        if job.is_finished() {
+            self.running_jobs.remove(running_job_idx);
+        }
+        self.jobs_repo.save(job).await;
+    }
+
     async fn spawn_job(&mut self, description: JobDescription) {
-        let job = Job {
+        let mut job = Job {
             id: self.jobs_repo.next_id(),
             description: description.clone(),
             status: JobStatus::Running,
@@ -75,20 +96,21 @@ impl JobsRunner {
         };
 
         let result = match description {
-            JobDescription::Backup { definition } => {
-                run_backup_job(&self.restic, &self.secrets, definition, &job)
+            JobDescription::Backup { backup, repo } => {
+                run_backup_job(&self.restic, &self.secrets, backup, repo, &job)
             }
         };
         match result {
             Ok(running_job) => {
                 self.running_jobs.push(running_job);
-                self.jobs_repo.save(job).await;
             }
             Err(err) => {
                 error!("job failed to start: {}", err);
-                // TODO: any other reporting?
+                job.status = JobStatus::FailedToStart;
             }
         }
+
+        self.jobs_repo.save(job).await;
     }
 }
 
@@ -98,7 +120,7 @@ pub struct JobsRunnerSender(UnboundedSender<JobDescription>);
 impl JobsRunnerSender {
     pub fn enqueue(&self, desc: JobDescription) {
         if let Err(err) = self.0.send(desc) {
-            warn!(
+            error!(
                 "enqueuing a job failed (was the job runner shut down?): {}",
                 err
             );

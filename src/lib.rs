@@ -1,5 +1,6 @@
 //use crate::{jobs::JobsRepo, pause::PauseState};
 
+use crate::jobs::repo::JobsRepo;
 use crate::model::Config;
 use crate::restic::Restic;
 use crate::secrets::Secrets;
@@ -20,4 +21,5 @@ pub struct Cirrus {
     pub config: Arc<Config>,
     pub restic: Arc<Restic>,
     pub secrets: Arc<Secrets>,
+    pub jobs_repo: Arc<JobsRepo>,
 }

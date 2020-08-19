@@ -1,97 +1,58 @@
 use crate::{
-    model::{backup, Config},
+    jobs::{repo::JobsRepo, Job, JobDescription},
     restic::Restic,
     secrets::Secrets,
-    Timestamp,
 };
 use futures::{future::select_all, prelude::*, select};
 use log::{info, warn};
 use std::{fmt::Debug, future::Future, sync::Arc};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum JobDescription {
-    Backup { definition: backup::Definition },
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum JobStatus {
-    Running,
-    Successful,
-    Error,
-}
-
-impl JobStatus {
-    fn is_running(&self) -> bool {
-        match self {
-            JobStatus::Running => true,
-            _ => false,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Job {
-    pub id: u64,
-    pub description: JobDescription,
-    pub status: JobStatus,
-    pub started: Timestamp,
-    pub finished: Option<Timestamp>,
-}
-
-impl Job {
-    fn is_finished(&self) -> bool {
-        !self.status.is_running()
-    }
-}
-
-trait RunningJob: Debug {
-    fn next(&mut self) -> Box<dyn Future<Output = Job> + Unpin>;
+trait RunningJob: Debug + Send {
+    fn next(&mut self) -> Box<dyn Future<Output = Job> + Unpin + Send>;
 }
 
 #[derive(Debug)]
-pub struct Jobs {
+pub struct JobsRunner {
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
+    jobs_repo: Arc<JobsRepo>,
 
     recv: UnboundedReceiver<JobDescription>,
     running_jobs: Vec<Box<dyn RunningJob>>,
-    jobs: Vec<Job>,
 }
 
-impl Jobs {
-    pub fn new(restic: Arc<Restic>, secrets: Arc<Secrets>) -> (Jobs, JobsQueue) {
+impl JobsRunner {
+    pub fn new(
+        restic: Arc<Restic>,
+        secrets: Arc<Secrets>,
+        jobs_repo: Arc<JobsRepo>,
+    ) -> (JobsRunner, JobsRunnerSender) {
         let (send, recv) = unbounded_channel();
-        let jobs = Jobs {
+        let runner = JobsRunner {
             restic,
             secrets,
-
+            jobs_repo,
             recv,
             running_jobs: Vec::new(),
-            jobs: Vec::new(),
         };
-        let jobs_queue = JobsQueue(send);
-        (jobs, jobs_queue)
+        (runner, JobsRunnerSender(send))
     }
 
-    // TODO: get jobs out
-
     pub async fn run_jobs(&mut self) {
-        //while let Some(desc) = self.recv.recv().await {}
         loop {
             select! {
                 (job, idx, _) = select_all(self.running_jobs.iter_mut().map(|x| x.next())).fuse() => {
                     if job.is_finished() {
                         self.running_jobs.remove(idx);
                     }
-                    // TODO: externalize somewhere else
-                    let idx = job.id as usize;
-                    self.jobs[idx] = job;
+                    self.jobs_repo.save(job).await;
                 }
                 maybe_desc = self.recv.recv().fuse() => match maybe_desc {
                     Some(desc) => {
                         match desc {
                             JobDescription::Backup { definition } => {
+                                // TODO: also save job
                                 todo!()
                             }
                         }
@@ -107,9 +68,9 @@ impl Jobs {
 }
 
 #[derive(Debug, Clone)]
-pub struct JobsQueue(UnboundedSender<JobDescription>);
+pub struct JobsRunnerSender(UnboundedSender<JobDescription>);
 
-impl JobsQueue {
+impl JobsRunnerSender {
     pub fn enqueue(&self, desc: JobDescription) {
         if let Err(err) = self.0.send(desc) {
             warn!(

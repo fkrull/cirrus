@@ -1,6 +1,8 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 use anyhow::{anyhow, Context};
+use cirrus::jobs::repo::JobsRepo;
+use cirrus::jobs::runner::JobsRunner;
 use cirrus::{commands, model::Config, restic::Restic, secrets::Secrets, Cirrus};
 use clap::{App, AppSettings, Arg, ArgSettings};
 use env_logger::Env;
@@ -129,6 +131,7 @@ async fn main() -> anyhow::Result<()> {
         config: Arc::new(config),
         restic: Arc::new(Restic::new(matches.value_of("restic-binary").unwrap())),
         secrets: Arc::new(Secrets),
+        jobs_repo: Arc::new(JobsRepo::new()),
     };
 
     match matches.subcommand() {
@@ -139,6 +142,14 @@ async fn main() -> anyhow::Result<()> {
             ("set", Some(matches)) => commands::secret::set(&app, matches).await,
             _ => unreachable!("unexpected subcommand for secret"),
         },
-        _ => todo!(),
+        _ => {
+            let (mut runner, _sender) = JobsRunner::new(
+                app.restic.clone(),
+                app.secrets.clone(),
+                app.jobs_repo.clone(),
+            );
+            tokio::spawn(async move { runner.run_jobs().await });
+            todo!()
+        }
     }
 }

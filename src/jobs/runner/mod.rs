@@ -64,18 +64,25 @@ impl JobsRunner {
     }
 
     async fn select(&mut self) -> JobsRunnerSelect {
-        let job_updates = future::select_all(self.running_jobs.iter_mut().map(|x| x.next()));
-        pin_mut!(job_updates);
-        let recv = self.recv.recv();
-        pin_mut!(recv);
+        if self.running_jobs.is_empty() {
+            match self.recv.recv().await {
+                Some(desc) => JobsRunnerSelect::EnqueuedJob(desc),
+                None => JobsRunnerSelect::EndOfQueue,
+            }
+        } else {
+            let job_updates = future::select_all(self.running_jobs.iter_mut().map(|x| x.next()));
+            pin_mut!(job_updates);
+            let recv = self.recv.recv();
+            pin_mut!(recv);
 
-        match future::select(job_updates, recv).await {
-            Either::Left(((job, running_job_idx, _), _)) => JobsRunnerSelect::UpdatedJob {
-                job,
-                running_job_idx,
-            },
-            Either::Right((Some(desc), _)) => JobsRunnerSelect::EnqueuedJob(desc),
-            Either::Right((None, _)) => JobsRunnerSelect::EndOfQueue,
+            match future::select(job_updates, recv).await {
+                Either::Left(((job, running_job_idx, _), _)) => JobsRunnerSelect::UpdatedJob {
+                    job,
+                    running_job_idx,
+                },
+                Either::Right((Some(desc), _)) => JobsRunnerSelect::EnqueuedJob(desc),
+                Either::Right((None, _)) => JobsRunnerSelect::EndOfQueue,
+            }
         }
     }
 

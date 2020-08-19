@@ -1,16 +1,10 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 use anyhow::{anyhow, Context};
-use cirrus::{
-    commands,
-    jobs::{repo::JobsRepo, runner::JobsRunner},
-    model::Config,
-    restic::Restic,
-    secrets::Secrets,
-};
+use cirrus::{commands, daemon, model::Config, restic::Restic, secrets::Secrets};
 use clap::{App, AppSettings, Arg, ArgSettings};
 use env_logger::Env;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 fn default_config_path() -> anyhow::Result<PathBuf> {
     dirs::config_dir()
@@ -141,15 +135,6 @@ async fn main() -> anyhow::Result<()> {
             ("set", Some(matches)) => commands::secret::set(&secrets, &config, matches).await,
             _ => unreachable!("unexpected subcommand for secret"),
         },
-        _ => {
-            let _config = Arc::new(config);
-            let restic = Arc::new(restic);
-            let secrets = Arc::new(secrets);
-            let jobs_repo = Arc::new(JobsRepo::new());
-            let (mut runner, _sender) =
-                JobsRunner::new(restic.clone(), secrets.clone(), jobs_repo.clone());
-            tokio::spawn(async move { runner.run_jobs().await });
-            todo!()
-        }
+        _ => daemon::run(restic, secrets, config, &matches).await,
     }
 }

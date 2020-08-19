@@ -6,6 +6,7 @@ pub mod model;
 //pub mod pause;
 pub mod restic;
 //pub mod scheduler;
+pub mod daemon;
 pub mod secrets;
 
 pub type Timestamp = chrono::DateTime<chrono::Utc>;

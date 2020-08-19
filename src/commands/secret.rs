@@ -1,4 +1,6 @@
-use crate::{model::repo, secrets::SecretValue, Cirrus};
+use crate::model::Config;
+use crate::secrets::Secrets;
+use crate::{model::repo, secrets::SecretValue};
 use anyhow::anyhow;
 use clap::ArgMatches;
 use std::io::Write;
@@ -13,14 +15,14 @@ fn write_color(text: &str, fg_color: Color) -> std::io::Result<()> {
 }
 
 fn print_secret(
-    app: &Cirrus,
+    secrets: &Secrets,
     repo_name: &repo::Name,
     secret_name: &str,
     secret: &repo::Secret,
     show_passwords: bool,
 ) -> anyhow::Result<()> {
     print!("{}.{} [{}] = ", repo_name.0, secret_name, secret.label());
-    match app.secrets.get_secret(secret) {
+    match secrets.get_secret(secret) {
         Ok(value) => {
             let msg = if show_passwords {
                 value.0.as_str()
@@ -36,25 +38,39 @@ fn print_secret(
     Ok(())
 }
 
-pub async fn list(app: &Cirrus, matches: &ArgMatches<'_>) -> anyhow::Result<()> {
+pub async fn list(
+    secrets: &Secrets,
+    config: &Config,
+    matches: &ArgMatches<'_>,
+) -> anyhow::Result<()> {
     let show_passwords = matches.is_present("secret-list-show-passwords");
 
-    for (repo_name, repo) in &app.config.repositories.0 {
-        print_secret(app, repo_name, "<password>", &repo.password, show_passwords)?;
+    for (repo_name, repo) in &config.repositories.0 {
+        print_secret(
+            secrets,
+            repo_name,
+            "<password>",
+            &repo.password,
+            show_passwords,
+        )?;
         for (secret_name, secret) in &repo.secrets {
-            print_secret(app, repo_name, &secret_name.0, secret, show_passwords)?;
+            print_secret(secrets, repo_name, &secret_name.0, secret, show_passwords)?;
         }
     }
 
     Ok(())
 }
 
-pub async fn set(app: &Cirrus, matches: &ArgMatches<'_>) -> anyhow::Result<()> {
+pub async fn set(
+    secrets: &Secrets,
+    config: &Config,
+    matches: &ArgMatches<'_>,
+) -> anyhow::Result<()> {
     let repo_name = repo::Name(matches.value_of("secret-set-repo").unwrap().to_owned());
     let secret_name = matches
         .value_of("secret-set-secret")
         .map(|s| repo::SecretName(s.to_owned()));
-    let repo = app.config.repository(&repo_name)?;
+    let repo = config.repository(&repo_name)?;
 
     let (secret, value) = match secret_name {
         None => {
@@ -72,5 +88,5 @@ pub async fn set(app: &Cirrus, matches: &ArgMatches<'_>) -> anyhow::Result<()> {
             (secret, value)
         }
     };
-    app.secrets.set_secret(secret, value)
+    secrets.set_secret(secret, value)
 }

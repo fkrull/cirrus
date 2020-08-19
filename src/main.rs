@@ -1,13 +1,16 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 use anyhow::{anyhow, Context};
-use cirrus::jobs::repo::JobsRepo;
-use cirrus::jobs::runner::JobsRunner;
-use cirrus::{commands, model::Config, restic::Restic, secrets::Secrets, Cirrus};
+use cirrus::{
+    commands,
+    jobs::{repo::JobsRepo, runner::JobsRunner},
+    model::Config,
+    restic::Restic,
+    secrets::Secrets,
+};
 use clap::{App, AppSettings, Arg, ArgSettings};
 use env_logger::Env;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 fn default_config_path() -> anyhow::Result<PathBuf> {
     dirs::config_dir()
@@ -127,27 +130,24 @@ async fn main() -> anyhow::Result<()> {
         config_path.display()
     ))?;
 
-    let app = Cirrus {
-        config: Arc::new(config),
-        restic: Arc::new(Restic::new(matches.value_of("restic-binary").unwrap())),
-        secrets: Arc::new(Secrets),
-        jobs_repo: Arc::new(JobsRepo::new()),
-    };
+    let restic = Restic::new(matches.value_of("restic-binary").unwrap());
+    let secrets = Secrets;
 
     match matches.subcommand() {
-        ("restic", Some(matches)) => commands::restic(&app, matches).await,
-        ("backup", Some(matches)) => commands::backup(&app, matches).await,
+        ("restic", Some(matches)) => commands::restic(&restic, &secrets, &config, matches).await,
+        ("backup", Some(matches)) => commands::backup(&restic, &secrets, &config, matches).await,
         ("secret", Some(matches)) => match matches.subcommand() {
-            ("list", Some(matches)) => commands::secret::list(&app, matches).await,
-            ("set", Some(matches)) => commands::secret::set(&app, matches).await,
+            ("list", Some(matches)) => commands::secret::list(&secrets, &config, matches).await,
+            ("set", Some(matches)) => commands::secret::set(&secrets, &config, matches).await,
             _ => unreachable!("unexpected subcommand for secret"),
         },
         _ => {
-            let (mut runner, _sender) = JobsRunner::new(
-                app.restic.clone(),
-                app.secrets.clone(),
-                app.jobs_repo.clone(),
-            );
+            let _config = Arc::new(config);
+            let restic = Arc::new(restic);
+            let secrets = Arc::new(secrets);
+            let jobs_repo = Arc::new(JobsRepo::new());
+            let (mut runner, _sender) =
+                JobsRunner::new(restic.clone(), secrets.clone(), jobs_repo.clone());
             tokio::spawn(async move { runner.run_jobs().await });
             todo!()
         }

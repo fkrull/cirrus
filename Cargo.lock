@@ -200,22 +200,46 @@ name = "cirrus"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "chrono",
+ "cirrus-core",
+ "cirrus-daemon",
  "clap",
- "cron-parser",
  "dirs",
  "env_logger",
+ "futures",
+ "log",
+ "rpassword",
+ "termcolor",
+ "tokio",
+ "toml",
+]
+
+[[package]]
+name = "cirrus-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "cron-parser",
  "futures",
  "keyring",
  "log",
  "maplit",
- "rpassword",
  "serde",
  "serde_json",
- "termcolor",
  "thiserror",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "cirrus-daemon"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cirrus-core",
+ "futures",
+ "log",
+ "tokio",
 ]
 
 [[package]]

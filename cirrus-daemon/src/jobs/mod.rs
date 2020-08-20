@@ -1,4 +1,4 @@
-use crate::{model, Timestamp};
+use cirrus_core::{model, Timestamp};
 
 pub mod repo;
 pub mod runner;
@@ -44,7 +44,7 @@ impl Job {
     }
 
     fn finish(&mut self, status: JobStatus) {
-        self.finished = Some(crate::timestamp::now());
+        self.finished = Some(cirrus_core::timestamp::now());
         self.status = status;
     }
 }

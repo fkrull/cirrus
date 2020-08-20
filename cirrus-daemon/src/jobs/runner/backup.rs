@@ -1,5 +1,5 @@
-use crate::{
-    jobs::{runner::RunningJob, Job, JobStatus},
+use crate::jobs::{runner::RunningJob, Job, JobStatus};
+use cirrus_core::{
     model::{backup, repo},
     restic::{Event, Options, Restic, ResticProcess},
     secrets::Secrets,

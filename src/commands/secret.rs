@@ -1,7 +1,9 @@
-use crate::model::Config;
-use crate::secrets::Secrets;
-use crate::{model::repo, secrets::SecretValue};
 use anyhow::anyhow;
+use cirrus_core::{
+    model::{repo, Config},
+    secrets::SecretValue,
+    secrets::Secrets,
+};
 use clap::ArgMatches;
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};

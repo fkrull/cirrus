@@ -4,32 +4,29 @@ version = "0.1.0"
 authors = ["Felix Krull <f_krull@gmx.de>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = [
+    "cirrus-core",
+    "cirrus-daemon",
+]
 
 [dependencies]
+cirrus-core = { path = "cirrus-core" }
+cirrus-daemon = { path = "cirrus-daemon" }
 anyhow = "1.0.30"
 clap = "2.33.1"
-chrono = "0.4.11"
-cron-parser = "0.7.4"
 dirs = "2.0.2"
 env_logger = "0.7.1"
 futures = "0.3.5"
-keyring = { version = "0.9.0", optional = true }
 log = "0.4.8"
 rpassword = "4.0.5"
-serde = { version = "1.0.110", features = ["derive"] }
 termcolor = "1.1.0"
-thiserror = "1.0.20"
 toml = "0.5.6"
 
 [dependencies.tokio]
 version = "0.2.22"
-features = ["rt-core", "fs", "process", "macros", "io-util", "sync"]
+features = ["fs", "macros"]
 
 [features]
 default = ["os-keyring"]
-os-keyring = ["keyring"]
-
-[dev-dependencies]
-maplit = "1.0.2"
-serde_json = "1.0.53"
+os-keyring = ["cirrus-core/os-keyring"]

@@ -1,8 +1,7 @@
-use crate::{
-    jobs::{repo::JobsRepo, runner::backup::run_backup_job, Job, JobDescription, JobStatus},
-    restic::Restic,
-    secrets::Secrets,
-};
+use super::*;
+use crate::jobs::repo::JobsRepo;
+use crate::jobs::runner::backup::run_backup_job;
+use cirrus_core::{restic::Restic, secrets::Secrets};
 use futures::{future::Either, pin_mut, prelude::*};
 use log::{error, info};
 use std::{fmt::Debug, future::Future, pin::Pin, sync::Arc};
@@ -98,7 +97,7 @@ impl JobsRunner {
             id: self.jobs_repo.next_id(),
             description: description.clone(),
             status: JobStatus::Running,
-            started: crate::timestamp::now(),
+            started: cirrus_core::timestamp::now(),
             finished: None,
         };
 

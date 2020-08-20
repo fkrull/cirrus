@@ -1,9 +1,5 @@
-use crate::{
-    jobs::{repo::JobsRepo, runner::JobsRunner},
-    model::Config,
-    restic::Restic,
-    secrets::Secrets,
-};
+use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
+use cirrus_daemon::jobs::{repo::JobsRepo, runner::JobsRunner};
 use clap::ArgMatches;
 use log::info;
 use std::sync::Arc;

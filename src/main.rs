@@ -1,7 +1,8 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 use anyhow::{anyhow, Context};
-use cirrus::{commands, daemon, model::Config, restic::Restic, secrets::Secrets};
+use cirrus::{commands, daemon};
+use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use clap::{App, AppSettings, Arg, ArgSettings};
 use env_logger::Env;
 use std::path::PathBuf;

@@ -1,0 +1,28 @@
+[package]
+name = "cirrus-core"
+version = "0.1.0"
+authors = ["Felix Krull <f_krull@gmx.de>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "1.0.30"
+chrono = "0.4.11"
+cron-parser = "0.7.4"
+futures = "0.3.5"
+keyring = { version = "0.9.0", optional = true }
+log = "0.4.8"
+serde = { version = "1.0.110", features = ["derive"] }
+thiserror = "1.0.20"
+toml = "0.5.6"
+
+[dependencies.tokio]
+version = "0.2.22"
+features = ["process"]
+
+[features]
+default = ["os-keyring"]
+os-keyring = ["keyring"]
+
+[dev-dependencies]
+maplit = "1.0.2"
+serde_json = "1.0.53"

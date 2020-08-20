@@ -1,5 +1,8 @@
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
-use cirrus_daemon::jobs::{repo::JobsRepo, runner::JobsRunner};
+use cirrus_daemon::{
+    jobs::{repo::JobsRepo, runner::JobsRunner},
+    web,
+};
 use clap::ArgMatches;
 use log::info;
 use std::sync::Arc;
@@ -15,9 +18,11 @@ pub async fn run(
     let secrets = Arc::new(secrets);
     let jobs_repo = Arc::new(JobsRepo::new());
     let (mut runner, _sender) = JobsRunner::new(restic.clone(), secrets.clone(), jobs_repo.clone());
+
+    info!("starting job runner...");
     tokio::spawn(async move { runner.run_jobs().await });
 
-    info!("running cirrus daemon...");
-    futures::future::pending::<()>().await;
+    info!("starting web UI...");
+    web::launch().await?;
     Ok(())
 }

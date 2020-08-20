@@ -10,6 +10,11 @@ anyhow = "1.0.30"
 futures = "0.3.5"
 log = "0.4.8"
 
+[dependencies.rocket]
+git = "https://github.com/SergioBenitez/Rocket.git"
+#branch = "master"
+rev = "02b79e28f71ccbd1fce0e369469c92caedb38cd8"
+
 [dependencies.tokio]
 version = "0.2.22"
 features = ["sync"]

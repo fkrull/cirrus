@@ -1,8 +1,10 @@
-use crate::assets::templates::{NoContext, Template};
+use crate::assets::{
+    static_files::StaticFiles,
+    templates::{NoContext, Template},
+};
 use rocket::{get, routes};
 
 mod assets;
-mod static_files;
 
 #[get("/")]
 fn index() -> Template {
@@ -12,7 +14,7 @@ fn index() -> Template {
 pub async fn launch() -> anyhow::Result<()> {
     rocket::ignite()
         .mount("/", routes![index])
-        .mount("/static", static_files::StaticFiles)
+        .mount("/static", StaticFiles)
         .attach(Template::fairing())
         .launch()
         .await?;

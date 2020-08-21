@@ -1,8 +1,5 @@
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
-use cirrus_daemon::{
-    jobs::{repo::JobsRepo, runner::JobsRunner},
-    web,
-};
+use cirrus_daemon::jobs::{repo::JobsRepo, runner::JobsRunner};
 use clap::ArgMatches;
 use log::info;
 use std::sync::Arc;
@@ -23,6 +20,6 @@ pub async fn run(
     tokio::spawn(async move { runner.run_jobs().await });
 
     info!("starting web UI...");
-    web::launch().await?;
+    cirrus_web::launch().await?;
     Ok(())
 }

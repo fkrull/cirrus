@@ -1,0 +1,16 @@
+[package]
+name = "cirrus-web"
+version = "0.1.0"
+authors = ["Felix Krull <f_krull@gmx.de>"]
+edition = "2018"
+
+[dependencies]
+cirrus-core = { path = "../cirrus-core" }
+cirrus-daemon = { path = "../cirrus-daemon" }
+anyhow = "1.0.30"
+log = "0.4.8"
+
+[dependencies.rocket]
+git = "https://github.com/SergioBenitez/Rocket.git"
+#branch = "master"
+rev = "02b79e28f71ccbd1fce0e369469c92caedb38cd8"

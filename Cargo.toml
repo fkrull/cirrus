@@ -8,11 +8,13 @@ edition = "2018"
 members = [
     "cirrus-core",
     "cirrus-daemon",
+    "cirrus-web",
 ]
 
 [dependencies]
 cirrus-core = { path = "cirrus-core" }
 cirrus-daemon = { path = "cirrus-daemon" }
+cirrus-web = { path = "cirrus-web" }
 anyhow = "1.0.30"
 clap = "2.33.1"
 dirs = "2.0.2"

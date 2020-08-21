@@ -315,6 +315,7 @@ dependencies = [
  "anyhow",
  "cirrus-core",
  "cirrus-daemon",
+ "cirrus-web",
  "clap",
  "dirs",
  "env_logger",
@@ -351,8 +352,18 @@ dependencies = [
  "cirrus-core",
  "futures",
  "log",
- "rocket",
  "tokio",
+]
+
+[[package]]
+name = "cirrus-web"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cirrus-core",
+ "cirrus-daemon",
+ "log",
+ "rocket",
 ]
 
 [[package]]

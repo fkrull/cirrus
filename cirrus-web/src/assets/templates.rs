@@ -1,7 +1,8 @@
+use super::content_type;
 use log::error;
 use rocket::{
     fairing::{Fairing, Info, Kind},
-    http::{ContentType, Status},
+    http::Status,
     response::{Content, Responder},
     Request, Rocket,
 };
@@ -43,11 +44,7 @@ impl<'r> Responder<'r, 'static> for Template {
                 error!("template state is missing from app");
                 Status::InternalServerError
             })?;
-        let content_type = Path::new(&self.name.as_ref())
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .and_then(|ext| ContentType::from_extension(ext))
-            .unwrap_or_default();
+        let content_type = content_type(Path::new(&self.name.as_ref()));
         let render = tera.render(&self.name, &self.context).map_err(|err| {
             error!("failed to render template: {}", err);
             Status::InternalServerError

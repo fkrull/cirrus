@@ -41,7 +41,7 @@ mod assets_impl {
 
 #[cfg(feature = "bundled-assets")]
 mod assets_impl {
-    use super::*;
+    use super::{super::content_type, *};
     use include_dir::{include_dir, Dir};
     use rocket::{http::ContentType, response::Responder};
 
@@ -50,12 +50,7 @@ mod assets_impl {
     pub(super) async fn get_file(path: impl AsRef<Path>) -> Option<BundledFile> {
         FILES.get_file(path).map(|file| {
             let bytes = file.contents();
-            let content_type = file
-                .path()
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .and_then(|ext| ContentType::from_extension(ext))
-                .unwrap_or_default();
+            let content_type = content_type(file.path());
             BundledFile {
                 bytes,
                 content_type,

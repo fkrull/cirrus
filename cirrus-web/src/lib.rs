@@ -1,19 +1,14 @@
-use crate::assets::{
-    static_files::StaticFiles,
-    templates::{NoContext, Template},
-};
-use rocket::{get, routes};
+use crate::assets::{static_files::StaticFiles, templates::Template};
+use cirrus_daemon::Daemon;
+use rocket::routes;
 
 mod assets;
+mod routes;
 
-#[get("/")]
-fn index() -> Template {
-    Template::render("index.html", NoContext {})
-}
-
-pub async fn launch() -> anyhow::Result<()> {
+pub async fn launch(daemon: Daemon) -> anyhow::Result<()> {
     rocket::ignite()
-        .mount("/", routes![index])
+        .manage(daemon)
+        .mount("/", routes![routes::index])
         .mount("/static", StaticFiles)
         .attach(Template::fairing())
         .launch()

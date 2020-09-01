@@ -17,7 +17,10 @@ pub async fn run(
     let jobs_repo = Arc::new(JobsRepo::new());
     let (mut runner, sender) = JobsRunner::new(restic.clone(), secrets.clone(), jobs_repo.clone());
 
+    let instance_name = hostname::get()?.to_string_lossy().into_owned();
+    info!("instance name: {}", instance_name);
     let daemon = Daemon {
+        instance_name,
         config,
         restic,
         secrets,

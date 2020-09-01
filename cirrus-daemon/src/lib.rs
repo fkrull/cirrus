@@ -6,6 +6,7 @@ pub mod jobs;
 
 #[derive(Debug, Clone)]
 pub struct Daemon {
+    pub instance_name: String,
     pub config: Arc<Config>,
     pub restic: Arc<Restic>,
     pub secrets: Arc<Secrets>,

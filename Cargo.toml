@@ -21,6 +21,7 @@ dirs = "2.0.2"
 env_logger = "0.7.1"
 hostname = "0.3.1"
 log = "0.4.8"
+opener = { version = "0.4.1", optional = true }
 rpassword = "4.0.5"
 termcolor = "1.1.0"
 toml = "0.5.6"
@@ -30,6 +31,10 @@ version = "0.2.22"
 features = ["fs", "macros"]
 
 [features]
-default = ["keyring"]
-keyring = ["cirrus-core/keyring"]
+default = []
+
+# desktop features
+desktop-integration = ["opener", "cirrus-core/keyring"]
+
+# release features
 bundled-assets = ["cirrus-web/bundled-assets"]

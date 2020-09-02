@@ -5,6 +5,8 @@ use cirrus_core::{
 };
 use clap::ArgMatches;
 
+#[cfg(feature = "desktop-integration")]
+pub mod desktop;
 pub mod secret;
 
 pub async fn restic(

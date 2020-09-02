@@ -15,23 +15,7 @@ fn default_config_path() -> anyhow::Result<PathBuf> {
 async fn main() -> anyhow::Result<()> {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
 
-    /*let app = Arc::new(App {
-        pause_state: PauseState::default(),
-        jobs: JobsRepo::new(cfg.backups.0),
-        repositories: cfg.repositories,
-    });
-
-    // TODO: handle panics in scheduler thread
-    scheduler::start_scheduler(app)?;
-
-    #[cfg(feature = "desktop-integration")]
-    if let Err(err) = webbrowser::open("http://localhost:8000") {
-        log::error!("failed to open web browser: {:?}", err);
-    }
-
-    rocket::ignite().mount("/", routes![index]).launch();*/
-
-    let matches = App::new("cirrus")
+    let cli = App::new("cirrus")
         .arg(
             Arg::with_name("config")
                 .short("c")
@@ -103,9 +87,15 @@ async fn main() -> anyhow::Result<()> {
                         .set(ArgSettings::AllowLeadingHyphen)
                         .multiple(true),
                 ),
-        )
-        .get_matches();
+        );
+    #[cfg(feature = "desktop-integration")]
+    let cli = cli.subcommand(
+        App::new("desktop")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
+            .subcommand(App::new("open-config-file")),
+    );
 
+    let matches = cli.get_matches();
     let config_path = matches
         .value_of_os("config")
         .map(PathBuf::from)
@@ -133,6 +123,11 @@ async fn main() -> anyhow::Result<()> {
             ("list", Some(matches)) => commands::secret::list(&secrets, &config, matches).await,
             ("set", Some(matches)) => commands::secret::set(&secrets, &config, matches).await,
             _ => unreachable!("unexpected subcommand for secret"),
+        },
+        #[cfg(feature = "desktop-integration")]
+        ("desktop", Some(matches)) => match matches.subcommand() {
+            ("open-config-file", Some(_)) => commands::desktop::open_config_file(&config_path),
+            _ => unreachable!("unexpected subcommand for desktop"),
         },
         _ => daemon::run(restic, secrets, config, &matches).await,
     }

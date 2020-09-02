@@ -30,6 +30,6 @@ version = "0.2.22"
 features = ["fs", "macros"]
 
 [features]
-default = ["os-keyring"]
-os-keyring = ["cirrus-core/os-keyring"]
+default = ["keyring"]
+keyring = ["cirrus-core/keyring"]
 bundled-assets = ["cirrus-web/bundled-assets"]

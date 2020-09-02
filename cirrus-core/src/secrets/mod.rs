@@ -3,14 +3,14 @@ use crate::model::repo::{Secret, SecretName};
 use anyhow::{anyhow, Context};
 use std::collections::HashMap;
 
-#[cfg(not(feature = "os-keyring"))]
+#[cfg(not(feature = "keyring"))]
 mod keyring_disabled;
-#[cfg(feature = "os-keyring")]
+#[cfg(feature = "keyring")]
 mod os_keyring;
 
-#[cfg(not(feature = "os-keyring"))]
+#[cfg(not(feature = "keyring"))]
 use keyring_disabled::*;
-#[cfg(feature = "os-keyring")]
+#[cfg(feature = "keyring")]
 use os_keyring::*;
 
 pub struct SecretValue(pub String);

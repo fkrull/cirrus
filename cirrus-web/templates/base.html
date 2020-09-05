@@ -7,5 +7,22 @@
 </head>
 <body>
 {% block content %}{% endblock content %}
+<div id="left-sidebar">
+    <ul id="nav">
+        <li><strong>Repositories</strong></li>
+        {% for repo in base.nav.repos %}
+        <li class="left-sidebar-nav-repo">
+            <a href="{{ repo.link }}">{{ repo.name }}</a>
+        </li>
+        {% endfor %}
+
+        <li><strong>Backups</strong></li>
+        {% for backup in base.nav.backups %}
+        <li class="left-sidebar-nav-backup">
+            <a href="{{ backup.link }}">{{ backup.name }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
 </body>
 </html>

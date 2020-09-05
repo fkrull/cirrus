@@ -21,11 +21,10 @@ pub struct Template {
     context: Context,
 }
 
+pub type TemplateResult = Result<Template, ServerError>;
+
 impl Template {
-    pub fn render(
-        name: impl Into<Cow<'static, str>>,
-        context: impl Serialize,
-    ) -> Result<Template, ServerError> {
+    pub fn render(name: impl Into<Cow<'static, str>>, context: impl Serialize) -> TemplateResult {
         let name = name.into();
         let context = Context::from_serialize(context)
             .map_err(|e| anyhow!("failed to serialize template context: {}", e))?;

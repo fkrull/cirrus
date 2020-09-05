@@ -4,8 +4,10 @@ use log::error;
 use rocket::{http::Status, response::Responder, routes, Request, Response};
 
 mod assets;
+mod backup;
 mod base;
 mod index;
+mod repo;
 
 #[derive(Debug)]
 pub struct ServerError(anyhow::Error);
@@ -26,7 +28,7 @@ impl<'r> Responder<'r, 'static> for ServerError {
 pub async fn launch(daemon: Daemon) -> anyhow::Result<()> {
     rocket::ignite()
         .manage(daemon)
-        .mount("/", routes![index::index])
+        .mount("/", routes![index::index, repo::repo, backup::backup])
         .mount("/static", StaticFiles)
         .attach(Template::fairing())
         .launch()

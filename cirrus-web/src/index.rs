@@ -1,6 +1,7 @@
-use crate::assets::templates::Template;
-use crate::base::{base, BaseViewModel};
-use crate::ServerError;
+use crate::{
+    assets::templates::{Template, TemplateResult},
+    base::{base, BaseViewModel},
+};
 use cirrus_daemon::Daemon;
 use rocket::get;
 use rocket::State;
@@ -12,7 +13,7 @@ pub struct IndexViewModel {
 }
 
 #[get("/")]
-pub fn index(daemon: State<Daemon>) -> Result<Template, ServerError> {
+pub fn index(daemon: State<Daemon>) -> TemplateResult {
     Template::render(
         "index.html",
         IndexViewModel {

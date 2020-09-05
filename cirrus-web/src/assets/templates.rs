@@ -1,5 +1,5 @@
 use super::content_type;
-use crate::ServerError;
+use crate::Error;
 use anyhow::anyhow;
 use log::error;
 use rocket::{
@@ -21,7 +21,7 @@ pub struct Template {
     context: Context,
 }
 
-pub type TemplateResult = Result<Template, ServerError>;
+pub type TemplateResult = Result<Template, Error>;
 
 impl Template {
     pub fn render(name: impl Into<Cow<'static, str>>, context: impl Serialize) -> TemplateResult {

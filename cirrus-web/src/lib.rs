@@ -10,18 +10,26 @@ mod index;
 mod repo;
 
 #[derive(Debug)]
-pub struct ServerError(anyhow::Error);
+pub enum Error {
+    NotFound,
+    ServerError(anyhow::Error),
+}
 
-impl From<anyhow::Error> for ServerError {
+impl From<anyhow::Error> for Error {
     fn from(error: anyhow::Error) -> Self {
-        ServerError(error)
+        Error::ServerError(error)
     }
 }
 
-impl<'r> Responder<'r, 'static> for ServerError {
+impl<'r> Responder<'r, 'static> for Error {
     fn respond_to(self, _req: &'r Request<'_>) -> rocket::response::Result<'static> {
-        error!("Internal server error: {}", self.0);
-        Response::build().status(Status::InternalServerError).ok()
+        match self {
+            Error::NotFound => Response::build().status(Status::NotFound).ok(),
+            Error::ServerError(error) => {
+                error!("Internal server error: {}", error);
+                Response::build().status(Status::InternalServerError).ok()
+            }
+        }
     }
 }
 

@@ -9,9 +9,21 @@ pub mod repo;
 #[serde(transparent)]
 pub struct Repositories(pub HashMap<repo::Name, repo::Definition>);
 
+impl Repositories {
+    pub fn get(&self, name: &repo::Name) -> Option<&repo::Definition> {
+        self.0.get(name)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 #[serde(transparent)]
 pub struct Backups(pub HashMap<backup::Name, backup::Definition>);
+
+impl Backups {
+    pub fn get(&self, name: &backup::Name) -> Option<&backup::Definition> {
+        self.0.get(name)
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]

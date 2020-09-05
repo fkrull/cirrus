@@ -11,8 +11,15 @@ pub struct BaseViewModel {
 
 #[derive(Debug, Serialize)]
 pub struct NavViewModel {
+    pub overview: NavItem,
     pub repos: Vec<NavRepo>,
     pub backups: Vec<NavBackup>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct NavItem {
+    pub name: String,
+    pub link: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,6 +66,13 @@ pub fn base(daemon: &Daemon) -> anyhow::Result<BaseViewModel> {
 
     Ok(BaseViewModel {
         instance_name: daemon.instance_name.clone(),
-        nav: NavViewModel { repos, backups },
+        nav: NavViewModel {
+            overview: NavItem {
+                name: "Overview".to_string(),
+                link: uri!(crate::index::index).to_string(),
+            },
+            repos,
+            backups,
+        },
     })
 }

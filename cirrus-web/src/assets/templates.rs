@@ -1,4 +1,6 @@
 use super::content_type;
+use crate::ServerError;
+use anyhow::anyhow;
 use log::error;
 use rocket::{
     fairing::{Fairing, Info, Kind},
@@ -11,27 +13,26 @@ use std::{borrow::Cow, path::Path};
 use tera::{Context, Tera};
 
 #[derive(Serialize)]
-pub(crate) struct NoContext {}
+pub struct NoContext {}
 
 #[derive(Debug)]
-pub(crate) struct Template {
+pub struct Template {
     name: Cow<'static, str>,
     context: Context,
 }
 
 impl Template {
-    pub(crate) fn render(name: impl Into<Cow<'static, str>>, context: impl Serialize) -> Template {
+    pub fn render(
+        name: impl Into<Cow<'static, str>>,
+        context: impl Serialize,
+    ) -> Result<Template, ServerError> {
         let name = name.into();
         let context = Context::from_serialize(context)
-            .map_err(|err| {
-                error!("failed to serialize context: {}", err);
-                err
-            })
-            .unwrap_or_default();
-        Template { name, context }
+            .map_err(|e| anyhow!("failed to serialize template context: {}", e))?;
+        Ok(Template { name, context })
     }
 
-    pub(crate) fn fairing() -> impl Fairing {
+    pub fn fairing() -> impl Fairing {
         TemplateFairing
     }
 }

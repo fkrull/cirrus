@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{% block title %}Cirrus [{{ page.hostname }}] &mdash; {{ page.pagename }}{% endblock title %}</title>
+    <title>Cirrus [{{ base.instance_name }}] &mdash; {% block title %}{% endblock title %}</title>
 </head>
 <body>
 {% block content %}{% endblock content %}

@@ -1,4 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ name }}{% endblock title %}
 {% block content %}
+<h1>Repository '{{ name }}'</h1>
+<p><strong>Repository URL:</strong> {{ url }}</p>
+<p>
+    <strong>Backups using this repository:</strong>
+    <ul>
+        {% for backup in backups %}
+        <li><a href="{{ backup.link }}">{{ backup.name }}</a></li>
+        {% endfor %}
+    </ul>
+</p>
 {% endblock content %}

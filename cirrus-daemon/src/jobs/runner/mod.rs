@@ -102,7 +102,7 @@ impl JobsRunner {
         };
 
         let result = match description {
-            JobDescription::Backup { backup, repo } => {
+            JobDescription::Backup { backup, repo, .. } => {
                 run_backup_job(&self.restic, &self.secrets, backup, repo, &job)
             }
         };

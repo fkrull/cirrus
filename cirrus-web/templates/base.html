@@ -23,6 +23,11 @@
         {% for backup in base.nav.backups %}
         <li class="left-sidebar-nav-backup">
             <a href="{{ backup.link }}">{{ backup.name }}</a>
+            {% if backup.status.status == "Running" %}
+            <span class="left-sidebar-nav-backup-running">[Running]</span>
+            {% elif backup.status.status == "Error" %}
+            <span class="left-sidebar-nav-backup-error">[Error]</span>
+            {% endif %}
         </li>
         {% endfor %}
     </ul>

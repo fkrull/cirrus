@@ -1,4 +1,4 @@
-use cirrus_core::model::{backup, repo};
+use cirrus_core::model::backup;
 use cirrus_daemon::Daemon;
 use rocket::uri;
 use serde::Serialize;
@@ -29,40 +29,51 @@ pub struct NavRepo {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(tag = "status")]
+pub enum BackupStatus {
+    Idle,
+    Running,
+    Error,
+}
+
+#[derive(Debug, Serialize)]
 pub struct NavBackup {
     pub name: String,
     pub link: String,
+    pub status: BackupStatus,
 }
 
-fn repo_uri(name: &repo::Name) -> String {
-    uri!(crate::repo::repo: name = &name.0).to_string()
+async fn nav_backup_item(daemon: &Daemon, name: &backup::Name) -> NavBackup {
+    let job = daemon.jobs_repo.backup_jobs(name).await.pop();
+    let status = match job {
+        Some(job) if job.is_running() => BackupStatus::Running,
+        Some(job) if job.is_finished() && job.is_error() => BackupStatus::Error,
+        _ => BackupStatus::Idle,
+    };
+    NavBackup {
+        name: name.0.clone(),
+        link: uri!(crate::backup::backup: name = &name.0).to_string(),
+        status,
+    }
 }
 
-fn backup_uri(name: &backup::Name) -> String {
-    uri!(crate::backup::backup: name = &name.0).to_string()
-}
-
-pub fn base(daemon: &Daemon) -> anyhow::Result<BaseViewModel> {
+pub async fn base(daemon: &Daemon) -> anyhow::Result<BaseViewModel> {
     let repos = daemon
         .config
         .repositories
         .0
         .iter()
-        .map(|(name, definition)| NavRepo {
+        .map(|(name, _definition)| NavRepo {
             name: name.0.clone(),
-            link: repo_uri(name),
+            link: uri!(crate::repo::repo: name = &name.0).to_string(),
         })
         .collect::<Vec<_>>();
-    let backups = daemon
-        .config
-        .backups
-        .0
-        .iter()
-        .map(|(name, definition)| NavBackup {
-            name: name.0.clone(),
-            link: backup_uri(name),
-        })
-        .collect::<Vec<_>>();
+
+    let mut backups = Vec::new();
+    for name in daemon.config.backups.0.keys() {
+        let item = nav_backup_item(daemon, name).await;
+        backups.push(item);
+    }
 
     Ok(BaseViewModel {
         instance_name: daemon.instance_name.clone(),

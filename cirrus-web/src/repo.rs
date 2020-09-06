@@ -3,7 +3,7 @@ use crate::{
     base::{base, BaseViewModel},
     Error,
 };
-use cirrus_core::model::{backup, repo};
+use cirrus_core::model::repo;
 use cirrus_daemon::Daemon;
 use rocket::{get, uri, State};
 use serde::Serialize;
@@ -45,7 +45,7 @@ pub async fn repo(name: String, daemon: State<'_, Daemon>) -> TemplateResult {
     Template::render(
         "repo.html",
         RepoViewModel {
-            base: base(&daemon)?,
+            base: base(&daemon).await?,
             name: name.0,
             url: definition.url.0.clone(),
             backups,

@@ -13,11 +13,11 @@ pub struct IndexViewModel {
 }
 
 #[get("/")]
-pub fn index(daemon: State<Daemon>) -> TemplateResult {
+pub async fn index(daemon: State<'_, Daemon>) -> TemplateResult {
     Template::render(
         "index.html",
         IndexViewModel {
-            base: base(&daemon)?,
+            base: base(&daemon).await?,
         },
     )
 }

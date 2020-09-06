@@ -32,7 +32,7 @@ pub async fn backup(name: String, daemon: State<'_, Daemon>) -> TemplateResult {
     Template::render(
         "backup.html",
         BackupViewModel {
-            base: base(&daemon)?,
+            base: base(&daemon).await?,
             name: name.0,
             path: definition.path.0.clone(),
             excludes: definition.excludes.iter().map(|x| x.0.clone()).collect(),

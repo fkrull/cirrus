@@ -133,11 +133,10 @@ impl ResticProcess {
                 Event::ProcessExit(status) => {
                     return if status.success() {
                         Ok(())
+                    } else if let Some(code) = status.code() {
+                        Err(anyhow!("restic exited with status {}", code))
                     } else {
-                        Err(anyhow!(
-                            "restic exited with status {}",
-                            status.code().unwrap()
-                        ))
+                        Err(anyhow!("restic exited with unknown status"))
                     }
                 }
                 _ => continue,

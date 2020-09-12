@@ -5,7 +5,7 @@ use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 #[serde(transparent)]
 pub struct Name(pub String);
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize, Default)]
 #[serde(transparent)]
 pub struct Path(pub String);
 
@@ -95,12 +95,14 @@ pub enum Trigger {
     },
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub struct Definition {
     pub repository: repo::Name,
     pub path: Path,
     #[serde(default)]
     pub excludes: Vec<Exclude>,
+    #[serde(default)]
+    pub exclude_caches: bool,
     #[serde(default)]
     pub extra_args: Vec<String>,
     #[serde(default)]
@@ -134,18 +136,6 @@ pub struct Definition {
         }
     }
 }*/
-
-impl Default for Definition {
-    fn default() -> Self {
-        Definition {
-            repository: repo::Name(String::new()),
-            path: Path(String::new()),
-            excludes: vec![],
-            extra_args: vec![],
-            triggers: vec![],
-        }
-    }
-}
 
 /*impl Definition {
     pub fn next_schedule(&self, after: DateTime<Utc>) -> anyhow::Result<Option<DateTime<Utc>>> {

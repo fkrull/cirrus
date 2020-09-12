@@ -91,6 +91,7 @@ mod tests {
                 "/.local/share/Trash",
                 "/.cache"
             ]
+            exclude_caches = true
             extra_args = ["--one-file-system"]
 
             # look I don't remember cron syntax
@@ -136,6 +137,7 @@ mod tests {
                             backup::Exclude("/.local/share/Trash".to_string()),
                             backup::Exclude("/.cache".to_string()),
                         ],
+                        exclude_caches: true,
                         extra_args: vec!["--one-file-system".to_string()],
                         triggers: vec![
                             backup::Trigger::Cron {

@@ -74,6 +74,9 @@ impl Restic {
             args.push("--exclude".to_owned());
             args.push(exclude.0.clone());
         }
+        if backup.exclude_caches {
+            args.push("--exclude-caches".to_owned());
+        }
         for arg in &backup.extra_args {
             args.push(arg.clone());
         }

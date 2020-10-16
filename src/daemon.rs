@@ -19,7 +19,7 @@ pub async fn run(
 
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
     info!("instance name: {}", instance_name);
-    let daemon = Daemon {
+    let _daemon = Daemon {
         instance_name,
         config,
         restic,
@@ -31,7 +31,8 @@ pub async fn run(
     info!("starting job runner...");
     tokio::spawn(async move { runner.run_jobs().await });
 
-    info!("starting web UI...");
-    cirrus_web::launch(daemon).await?;
+    info!("running forever...");
+    tokio::signal::ctrl_c().await?;
+
     Ok(())
 }

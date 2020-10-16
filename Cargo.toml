@@ -14,7 +14,6 @@ members = [
 [dependencies]
 cirrus-core = { path = "cirrus-core" }
 cirrus-daemon = { path = "cirrus-daemon" }
-cirrus-web = { path = "cirrus-web" }
 anyhow = "1.0.30"
 clap = "2.33.1"
 dirs = "2.0.2"
@@ -28,7 +27,7 @@ toml = "0.5.6"
 
 [dependencies.tokio]
 version = "0.2.22"
-features = ["fs", "macros"]
+features = ["fs", "macros", "signal"]
 
 [features]
 default = []
@@ -37,4 +36,4 @@ default = []
 desktop-integration = ["opener", "cirrus-core/keyring"]
 
 # release features
-bundled-assets = ["cirrus-web/bundled-assets"]
+#bundled-assets = ["cirrus-web/bundled-assets"]

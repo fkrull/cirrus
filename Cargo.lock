@@ -334,7 +334,6 @@ dependencies = [
  "anyhow",
  "cirrus-core",
  "cirrus-daemon",
- "cirrus-web",
  "clap",
  "dirs",
  "env_logger",

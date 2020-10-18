@@ -44,7 +44,7 @@ pub struct NavBackup {
 }
 
 async fn nav_backup_item(daemon: &Daemon, name: &backup::Name) -> NavBackup {
-    let job = daemon.jobs_repo.backup_jobs(name).await.pop();
+    /*let job = daemon.jobs_repo.backup_jobs(name).await.pop();
     let status = match job {
         Some(job) if job.is_running() => BackupStatus::Running,
         Some(job) if job.is_finished() && job.is_error() => BackupStatus::Error,
@@ -54,7 +54,8 @@ async fn nav_backup_item(daemon: &Daemon, name: &backup::Name) -> NavBackup {
         name: name.0.clone(),
         link: uri!(crate::backup::backup: name = &name.0).to_string(),
         status,
-    }
+    }*/
+    unimplemented!()
 }
 
 pub async fn base(daemon: &Daemon) -> anyhow::Result<BaseViewModel> {

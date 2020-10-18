@@ -1,5 +1,5 @@
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
-use cirrus_daemon::jobs::{repo::JobsRepo, runner::JobsRunner};
+use cirrus_daemon::jobs::JobsRunner;
 use cirrus_daemon::Daemon;
 use clap::ArgMatches;
 use log::info;
@@ -14,8 +14,7 @@ pub async fn run(
     let config = Arc::new(config);
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
-    let jobs_repo = Arc::new(JobsRepo::new());
-    let (mut runner, sender) = JobsRunner::new(restic.clone(), secrets.clone(), jobs_repo.clone());
+    let (mut runner, jobs_push) = JobsRunner::new();
 
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
     info!("instance name: {}", instance_name);
@@ -24,12 +23,11 @@ pub async fn run(
         config,
         restic,
         secrets,
-        jobs_repo,
-        jobs_sender: Arc::new(sender),
+        jobs_push,
     };
 
     info!("starting job runner...");
-    tokio::spawn(async move { runner.run_jobs().await });
+    tokio::spawn(async move { runner.run().await });
 
     info!("running forever...");
     tokio::signal::ctrl_c().await?;

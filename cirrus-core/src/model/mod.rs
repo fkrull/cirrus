@@ -154,6 +154,7 @@ mod tests {
                         repository: repo::Name("sftp".to_string()),
                         path: backup::Path("/srv".to_string()),
                         excludes: vec![],
+                        exclude_caches: false,
                         extra_args: vec![],
                         triggers: vec![]
                     },

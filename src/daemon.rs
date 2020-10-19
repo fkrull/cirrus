@@ -10,7 +10,7 @@ pub async fn run(
     secrets: Secrets,
     config: Config,
     _matches: &ArgMatches<'_>,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let config = Arc::new(config);
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);

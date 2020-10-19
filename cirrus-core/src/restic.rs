@@ -1,5 +1,5 @@
 use crate::{model::backup, secrets::RepoWithSecrets};
-use anyhow::anyhow;
+use eyre::eyre;
 use futures::{
     future::{pending, FutureExt},
     select,
@@ -34,7 +34,7 @@ impl Restic {
         repo_with_secrets: Option<RepoWithSecrets>,
         extra_args: impl IntoIterator<Item = S>,
         options: &Options,
-    ) -> anyhow::Result<ResticProcess> {
+    ) -> eyre::Result<ResticProcess> {
         let mut cmd = Command::new(&self.bin);
 
         if let Some(repo_with_secrets) = repo_with_secrets {
@@ -62,7 +62,7 @@ impl Restic {
         repo_with_secrets: RepoWithSecrets,
         backup: &backup::Definition,
         options: &Options,
-    ) -> anyhow::Result<ResticProcess> {
+    ) -> eyre::Result<ResticProcess> {
         self.run(Some(repo_with_secrets), Self::backup_args(backup), options)
     }
 
@@ -109,7 +109,7 @@ impl ResticProcess {
         }
     }
 
-    pub async fn next_event(&mut self) -> anyhow::Result<Event> {
+    pub async fn next_event(&mut self) -> eyre::Result<Event> {
         select! {
             status = (&mut self.child).fuse() => Ok(Event::ProcessExit(status?)),
             line = Self::maybe_read_line(&mut self.stdout).fuse() => Ok(Event::StdoutLine(line?)),
@@ -129,7 +129,7 @@ impl ResticProcess {
         }
     }
 
-    pub async fn wait(mut self) -> anyhow::Result<()> {
+    pub async fn wait(mut self) -> eyre::Result<()> {
         loop {
             let event = self.next_event().await?;
             match event {
@@ -137,9 +137,9 @@ impl ResticProcess {
                     return if status.success() {
                         Ok(())
                     } else if let Some(code) = status.code() {
-                        Err(anyhow!("restic exited with status {}", code))
+                        Err(eyre!("restic exited with status {}", code))
                     } else {
-                        Err(anyhow!("restic exited with unknown status"))
+                        Err(eyre!("restic exited with unknown status"))
                     }
                 }
                 _ => continue,

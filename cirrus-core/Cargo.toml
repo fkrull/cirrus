@@ -5,7 +5,7 @@ authors = ["Felix Krull <f_krull@gmx.de>"]
 edition = "2018"
 
 [dependencies]
-anyhow = "1.0.30"
+eyre = "0.6.1"
 chrono = "0.4.11"
 cron-parser = "0.7.4"
 futures = "0.3.5"

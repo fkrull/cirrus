@@ -1,10 +1,10 @@
-use anyhow::anyhow;
 use cirrus_core::{
     model::{repo, Config},
     secrets::SecretValue,
     secrets::Secrets,
 };
 use clap::ArgMatches;
+use eyre::eyre;
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
@@ -22,7 +22,7 @@ fn print_secret(
     secret_name: &str,
     secret: &repo::Secret,
     show_passwords: bool,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     print!("{}.{} [{}] = ", repo_name.0, secret_name, secret.label());
     match secrets.get_secret(secret) {
         Ok(value) => {
@@ -44,7 +44,7 @@ pub async fn list(
     secrets: &Secrets,
     config: &Config,
     matches: &ArgMatches<'_>,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let show_passwords = matches.is_present("secret-list-show-passwords");
 
     for (repo_name, repo) in &config.repositories.0 {
@@ -63,11 +63,7 @@ pub async fn list(
     Ok(())
 }
 
-pub async fn set(
-    secrets: &Secrets,
-    config: &Config,
-    matches: &ArgMatches<'_>,
-) -> anyhow::Result<()> {
+pub async fn set(secrets: &Secrets, config: &Config, matches: &ArgMatches<'_>) -> eyre::Result<()> {
     let repo_name = repo::Name(matches.value_of("secret-set-repo").unwrap().to_owned());
     let secret_name = matches
         .value_of("secret-set-secret")
@@ -84,7 +80,7 @@ pub async fn set(
             let secret = repo
                 .secrets
                 .get(&secret_name)
-                .ok_or_else(|| anyhow!("no such secret '{}'", secret_name.0))?;
+                .ok_or_else(|| eyre!("no such secret '{}'", secret_name.0))?;
             let prompt = format!("Value for secret '{}.{}': ", repo_name.0, secret_name.0);
             let value = SecretValue::new(rpassword::read_password_from_tty(Some(&prompt))?);
             (secret, value)

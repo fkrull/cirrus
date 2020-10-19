@@ -14,7 +14,7 @@ pub async fn restic(
     secrets: &Secrets,
     config: &Config,
     matches: &ArgMatches<'_>,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let cmd = matches.values_of("cmd").unwrap();
     match matches.value_of("repo") {
         Some(repo_name) => {
@@ -35,7 +35,7 @@ pub async fn backup(
     secrets: &Secrets,
     config: &Config,
     matches: &ArgMatches<'_>,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let backup_name = backup::Name(matches.value_of("backup").unwrap().to_owned());
     let backup = config.backup(&backup_name)?;
     let repo = config.repository_for_backup(backup)?;

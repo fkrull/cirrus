@@ -1,19 +1,19 @@
-use anyhow::{anyhow, Context};
 use cirrus::{commands, daemon};
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use clap::{App, AppSettings, Arg, ArgSettings};
-use env_logger::Env;
+use eyre::{eyre, WrapErr};
 use std::path::PathBuf;
 
-fn default_config_path() -> anyhow::Result<PathBuf> {
+fn default_config_path() -> eyre::Result<PathBuf> {
     dirs::config_dir()
         .map(|dir| dir.join("cirrus").join("config.toml"))
-        .ok_or_else(|| anyhow!("can't find config file"))
+        .ok_or_else(|| eyre!("can't find config file"))
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    env_logger::from_env(Env::default().default_filter_or("info")).init();
+async fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let cli = App::new("cirrus")
         .arg(
@@ -101,17 +101,12 @@ async fn main() -> anyhow::Result<()> {
         .map(PathBuf::from)
         .map(Ok)
         .unwrap_or_else(|| default_config_path())
-        .context("failed to get path for the default config file")?;
+        .wrap_err("failed to get path for the default config file")?;
     let cfg_data = tokio::fs::read_to_string(&config_path)
         .await
-        .context(format!(
-            "failed to read config file '{}'",
-            config_path.display()
-        ))?;
-    let config: Config = toml::from_str(&cfg_data).context(format!(
-        "failed to parse config file '{}'",
-        config_path.display()
-    ))?;
+        .wrap_err_with(|| format!("failed to read config file '{}'", config_path.display()))?;
+    let config: Config = toml::from_str(&cfg_data)
+        .wrap_err_with(|| format!("failed to parse config file '{}'", config_path.display()))?;
 
     let restic = Restic::new(matches.value_of("restic-binary").unwrap());
     let secrets = Secrets;

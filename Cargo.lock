@@ -416,6 +416,7 @@ dependencies = [
  "async-trait",
  "cirrus-actor",
  "cirrus-core",
+ "eyre",
  "futures",
  "log",
 ]

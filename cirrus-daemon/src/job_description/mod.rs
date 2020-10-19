@@ -21,7 +21,7 @@ impl JobDescription {
         }
     }
 
-    pub(crate) async fn start_job(self) {
+    pub(crate) async fn start_job(self) -> eyre::Result<()> {
         match self {
             JobDescription::Backup(desc) => desc.start_job().await,
         }

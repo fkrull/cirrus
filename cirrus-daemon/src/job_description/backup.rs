@@ -24,22 +24,19 @@ impl BackupDescription {
         }
     }
 
-    pub(super) async fn start_job(self) {
+    pub(super) async fn start_job(self) -> eyre::Result<()> {
         use cirrus_core::restic::Options;
 
-        // TODO don't unwrap errors
-        let repo_with_secrets = self.secrets.get_secrets(&self.repo).unwrap();
-        let process = self
-            .restic
-            .backup(
-                repo_with_secrets,
-                &self.backup,
-                &Options {
-                    capture_output: false,
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-        process.wait().await.unwrap();
+        let repo_with_secrets = self.secrets.get_secrets(&self.repo)?;
+        let process = self.restic.backup(
+            repo_with_secrets,
+            &self.backup,
+            &Options {
+                capture_output: false,
+                ..Default::default()
+            },
+        )?;
+        process.wait().await?;
+        Ok(())
     }
 }

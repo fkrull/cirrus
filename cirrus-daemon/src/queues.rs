@@ -1,5 +1,6 @@
 use crate::job_description::JobDescription;
 use cirrus_core::{model::backup, model::repo};
+use log::error;
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,
@@ -16,7 +17,7 @@ async fn select_all_or_pending<F: Future + Unpin>(it: impl ExactSizeIterator<Ite
 }
 
 struct RunningJob {
-    fut: Pin<Box<dyn Future<Output = ()> + Send>>,
+    fut: Pin<Box<dyn Future<Output = eyre::Result<()>> + Send>>,
 }
 
 impl std::fmt::Debug for RunningJob {
@@ -59,7 +60,9 @@ impl JobQueue {
 
     async fn run(&mut self) {
         if let Some(job) = &mut self.running {
-            (&mut job.fut).await;
+            if let Err(error) = (&mut job.fut).await {
+                error!("job failed: {}", error);
+            }
             self.running = None;
         } else {
             futures::future::pending().await

@@ -10,3 +10,4 @@ cirrus-core = { path = "../cirrus-core" }
 async-trait = "0.1.41"
 log = "0.4.8"
 futures = "0.3.6"
+eyre = "0.6.1"

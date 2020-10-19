@@ -71,9 +71,17 @@ impl<A: Actor> ActorInstance<A> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ActorRef<M> {
     send: mpsc::UnboundedSender<M>,
+}
+
+impl<M> Clone for ActorRef<M> {
+    fn clone(&self) -> Self {
+        ActorRef {
+            send: self.send.clone(),
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

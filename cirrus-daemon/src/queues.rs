@@ -50,7 +50,7 @@ impl JobQueue {
         if !self.has_running_job() {
             if let Some(description) = self.queue.pop_front() {
                 let job = RunningJob {
-                    fut: description.start_job(),
+                    fut: Box::pin(description.start_job()),
                 };
                 self.running = Some(job);
             }

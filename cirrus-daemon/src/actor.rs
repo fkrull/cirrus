@@ -24,7 +24,11 @@ pub trait Actor {
         Box::pin(futures::future::ready(()))
     }
 
-    fn on_recv(
+    fn on_idle(&mut self) -> Pin<Box<dyn Future<Output = ()> + '_>> {
+        Box::pin(futures::future::pending())
+    }
+
+    /*fn on_recv(
         &mut self,
         message: Option<Self::Message>,
     ) -> Pin<Box<dyn Future<Output = bool> + '_>> {
@@ -54,7 +58,7 @@ pub trait Actor {
                 }
             }
         })
-    }
+    }*/
 }
 
 #[derive(Debug)]
@@ -74,8 +78,53 @@ impl<A: Actor> ActorInstance<A> {
         (actor_instance, actor_ref)
     }
 
+    /*fn on_recv(
+        &mut self,
+        message: Option<Self::Message>,
+    ) -> Pin<Box<dyn Future<Output = bool> + '_>> {
+        Box::pin(async move {
+            match message {
+                Some(message) => {
+                    self.on_message(message).await;
+                    true
+                }
+                None => {
+                    self.on_close().await;
+                    false
+                }
+            }
+        })
+    }*/
+
     pub async fn run(&mut self) {
-        self.actor_impl.run(&mut self.recv).await;
+        use futures::future::select;
+        use futures::future::Either;
+
+        loop {
+            let recv_fut = self.recv.recv();
+            let idle_fut = self.actor_impl.on_idle();
+            pin_mut!(recv_fut);
+            let s = select(recv_fut, idle_fut);
+
+            let msg = match s.await {
+                Either::Left((Ok(Some(message)), _)) => {
+                    Some(message)
+                    //self.actor_impl.on_message(message).await;
+                }
+                Either::Left((Ok(None), _)) => None,
+                Either::Left((Err(e), _)) => todo!(),
+                Either::Right(_) => todo!(),
+            };
+            match msg {
+                Some(msg) => {
+                    self.actor_impl.on_message(msg).await;
+                }
+                None => {
+                    self.actor_impl.on_close().await;
+                    break;
+                }
+            };
+        }
     }
 }
 

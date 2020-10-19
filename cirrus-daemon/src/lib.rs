@@ -1,3 +1,4 @@
+use crate::job_description::JobDescription;
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use std::sync::Arc;
 
@@ -12,5 +13,5 @@ pub struct Daemon {
     pub config: Arc<Config>,
     pub restic: Arc<Restic>,
     pub secrets: Arc<Secrets>,
-    pub jobs_push: jobs::JobsRunnerPush,
+    pub jobs_ref: actor::ActorRef<JobDescription>,
 }

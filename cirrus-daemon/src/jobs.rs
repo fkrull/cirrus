@@ -1,15 +1,41 @@
+use crate::actor::Actor;
 use crate::job_description::JobDescription;
 use crate::queues::Queues;
+use async_trait::async_trait;
 use log::{error, info};
+use std::convert::Infallible;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct JobsRunner {
-    recv: UnboundedReceiver<JobDescription>,
+    //recv: UnboundedReceiver<JobDescription>,
     queues: Queues,
 }
 
-impl JobsRunner {
+#[async_trait]
+impl Actor for JobsRunner {
+    type Message = JobDescription;
+    type Error = Infallible;
+
+    async fn on_message(&mut self, description: JobDescription) -> Result<(), Infallible> {
+        self.queues.push(description);
+        self.queues.maybe_start_next_jobs();
+        Ok(())
+    }
+
+    async fn on_close(&mut self) -> Result<(), Infallible> {
+        info!("stopping job runner because all send ends were closed");
+        Ok(())
+    }
+
+    async fn on_idle(&mut self) -> Result<(), Infallible> {
+        self.queues.maybe_start_next_jobs();
+        self.queues.run().await;
+        Ok(())
+    }
+}
+
+/*impl JobsRunner {
     pub fn new() -> (JobsRunner, JobsRunnerPush) {
         use tokio::sync::mpsc::unbounded_channel;
         let (send, recv) = unbounded_channel();
@@ -44,9 +70,9 @@ impl JobsRunner {
             }
         }
     }
-}
+}*/
 
-#[derive(Debug, Clone)]
+/*#[derive(Debug, Clone)]
 pub struct JobsRunnerPush(UnboundedSender<JobDescription>);
 
 impl JobsRunnerPush {
@@ -59,3 +85,4 @@ impl JobsRunnerPush {
         }
     }
 }
+*/

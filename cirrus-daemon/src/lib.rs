@@ -4,6 +4,7 @@ use std::sync::Arc;
 pub mod job_description;
 pub mod jobs;
 pub mod queues;
+pub mod scheduler;
 
 #[derive(Debug, Clone)]
 pub struct Daemon {

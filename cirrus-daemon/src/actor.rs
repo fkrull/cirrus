@@ -1,22 +1,20 @@
+use async_trait::async_trait;
 use futures::channel::mpsc;
-use std::{future::Future, pin::Pin};
 
-// TODO async-trait
-pub trait Actor {
+#[async_trait]
+pub trait Actor: Send {
     type Message;
     type Error;
 
-    fn on_message(
-        &mut self,
-        message: Self::Message,
-    ) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + '_>>;
+    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error>;
 
-    fn on_close(&mut self) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + '_>> {
-        Box::pin(futures::future::ready(Ok(())))
+    async fn on_close(&mut self) -> Result<(), Self::Error> {
+        Ok(())
     }
 
-    fn on_idle(&mut self) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + '_>> {
-        Box::pin(futures::future::pending())
+    async fn on_idle(&mut self) -> Result<(), Self::Error> {
+        futures::future::pending::<()>().await;
+        unreachable!()
     }
 }
 
@@ -82,13 +80,13 @@ pub struct ActorRef<M> {
     send: mpsc::UnboundedSender<M>,
 }
 
-// TODO derive Error
-#[derive(Debug)]
-pub struct SendError(mpsc::SendError);
+#[derive(Debug, thiserror::Error)]
+#[error("sending message to actor failed")]
+pub struct SendError(#[from] mpsc::SendError);
 
 impl<M> ActorRef<M> {
     pub async fn send(&mut self, message: M) -> Result<(), SendError> {
         use futures::sink::SinkExt;
-        self.send.send(message).await.map_err(|err| SendError(err))
+        self.send.send(message).await.map_err(|err| err.into())
     }
 }

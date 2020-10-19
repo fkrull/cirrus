@@ -5,13 +5,8 @@ authors = ["Felix Krull <f_krull@gmx.de>"]
 edition = "2018"
 
 [dependencies]
+cirrus-actor = { path = "../cirrus-actor" }
 cirrus-core = { path = "../cirrus-core" }
-anyhow = "1.0.30"
-futures = "0.3.5"
-log = "0.4.8"
 async-trait = "0.1.41"
-thiserror = "1.0.21"
-
-[dependencies.tokio]
-version = "0.2.22"
-features = ["sync"]
+log = "0.4.8"
+futures = "0.3.6"

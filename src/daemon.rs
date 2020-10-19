@@ -1,5 +1,4 @@
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
-use cirrus_daemon::actor::ActorInstance;
 use cirrus_daemon::jobs::JobsRunner;
 use cirrus_daemon::Daemon;
 use clap::ArgMatches;
@@ -15,7 +14,7 @@ pub async fn run(
     let config = Arc::new(config);
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
-    let (mut runner, jobs_ref) = ActorInstance::new(JobsRunner::default());
+    let (mut runner, jobs_ref) = JobsRunner::new();
 
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
     info!("instance name: {}", instance_name);

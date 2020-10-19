@@ -39,24 +39,6 @@ impl<A: Actor> ActorInstance<A> {
         (actor_instance, actor_ref)
     }
 
-    async fn select(&mut self) -> Result<ActorSelect<A::Message>, A::Error> {
-        use futures::{
-            future::{select, Either},
-            pin_mut,
-            stream::StreamExt,
-        };
-
-        let recv_fut = self.recv.next();
-        let idle_fut = self.actor_impl.on_idle();
-        pin_mut!(recv_fut);
-        match select(recv_fut, idle_fut).await {
-            Either::Left((Some(message), _)) => Ok(ActorSelect::MessageReceived(message)),
-            Either::Left((None, _)) => Ok(ActorSelect::ChannelClosed),
-            Either::Right((Ok(()), _)) => Ok(ActorSelect::IdleReady),
-            Either::Right((Err(error), _)) => Err(error),
-        }
-    }
-
     pub async fn run(&mut self) -> Result<(), A::Error> {
         loop {
             match self.select().await? {
@@ -72,6 +54,20 @@ impl<A: Actor> ActorInstance<A> {
         }
 
         Ok(())
+    }
+
+    async fn select(&mut self) -> Result<ActorSelect<A::Message>, A::Error> {
+        use futures::{future::select, future::Either, pin_mut, stream::StreamExt};
+
+        let recv_fut = self.recv.next();
+        let idle_fut = self.actor_impl.on_idle();
+        pin_mut!(recv_fut);
+        match select(recv_fut, idle_fut).await {
+            Either::Left((Some(message), _)) => Ok(ActorSelect::MessageReceived(message)),
+            Either::Left((None, _)) => Ok(ActorSelect::ChannelClosed),
+            Either::Right((Ok(()), _)) => Ok(ActorSelect::IdleReady),
+            Either::Right((Err(error), _)) => Err(error),
+        }
     }
 }
 

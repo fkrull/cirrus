@@ -1,6 +1,7 @@
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use std::sync::Arc;
 
+pub mod actor;
 pub mod job_description;
 pub mod jobs;
 pub mod queues;

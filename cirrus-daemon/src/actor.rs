@@ -17,48 +17,28 @@ impl<M> MessageReceiver<M> {
 
 pub trait Actor {
     type Message;
+    type Error;
 
-    fn on_message(&mut self, message: Self::Message) -> Pin<Box<dyn Future<Output = ()> + '_>>;
+    fn on_message(
+        &mut self,
+        message: Self::Message,
+    ) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + '_>>;
 
-    fn on_close(&mut self) -> Pin<Box<dyn Future<Output = ()> + '_>> {
-        Box::pin(futures::future::ready(()))
+    fn on_close(&mut self) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + '_>> {
+        Box::pin(futures::future::ready(Ok(())))
     }
 
-    fn on_idle(&mut self) -> Pin<Box<dyn Future<Output = ()> + '_>> {
+    fn on_idle(&mut self) -> Pin<Box<dyn Future<Output = Result<(), Self::Error>> + '_>> {
         Box::pin(futures::future::pending())
     }
+}
 
-    /*fn on_recv(
-        &mut self,
-        message: Option<Self::Message>,
-    ) -> Pin<Box<dyn Future<Output = bool> + '_>> {
-        Box::pin(async move {
-            match message {
-                Some(message) => {
-                    self.on_message(message).await;
-                    true
-                }
-                None => {
-                    self.on_close().await;
-                    false
-                }
-            }
-        })
-    }
-
-    fn run<'a>(
-        &'a mut self,
-        recv: &'a mut MessageReceiver<Self::Message>,
-    ) -> Pin<Box<dyn Future<Output = ()> + 'a>> {
-        Box::pin(async move {
-            loop {
-                let message = recv.recv().await.unwrap();
-                if !self.on_recv(message).await {
-                    break;
-                }
-            }
-        })
-    }*/
+#[derive(Debug)]
+enum ActorSelect<M> {
+    MessageReceived(M),
+    ChannelClosed,
+    Error,
+    IdleReady,
 }
 
 #[derive(Debug)]
@@ -78,51 +58,45 @@ impl<A: Actor> ActorInstance<A> {
         (actor_instance, actor_ref)
     }
 
-    /*fn on_recv(
-        &mut self,
-        message: Option<Self::Message>,
-    ) -> Pin<Box<dyn Future<Output = bool> + '_>> {
-        Box::pin(async move {
-            match message {
-                Some(message) => {
-                    self.on_message(message).await;
-                    true
-                }
-                None => {
-                    self.on_close().await;
-                    false
-                }
-            }
-        })
-    }*/
-
-    pub async fn run(&mut self) {
+    async fn select(&mut self) -> ActorSelect<A::Message> {
         use futures::future::select;
         use futures::future::Either;
 
-        loop {
-            let recv_fut = self.recv.recv();
-            let idle_fut = self.actor_impl.on_idle();
-            pin_mut!(recv_fut);
-            let s = select(recv_fut, idle_fut);
+        let recv_fut = self.recv.recv();
+        let idle_fut = self.actor_impl.on_idle();
+        pin_mut!(recv_fut);
+        match select(recv_fut, idle_fut).await {
+            Either::Left((Ok(Some(message)), _)) => ActorSelect::MessageReceived(message),
+            Either::Left((Ok(None), _)) => ActorSelect::ChannelClosed,
+            Either::Left((Err(_error), _)) => {
+                // TODO error
+                ActorSelect::Error
+            }
+            Either::Right((Ok(()), _)) => ActorSelect::IdleReady,
+            Either::Right((Err(_error), _)) => {
+                // TODO error
+                ActorSelect::Error
+            }
+        }
+    }
 
-            let msg = match s.await {
-                Either::Left((Ok(Some(message)), _)) => {
-                    Some(message)
-                    //self.actor_impl.on_message(message).await;
+    pub async fn run(&mut self) -> Result<(), ()> {
+        loop {
+            match self.select().await {
+                ActorSelect::MessageReceived(message) => {
+                    // TODO error
+                    self.actor_impl.on_message(message).await;
                 }
-                Either::Left((Ok(None), _)) => None,
-                Either::Left((Err(e), _)) => todo!(),
-                Either::Right(_) => todo!(),
-            };
-            match msg {
-                Some(msg) => {
-                    self.actor_impl.on_message(msg).await;
-                }
-                None => {
+                ActorSelect::ChannelClosed => {
+                    // TODO error
                     self.actor_impl.on_close().await;
-                    break;
+                    return Ok(());
                 }
+                ActorSelect::Error => {
+                    // TODO error
+                    todo!();
+                }
+                ActorSelect::IdleReady => {}
             };
         }
     }
@@ -135,6 +109,7 @@ pub struct ActorRef<M> {
 
 impl<M> ActorRef<M> {
     pub async fn send(&mut self, message: M) -> Result<(), ()> {
+        // TODO error
         let r = self.send.send(message).await;
         r.map_err(|_| ())
     }

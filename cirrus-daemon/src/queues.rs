@@ -1,6 +1,5 @@
 use crate::job_description::JobDescription;
 use cirrus_core::{model::backup, model::repo};
-use futures::future::Either;
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,

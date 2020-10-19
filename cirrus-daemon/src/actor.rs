@@ -1,20 +1,7 @@
-use futures::channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
-use futures::pin_mut;
-use futures::SinkExt;
-use std::future::Future;
-use std::pin::Pin;
+use futures::channel::mpsc;
+use std::{future::Future, pin::Pin};
 
-#[derive(Debug)]
-pub struct MessageReceiver<M> {
-    recv: UnboundedReceiver<M>,
-}
-
-impl<M> MessageReceiver<M> {
-    pub async fn recv(&mut self) -> Result<Option<M>, ()> {
-        todo!()
-    }
-}
-
+// TODO async-trait
 pub trait Actor {
     type Message;
     type Error;
@@ -37,80 +24,71 @@ pub trait Actor {
 enum ActorSelect<M> {
     MessageReceived(M),
     ChannelClosed,
-    Error,
     IdleReady,
 }
 
 #[derive(Debug)]
 pub struct ActorInstance<A: Actor> {
     actor_impl: A,
-    recv: MessageReceiver<A::Message>,
+    recv: mpsc::UnboundedReceiver<A::Message>,
 }
 
 impl<A: Actor> ActorInstance<A> {
     pub fn new(actor_impl: A) -> (ActorInstance<A>, ActorRef<A::Message>) {
         let (send, recv) = futures::channel::mpsc::unbounded();
-        let actor_instance = ActorInstance {
-            actor_impl,
-            recv: MessageReceiver { recv },
-        };
+        let actor_instance = ActorInstance { actor_impl, recv };
         let actor_ref = ActorRef { send };
         (actor_instance, actor_ref)
     }
 
-    async fn select(&mut self) -> ActorSelect<A::Message> {
-        use futures::future::select;
-        use futures::future::Either;
+    async fn select(&mut self) -> Result<ActorSelect<A::Message>, A::Error> {
+        use futures::{
+            future::{select, Either},
+            pin_mut,
+            stream::StreamExt,
+        };
 
-        let recv_fut = self.recv.recv();
+        let recv_fut = self.recv.next();
         let idle_fut = self.actor_impl.on_idle();
         pin_mut!(recv_fut);
         match select(recv_fut, idle_fut).await {
-            Either::Left((Ok(Some(message)), _)) => ActorSelect::MessageReceived(message),
-            Either::Left((Ok(None), _)) => ActorSelect::ChannelClosed,
-            Either::Left((Err(_error), _)) => {
-                // TODO error
-                ActorSelect::Error
-            }
-            Either::Right((Ok(()), _)) => ActorSelect::IdleReady,
-            Either::Right((Err(_error), _)) => {
-                // TODO error
-                ActorSelect::Error
-            }
+            Either::Left((Some(message), _)) => Ok(ActorSelect::MessageReceived(message)),
+            Either::Left((None, _)) => Ok(ActorSelect::ChannelClosed),
+            Either::Right((Ok(()), _)) => Ok(ActorSelect::IdleReady),
+            Either::Right((Err(error), _)) => Err(error),
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), ()> {
+    pub async fn run(&mut self) -> Result<(), A::Error> {
         loop {
-            match self.select().await {
+            match self.select().await? {
                 ActorSelect::MessageReceived(message) => {
-                    // TODO error
-                    self.actor_impl.on_message(message).await;
+                    self.actor_impl.on_message(message).await?;
                 }
                 ActorSelect::ChannelClosed => {
-                    // TODO error
-                    self.actor_impl.on_close().await;
-                    return Ok(());
-                }
-                ActorSelect::Error => {
-                    // TODO error
-                    todo!();
+                    self.actor_impl.on_close().await?;
+                    break;
                 }
                 ActorSelect::IdleReady => {}
             };
         }
+
+        Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct ActorRef<M> {
-    send: UnboundedSender<M>,
+    send: mpsc::UnboundedSender<M>,
 }
 
+// TODO derive Error
+#[derive(Debug)]
+pub struct SendError(mpsc::SendError);
+
 impl<M> ActorRef<M> {
-    pub async fn send(&mut self, message: M) -> Result<(), ()> {
-        // TODO error
-        let r = self.send.send(message).await;
-        r.map_err(|_| ())
+    pub async fn send(&mut self, message: M) -> Result<(), SendError> {
+        use futures::sink::SinkExt;
+        self.send.send(message).await.map_err(|err| SendError(err))
     }
 }

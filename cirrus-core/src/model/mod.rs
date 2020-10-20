@@ -69,7 +69,7 @@ mod tests {
     use maplit::hashmap;
 
     #[test]
-    fn should_parse_complex_config() -> anyhow::Result<()> {
+    fn should_parse_complex_config() -> eyre::Result<()> {
         let input: toml::Value = toml::from_str(
             //language=TOML
             r#"

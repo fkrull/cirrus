@@ -1,4 +1,5 @@
 use super::repo;
+use chrono::DateTime;
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
@@ -109,8 +110,11 @@ pub struct Definition {
     pub triggers: Vec<Trigger>,
 }
 
-/*impl Trigger {
-    pub fn next_schedule(&self, after: DateTime<Utc>) -> anyhow::Result<DateTime<Utc>> {
+impl Trigger {
+    pub fn next_schedule(
+        &self,
+        after: DateTime<chrono::Utc>,
+    ) -> eyre::Result<DateTime<chrono::Utc>> {
         match self {
             Trigger::Cron {
                 cron,
@@ -119,38 +123,39 @@ pub struct Definition {
             Trigger::Cron {
                 cron,
                 timezone: Timezone::Local,
-            } => {
-                let x = cron_parser::parse(cron, &after.with_timezone(&Local))
-                    .context(format!("invalid cron expression '{}'", cron))?;
-                Ok(x.with_timezone(&Utc))
-            }
+            } => Ok(
+                cron_parser::parse(cron, &after.with_timezone(&chrono::Local))?
+                    .with_timezone(&chrono::Utc),
+            ),
             Trigger::Cron {
                 timezone: Timezone::Other(_),
                 ..
             } => {
                 // TODO: arbitrary timezones?
-                Err(anyhow::anyhow!(
-                    "arbitrary timezones aren't supported (yet?)"
-                ))
+                Err(eyre::eyre!("arbitrary timezones aren't supported (yet?)"))
             }
         }
     }
-}*/
+}
 
-/*impl Definition {
-    pub fn next_schedule(&self, after: DateTime<Utc>) -> anyhow::Result<Option<DateTime<Utc>>> {
+impl Definition {
+    pub fn next_schedule(
+        &self,
+        after: DateTime<chrono::Utc>,
+    ) -> eyre::Result<Option<DateTime<chrono::Utc>>> {
+        use std::cmp::min;
+
         self.triggers
             .iter()
             .map(|trigger| trigger.next_schedule(after))
             .try_fold(None, |acc, next| {
                 let next = next?;
-                Ok(Some(match acc {
-                    Some(schedule) => min(schedule, next),
-                    None => next,
-                }))
+                Ok(acc
+                    .map(|schedule| min(schedule, next))
+                    .or_else(|| Some(next)))
             })
     }
-}*/
+}
 
 #[cfg(test)]
 mod tests {
@@ -160,96 +165,96 @@ mod tests {
         use super::*;
 
         #[test]
-        fn should_deserialize_utc_timezone() -> anyhow::Result<()> {
-            let tz: Timezone = serde_json::from_str(r#""utc""#)?;
+        fn should_deserialize_utc_timezone() {
+            let tz: Timezone = serde_json::from_str(r#""utc""#).unwrap();
             assert_eq!(tz, Timezone::Utc);
-            Ok(())
         }
 
         #[test]
-        fn should_deserialize_local_timezone() -> anyhow::Result<()> {
-            let tz: Timezone = serde_json::from_str(r#""local""#)?;
+        fn should_deserialize_local_timezone() {
+            let tz: Timezone = serde_json::from_str(r#""local""#).unwrap();
             assert_eq!(tz, Timezone::Local);
-            Ok(())
         }
 
         #[test]
-        fn should_deserialize_other_timezone() -> anyhow::Result<()> {
-            let tz: Timezone = serde_json::from_str(r#""Antarctica/Troll""#)?;
+        fn should_deserialize_other_timezone() {
+            let tz: Timezone = serde_json::from_str(r#""Antarctica/Troll""#).unwrap();
             assert_eq!(tz, Timezone::Other("Antarctica/Troll".to_string()));
-            Ok(())
         }
 
         #[test]
-        fn should_serialize_utc_timezone() -> anyhow::Result<()> {
-            let s = serde_json::to_string(&Timezone::Utc)?;
+        fn should_serialize_utc_timezone() {
+            let s = serde_json::to_string(&Timezone::Utc).unwrap();
             assert_eq!(&s, r#""utc""#);
-            Ok(())
         }
 
         #[test]
-        fn should_serialize_local_timezone() -> anyhow::Result<()> {
-            let s = serde_json::to_string(&Timezone::Local)?;
+        fn should_serialize_local_timezone() {
+            let s = serde_json::to_string(&Timezone::Local).unwrap();
             assert_eq!(&s, r#""local""#);
-            Ok(())
         }
 
         #[test]
-        fn should_serialize_other_timezone() -> anyhow::Result<()> {
-            let s = serde_json::to_string(&Timezone::Other("Africa/Casablanca".to_string()))?;
+        fn should_serialize_other_timezone() {
+            let s =
+                serde_json::to_string(&Timezone::Other("Africa/Casablanca".to_string())).unwrap();
             assert_eq!(&s, r#""Africa/Casablanca""#);
-            Ok(())
         }
     }
 
-    /*mod trigger {
+    mod trigger {
         use super::*;
+        use chrono::{NaiveDateTime, TimeZone};
+        use std::str::FromStr;
 
         #[test]
-        fn should_get_next_schedule_for_cron_expression() -> anyhow::Result<()> {
+        fn should_get_next_schedule_for_cron_expression() {
             let trigger = Trigger::Cron {
                 cron: "30 10 * * *".to_string(),
                 timezone: Timezone::Utc,
             };
-            let next = trigger.next_schedule(DateTime::from_str("2020-05-14T9:56:13.123Z")?)?;
+            let next = trigger
+                .next_schedule(DateTime::from_str("2020-05-14T9:56:13.123Z").unwrap())
+                .unwrap();
             assert_eq!(
                 next,
-                DateTime::from_str("2020-05-14T10:30:00Z")? as DateTime<Utc>
+                DateTime::from_str("2020-05-14T10:30:00Z").unwrap() as DateTime<chrono::Utc>
             );
-            Ok(())
         }
 
         #[test]
-        fn should_get_next_schedule_for_another_cron_expression() -> anyhow::Result<()> {
+        fn should_get_next_schedule_for_another_cron_expression() {
             let trigger = Trigger::Cron {
-                cron: "0 * /6 * * *".to_string(),
+                cron: "0 */6 * * *".to_string(),
                 timezone: Timezone::Utc,
             };
-            let next = trigger.next_schedule(DateTime::from_str("2020-05-15T00:04:52.123Z")?)?;
+            let next = trigger
+                .next_schedule(DateTime::from_str("2020-05-15T00:04:52.123Z").unwrap())
+                .unwrap();
             assert_eq!(
                 next,
-                DateTime::from_str("2020-05-15T06:00:00Z")? as DateTime<Utc>
+                DateTime::from_str("2020-05-15T06:00:00Z").unwrap() as DateTime<chrono::Utc>
             );
-            Ok(())
         }
 
         #[test]
-        fn should_get_next_schedule_for_a_cron_expression_using_local_time() -> anyhow::Result<()> {
+        fn should_get_next_schedule_for_a_cron_expression_using_local_time() {
             let trigger = Trigger::Cron {
                 cron: "34 13 15 5 *".to_string(),
                 timezone: Timezone::Local,
             };
-            let local = Local
-                .from_local_datetime(&NaiveDateTime::from_str("2020-04-16T07:13:31.666")?)
+            let local = chrono::Local
+                .from_local_datetime(&NaiveDateTime::from_str("2020-04-16T07:13:31.666").unwrap())
                 .unwrap();
-            let expected_local = Local
-                .from_local_datetime(&NaiveDateTime::from_str("2020-05-15T13:34:00")?)
+            let expected_local = chrono::Local
+                .from_local_datetime(&NaiveDateTime::from_str("2020-05-15T13:34:00").unwrap())
                 .unwrap();
 
-            let next = trigger.next_schedule(local.with_timezone(&Utc))?;
+            let next = trigger
+                .next_schedule(local.with_timezone(&chrono::Utc))
+                .unwrap();
 
-            assert_eq!(next, expected_local.with_timezone(&Utc));
-            Ok(())
+            assert_eq!(next, expected_local.with_timezone(&chrono::Utc));
         }
     }
 
@@ -258,7 +263,7 @@ mod tests {
         use std::str::FromStr;
 
         #[test]
-        fn should_get_next_schedule_from_a_single_trigger() -> anyhow::Result<()> {
+        fn should_get_next_schedule_from_a_single_trigger() {
             let definition = Definition {
                 triggers: vec![Trigger::Cron {
                     cron: "10 * * * *".to_string(),
@@ -268,18 +273,18 @@ mod tests {
             };
 
             let next = definition
-                .next_schedule(DateTime::from_str("2020-05-17T12:11:16.666Z")?)?
+                .next_schedule(DateTime::from_str("2020-05-17T12:11:16.666Z").unwrap())
+                .unwrap()
                 .unwrap();
 
             assert_eq!(
                 next,
-                DateTime::from_str("2020-05-17T13:10:00Z")? as DateTime<Utc>
+                DateTime::from_str("2020-05-17T13:10:00Z").unwrap() as DateTime<chrono::Utc>
             );
-            Ok(())
         }
 
         #[test]
-        fn should_get_first_next_schedule_from_first_trigger() -> anyhow::Result<()> {
+        fn should_get_first_next_schedule_from_first_trigger() {
             let definition = Definition {
                 triggers: vec![
                     Trigger::Cron {
@@ -295,18 +300,18 @@ mod tests {
             };
 
             let next = definition
-                .next_schedule(DateTime::from_str("2020-05-17T00:00:00Z")?)?
+                .next_schedule(DateTime::from_str("2020-05-17T00:00:00Z").unwrap())
+                .unwrap()
                 .unwrap();
 
             assert_eq!(
                 next,
-                DateTime::from_str("2020-05-17T16:00:00Z")? as DateTime<Utc>
+                DateTime::from_str("2020-05-17T16:00:00Z").unwrap() as DateTime<chrono::Utc>
             );
-            Ok(())
         }
 
         #[test]
-        fn should_get_first_next_schedule_from_second_trigger() -> anyhow::Result<()> {
+        fn should_get_first_next_schedule_from_second_trigger() {
             let definition = Definition {
                 triggers: vec![
                     Trigger::Cron {
@@ -322,27 +327,28 @@ mod tests {
             };
 
             let next = definition
-                .next_schedule(DateTime::from_str("2020-05-17T00:00:00Z")?)?
+                .next_schedule(DateTime::from_str("2020-05-17T00:00:00Z").unwrap())
+                .unwrap()
                 .unwrap();
 
             assert_eq!(
                 next,
-                DateTime::from_str("2020-05-17T17:00:00Z")? as DateTime<Utc>
+                DateTime::from_str("2020-05-17T17:00:00Z").unwrap() as DateTime<chrono::Utc>
             );
-            Ok(())
         }
 
         #[test]
-        fn should_get_no_schedule_if_no_triggers() -> anyhow::Result<()> {
+        fn should_get_no_schedule_if_no_triggers() {
             let definition = Definition {
                 triggers: vec![],
                 ..Default::default()
             };
 
-            let next = definition.next_schedule(DateTime::from_str("2020-05-17T00:00:00Z")?)?;
+            let next = definition
+                .next_schedule(DateTime::from_str("2020-05-17T00:00:00Z").unwrap())
+                .unwrap();
 
             assert_eq!(next, None);
-            Ok(())
         }
-    }*/
+    }
 }

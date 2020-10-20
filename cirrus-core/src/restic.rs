@@ -1,15 +1,12 @@
 use crate::{model::backup, secrets::RepoWithSecrets};
 use eyre::eyre;
-use futures::{
-    future::{pending, FutureExt},
-    select,
-};
+use futures::future::pending;
 use std::{
     path::PathBuf,
     process::{ExitStatus, Stdio},
 };
 use tokio::{
-    prelude::io::*,
+    io::*,
     process::{Child, ChildStderr, ChildStdout, Command},
 };
 
@@ -110,10 +107,10 @@ impl ResticProcess {
     }
 
     pub async fn next_event(&mut self) -> eyre::Result<Event> {
-        select! {
-            status = (&mut self.child).fuse() => Ok(Event::ProcessExit(status?)),
-            line = Self::maybe_read_line(&mut self.stdout).fuse() => Ok(Event::StdoutLine(line?)),
-            line = Self::maybe_read_line(&mut self.stderr).fuse() => Ok(Event::StderrLine(line?)),
+        tokio::select! {
+            status = self.child.wait() => Ok(Event::ProcessExit(status?)),
+            line = Self::maybe_read_line(&mut self.stdout) => Ok(Event::StdoutLine(line?)),
+            line = Self::maybe_read_line(&mut self.stderr) => Ok(Event::StderrLine(line?)),
         }
     }
 
@@ -147,7 +144,7 @@ impl ResticProcess {
         }
     }
 
-    pub fn kill(&mut self) {
-        self.child.kill().ok();
+    pub async fn kill(&mut self) {
+        self.child.kill().await.ok();
     }
 }

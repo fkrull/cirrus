@@ -23,6 +23,10 @@ impl Backups {
     pub fn get(&self, name: &backup::Name) -> Option<&backup::Definition> {
         self.0.get(name)
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&backup::Name, &backup::Definition)> {
+        self.0.iter()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]

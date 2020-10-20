@@ -11,3 +11,8 @@ async-trait = "0.1.41"
 log = "0.4.8"
 futures = "0.3.6"
 eyre = "0.6.1"
+chrono = "0.4.19"
+
+[dependencies.tokio]
+version = "0.3.0"
+features = ["time"]

@@ -89,15 +89,15 @@ impl PerRepositoryQueue {
 
     fn maybe_start_next_jobs(&mut self) {
         if self.repo_queue.has_waiting_jobs() {
-            // if we have repo-wide jobs_prev pending, we try to do them next
+            // if we have repo-wide jobs pending, we try to do them next
             if self.has_running_jobs() {
-                // if any jobs_prev are currently running, we do nothing and wait for them to finish
+                // if any jobs are currently running, we do nothing and wait for them to finish
             } else {
-                // if no more jobs_prev are running, we enqueue a pending repo-wide job
+                // if no more jobs are running, we enqueue a pending repo-wide job
                 self.repo_queue.maybe_start_next_job();
             }
         } else {
-            // if we have no repo-wide jobs_prev pending, we run per-backup jobs_prev
+            // if we have no repo-wide jobs pending, we run per-backup jobs
             self.per_backup_queues
                 .values_mut()
                 .for_each(|q| q.maybe_start_next_job());
@@ -144,7 +144,7 @@ impl JobQueues {
     }
 
     fn maybe_start_next_jobs(&mut self) {
-        // start more jobs_prev as necessary
+        // start more jobs as necessary
         self.per_repo_queues
             .values_mut()
             .for_each(|q| q.maybe_start_next_jobs());

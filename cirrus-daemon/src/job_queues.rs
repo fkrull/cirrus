@@ -1,5 +1,5 @@
-use crate::job_description::JobDescription;
-use cirrus_core::{model::backup, model::repo};
+use crate::job::Job;
+use cirrus_core::model;
 use log::error;
 use std::{
     collections::{HashMap, VecDeque},
@@ -17,6 +17,7 @@ async fn select_all_or_pending<F: Future + Unpin>(it: impl ExactSizeIterator<Ite
 }
 
 struct RunningJob {
+    _job: Job,
     fut: Pin<Box<dyn Future<Output = eyre::Result<()>> + Send>>,
 }
 
@@ -29,14 +30,14 @@ impl std::fmt::Debug for RunningJob {
 }
 
 #[derive(Debug, Default)]
-struct JobQueue {
+struct RunQueue {
     running: Option<RunningJob>,
-    queue: VecDeque<JobDescription>,
+    queue: VecDeque<Job>,
 }
 
-impl JobQueue {
-    fn push(&mut self, description: JobDescription) {
-        self.queue.push_back(description);
+impl RunQueue {
+    fn push(&mut self, job: Job) {
+        self.queue.push_back(job);
     }
 
     fn has_running_job(&self) -> bool {
@@ -49,18 +50,16 @@ impl JobQueue {
 
     fn maybe_start_next_job(&mut self) {
         if !self.has_running_job() {
-            if let Some(description) = self.queue.pop_front() {
-                let job = RunningJob {
-                    fut: Box::pin(description.start_job()),
-                };
-                self.running = Some(job);
+            if let Some(job) = self.queue.pop_front() {
+                let fut = Box::pin(job.spec.clone().run_job());
+                self.running = Some(RunningJob { _job: job, fut });
             }
         }
     }
 
     async fn run(&mut self) {
-        if let Some(job) = &mut self.running {
-            if let Err(error) = (&mut job.fut).await {
+        if let Some(running) = &mut self.running {
+            if let Err(error) = (&mut running.fut).await {
                 error!("job failed: {}", error);
             }
             self.running = None;
@@ -72,19 +71,19 @@ impl JobQueue {
 
 #[derive(Debug, Default)]
 struct PerRepositoryQueue {
-    repo_queue: JobQueue,
-    per_backup_queues: HashMap<backup::Name, JobQueue>,
+    repo_queue: RunQueue,
+    per_backup_queues: HashMap<model::backup::Name, RunQueue>,
 }
 
 impl PerRepositoryQueue {
-    fn push(&mut self, description: JobDescription) {
-        match description.queue_id().backup {
+    fn push(&mut self, job: Job) {
+        match job.spec.queue_id().backup {
             Some(backup) => self
                 .per_backup_queues
                 .entry(backup.clone())
                 .or_default()
-                .push(description),
-            None => self.repo_queue.push(description),
+                .push(job),
+            None => self.repo_queue.push(job),
         }
     }
 
@@ -128,31 +127,53 @@ impl PerRepositoryQueue {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct Queues {
-    per_repo_queues: HashMap<repo::Name, PerRepositoryQueue>,
+pub struct JobQueues {
+    per_repo_queues: HashMap<model::repo::Name, PerRepositoryQueue>,
 }
 
-impl Queues {
-    pub(crate) fn push(&mut self, description: JobDescription) {
-        self.per_repo_queues
-            .entry(description.queue_id().repo.clone())
-            .or_default()
-            .push(description);
+impl JobQueues {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub(crate) fn maybe_start_next_jobs(&mut self) {
+    fn push(&mut self, job: Job) {
+        self.per_repo_queues
+            .entry(job.spec.queue_id().repo.clone())
+            .or_default()
+            .push(job);
+    }
+
+    fn maybe_start_next_jobs(&mut self) {
         // start more jobs_prev as necessary
         self.per_repo_queues
             .values_mut()
             .for_each(|q| q.maybe_start_next_jobs());
     }
 
-    pub(crate) async fn run(&mut self) {
+    async fn run(&mut self) {
         let jobs = self
             .per_repo_queues
             .values_mut()
             .map(|q| q.run())
             .map(|f| Box::pin(f));
         select_all_or_pending(jobs).await;
+    }
+}
+
+#[async_trait::async_trait]
+impl cirrus_actor::Actor for JobQueues {
+    type Message = Job;
+    type Error = std::convert::Infallible;
+
+    async fn on_message(&mut self, job: Self::Message) -> Result<(), Self::Error> {
+        self.push(job);
+        self.maybe_start_next_jobs();
+        Ok(())
+    }
+
+    async fn on_idle(&mut self) -> Result<(), Self::Error> {
+        self.maybe_start_next_jobs();
+        self.run().await;
+        Ok(())
     }
 }

@@ -1,6 +1,5 @@
-use crate::job_description::JobDescription;
+use crate::job::{Job, JobSpec};
 use chrono::DateTime;
-use cirrus_actor::ActorRef;
 use cirrus_core::{model, model::Config, restic::Restic, secrets::Secrets};
 use eyre::eyre;
 use log::info;
@@ -13,7 +12,7 @@ pub struct Scheduler {
     config: Arc<Config>,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
-    jobs_actor: ActorRef<JobDescription>,
+    job_queues: cirrus_actor::ActorRef<Job>,
 
     start_time: DateTime<chrono::Utc>,
     previous_schedules: HashMap<model::backup::Name, DateTime<chrono::Utc>>,
@@ -24,20 +23,20 @@ impl Scheduler {
         config: Arc<Config>,
         restic: Arc<Restic>,
         secrets: Arc<Secrets>,
-        jobs_actor: ActorRef<JobDescription>,
+        job_queues: cirrus_actor::ActorRef<Job>,
     ) -> Self {
         Scheduler {
             config,
             restic,
             secrets,
-            jobs_actor,
+            job_queues,
             start_time: chrono::Utc::now(),
             previous_schedules: HashMap::new(),
         }
     }
 
     pub async fn run(&mut self) -> eyre::Result<()> {
-        use crate::job_description::BackupDescription;
+        use crate::job::BackupSpec;
         use tokio::time::sleep;
 
         loop {
@@ -64,16 +63,16 @@ impl Scheduler {
                     .ok_or_else(|| {
                         eyre!("missing repository definition '{}'", backup.repository.0)
                     })?;
-                let backup_job = JobDescription::Backup(BackupDescription {
+                let backup_job = Job::new(JobSpec::Backup(BackupSpec {
                     restic: self.restic.clone(),
                     secrets: self.secrets.clone(),
                     repo_name: backup.repository.clone(),
                     backup_name: name.clone(),
                     repo: repo.clone(),
                     backup: backup.clone(),
-                });
+                }));
                 info!("scheduling backup {}", name.0);
-                self.jobs_actor.send(backup_job).await?;
+                self.job_queues.send(backup_job).await?;
                 self.previous_schedules.insert(name.clone(), now);
             }
 

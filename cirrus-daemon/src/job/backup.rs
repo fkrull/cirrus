@@ -6,8 +6,8 @@ use cirrus_core::{
 };
 use std::sync::Arc;
 
-#[derive(Debug)]
-pub struct BackupDescription {
+#[derive(Debug, Clone)]
+pub struct BackupSpec {
     pub restic: Arc<Restic>,
     pub secrets: Arc<Secrets>,
     pub repo_name: repo::Name,
@@ -16,7 +16,7 @@ pub struct BackupDescription {
     pub backup: backup::Definition,
 }
 
-impl BackupDescription {
+impl BackupSpec {
     pub(super) fn queue_id(&self) -> QueueId {
         QueueId {
             repo: &self.repo_name,
@@ -24,7 +24,7 @@ impl BackupDescription {
         }
     }
 
-    pub(super) async fn start_job(self) -> eyre::Result<()> {
+    pub(super) async fn run_job(self) -> eyre::Result<()> {
         use cirrus_core::restic::Options;
 
         let repo_with_secrets = self.secrets.get_secrets(&self.repo)?;

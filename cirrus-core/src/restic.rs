@@ -33,6 +33,7 @@ impl Restic {
         options: &Options,
     ) -> eyre::Result<ResticProcess> {
         let mut cmd = Command::new(&self.bin);
+        cmd.stdin(Stdio::null());
 
         if let Some(repo_with_secrets) = repo_with_secrets {
             cmd.env("RESTIC_PASSWORD", &repo_with_secrets.repo_password.0);

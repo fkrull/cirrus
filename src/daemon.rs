@@ -1,7 +1,6 @@
+use cirrus_actor::ActorInstance;
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
-use cirrus_daemon::jobs::JobsRunner;
-use cirrus_daemon::scheduler::Scheduler;
-use cirrus_daemon::Daemon;
+use cirrus_daemon::{job_queues, scheduler, Daemon};
 use clap::ArgMatches;
 use log::info;
 use std::sync::Arc;
@@ -15,12 +14,12 @@ pub async fn run(
     let config = Arc::new(config);
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
-    let (mut runner, jobs_ref) = JobsRunner::new();
-    let mut scheduler = Scheduler::new(
+    let (mut job_queues_actor, job_queues) = ActorInstance::new(job_queues::JobQueues::new());
+    let mut scheduler = scheduler::Scheduler::new(
         config.clone(),
         restic.clone(),
         secrets.clone(),
-        jobs_ref.clone(),
+        job_queues.clone(),
     );
 
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
@@ -30,11 +29,11 @@ pub async fn run(
         config,
         restic,
         secrets,
-        jobs_ref,
+        job_queues,
     };
 
-    info!("starting job runner...");
-    tokio::spawn(async move { runner.run().await.unwrap() });
+    info!("starting job queues...");
+    tokio::spawn(async move { job_queues_actor.run().await.unwrap() });
 
     info!("starting scheduler...");
     tokio::spawn(async move { scheduler.run().await.unwrap() });

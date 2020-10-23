@@ -71,7 +71,7 @@ impl Scheduler {
                     repo: repo.clone(),
                     backup: backup.clone(),
                 }));
-                info!("scheduling backup {}", name.0);
+                info!("scheduling backup {}", backup_job.spec.name());
                 self.job_queues.send(backup_job)?;
                 self.previous_schedules.insert(name.clone(), now);
             }

@@ -3,7 +3,7 @@ use cirrus_core::model;
 mod backup;
 pub use backup::*;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct JobId(uuid::Uuid);
 
 impl JobId {
@@ -50,6 +50,16 @@ impl JobSpec {
             JobSpec::Backup(spec) => spec.run_job().await,
         }
     }
+
+    pub(crate) fn max_attempts(&self) -> u32 {
+        3
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        match self {
+            JobSpec::Backup(spec) => spec.name(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -69,7 +79,7 @@ impl JobStatusChange {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum JobStatus {
     Started,
     FinishedSuccessfully,

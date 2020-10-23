@@ -39,4 +39,8 @@ impl BackupSpec {
         process.wait().await?;
         Ok(())
     }
+
+    pub(super) fn name(&self) -> &str {
+        &self.backup_name.0
+    }
 }

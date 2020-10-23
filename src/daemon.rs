@@ -1,6 +1,6 @@
 use cirrus_actor::ActorInstance;
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
-use cirrus_daemon::{job_queues, scheduler, Daemon};
+use cirrus_daemon::{job_queues, retry, scheduler};
 use clap::ArgMatches;
 use log::info;
 use std::sync::Arc;
@@ -14,31 +14,27 @@ pub async fn run(
     let config = Arc::new(config);
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
-    let (mut retry_handler_actor, retry_handler) =
-        ActorInstance::new(cirrus_actor::NullSink::new());
-    let (mut job_queues_actor, job_queues) =
-        ActorInstance::new(job_queues::JobQueues::new(retry_handler.clone()));
+
+    let (mut jobhistory_actor, jobhistory) = ActorInstance::new(cirrus_actor::NullSink::new());
+    let (mut retryhandler_actor, retryhandler) =
+        ActorInstance::new(retry::RetryHandler::new(todo!(), jobhistory));
+    let (mut jobqueues_actor, jobqueues) =
+        ActorInstance::new(job_queues::JobQueues::new(retryhandler.clone()));
+
     let mut scheduler = scheduler::Scheduler::new(
         config.clone(),
         restic.clone(),
         secrets.clone(),
-        job_queues.clone(),
+        jobqueues.clone(),
     );
 
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
     info!("instance name: {}", instance_name);
-    let _daemon = Daemon {
-        instance_name,
-        config,
-        restic,
-        secrets,
-        job_queues,
-        retry_handler,
-    };
 
-    tokio::spawn(async move { job_queues_actor.run().await.unwrap() });
+    tokio::spawn(async move { jobqueues_actor.run().await.unwrap() });
     tokio::spawn(async move { scheduler.run().await.unwrap() });
-    tokio::spawn(async move { retry_handler_actor.run().await.unwrap() });
+    tokio::spawn(async move { retryhandler_actor.run().await.unwrap() });
+    tokio::spawn(async move { jobhistory_actor.run().await.unwrap() });
 
     info!("running forever...");
     tokio::signal::ctrl_c().await?;

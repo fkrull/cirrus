@@ -89,8 +89,39 @@ impl<M> Clone for ActorRef<M> {
 pub struct SendError(#[from] mpsc::SendError);
 
 impl<M> ActorRef<M> {
-    pub async fn send(&mut self, message: M) -> Result<(), SendError> {
-        use futures::sink::SinkExt;
-        self.send.send(message).await.map_err(|err| err.into())
+    pub fn send(&mut self, message: M) -> Result<(), SendError> {
+        self.send
+            .unbounded_send(message)
+            .map_err(|e| e.into_send_error())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct NullSink<M> {
+    ghost: std::marker::PhantomData<M>,
+}
+
+impl<M> Default for NullSink<M> {
+    fn default() -> Self {
+        NullSink {
+            ghost: Default::default(),
+        }
+    }
+}
+
+impl<M> NullSink<M> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[async_trait]
+impl<M: Send> Actor for NullSink<M> {
+    type Message = M;
+    type Error = std::convert::Infallible;
+
+    async fn on_message(&mut self, _message: Self::Message) -> Result<(), Self::Error> {
+        Ok(())
     }
 }

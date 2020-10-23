@@ -51,3 +51,28 @@ impl JobSpec {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct JobStatusChange {
+    pub job: Job,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub new_status: JobStatus,
+}
+
+impl JobStatusChange {
+    pub(crate) fn new(job: Job, new_status: JobStatus) -> Self {
+        JobStatusChange {
+            job,
+            timestamp: chrono::Utc::now(),
+            new_status,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum JobStatus {
+    Started,
+    FinishedSuccessfully,
+    FinishedWithError,
+    Retried { attempt: u32, attempts_left: u32 },
+}

@@ -72,7 +72,7 @@ impl Scheduler {
                     backup: backup.clone(),
                 }));
                 info!("scheduling backup {}", name.0);
-                self.job_queues.send(backup_job).await?;
+                self.job_queues.send(backup_job)?;
                 self.previous_schedules.insert(name.clone(), now);
             }
 

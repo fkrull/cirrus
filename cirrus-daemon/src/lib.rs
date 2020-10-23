@@ -13,4 +13,5 @@ pub struct Daemon {
     pub restic: Arc<Restic>,
     pub secrets: Arc<Secrets>,
     pub job_queues: ActorRef<job::Job>,
+    pub retry_handler: ActorRef<job::JobStatusChange>,
 }

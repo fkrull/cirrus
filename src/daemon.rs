@@ -14,7 +14,10 @@ pub async fn run(
     let config = Arc::new(config);
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
-    let (mut job_queues_actor, job_queues) = ActorInstance::new(job_queues::JobQueues::new());
+    let (mut retry_handler_actor, retry_handler) =
+        ActorInstance::new(cirrus_actor::NullSink::new());
+    let (mut job_queues_actor, job_queues) =
+        ActorInstance::new(job_queues::JobQueues::new(retry_handler.clone()));
     let mut scheduler = scheduler::Scheduler::new(
         config.clone(),
         restic.clone(),
@@ -30,13 +33,12 @@ pub async fn run(
         restic,
         secrets,
         job_queues,
+        retry_handler,
     };
 
-    info!("starting job queues...");
     tokio::spawn(async move { job_queues_actor.run().await.unwrap() });
-
-    info!("starting scheduler...");
     tokio::spawn(async move { scheduler.run().await.unwrap() });
+    tokio::spawn(async move { retry_handler_actor.run().await.unwrap() });
 
     info!("running forever...");
     tokio::signal::ctrl_c().await?;

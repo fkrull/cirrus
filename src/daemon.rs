@@ -1,4 +1,3 @@
-use cirrus_actor::ActorInstance;
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::{job_queues, retry, scheduler};
 use clap::ArgMatches;
@@ -15,11 +14,15 @@ pub async fn run(
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
 
-    let (mut jobhistory_actor, jobhistory) = ActorInstance::new(cirrus_actor::NullSink::new());
-    let (mut retryhandler_actor, retryhandler) =
-        ActorInstance::new(retry::RetryHandler::new(todo!(), jobhistory));
-    let (mut jobqueues_actor, jobqueues) =
-        ActorInstance::new(job_queues::JobQueues::new(retryhandler.clone()));
+    let (jobhistory_actor, jobhistory) = cirrus_actor::new_actor();
+    let (retryhandler_actor, retryhandler) = cirrus_actor::new_actor();
+    let (jobqueues_actor, jobqueues) = cirrus_actor::new_actor();
+
+    let mut jobhistory_actor = jobhistory_actor.into_instance(cirrus_actor::NullSink::new());
+    let mut retryhandler_actor =
+        retryhandler_actor.into_instance(retry::RetryHandler::new(jobqueues.clone(), jobhistory));
+    let mut jobqueues_actor =
+        jobqueues_actor.into_instance(job_queues::JobQueues::new(retryhandler));
 
     let mut scheduler = scheduler::Scheduler::new(
         config.clone(),

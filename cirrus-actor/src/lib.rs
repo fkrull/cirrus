@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use futures::channel::mpsc;
 
+pub mod util;
+
 #[async_trait]
 pub trait Actor: Send {
     type Message;
@@ -32,13 +34,6 @@ pub struct ActorInstance<A: Actor> {
 }
 
 impl<A: Actor> ActorInstance<A> {
-    pub fn new(actor_impl: A) -> (ActorInstance<A>, ActorRef<A::Message>) {
-        let (send, recv) = futures::channel::mpsc::unbounded();
-        let actor_instance = ActorInstance { actor_impl, recv };
-        let actor_ref = ActorRef { send };
-        (actor_instance, actor_ref)
-    }
-
     pub async fn run(&mut self) -> Result<(), A::Error> {
         loop {
             match self.select().await? {
@@ -72,6 +67,20 @@ impl<A: Actor> ActorInstance<A> {
 }
 
 #[derive(Debug)]
+pub struct ActorInstanceConstructor<M> {
+    recv: mpsc::UnboundedReceiver<M>,
+}
+
+impl<M> ActorInstanceConstructor<M> {
+    pub fn into_instance<A: Actor<Message = M>>(self, actor_impl: A) -> ActorInstance<A> {
+        ActorInstance {
+            recv: self.recv,
+            actor_impl,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ActorRef<M> {
     send: mpsc::UnboundedSender<M>,
 }
@@ -97,31 +106,9 @@ impl<M> ActorRef<M> {
     }
 }
 
-#[derive(Debug)]
-pub struct NullSink<M> {
-    ghost: std::marker::PhantomData<M>,
-}
-
-impl<M> Default for NullSink<M> {
-    fn default() -> Self {
-        NullSink {
-            ghost: Default::default(),
-        }
-    }
-}
-
-impl<M> NullSink<M> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-#[async_trait]
-impl<M: Send> Actor for NullSink<M> {
-    type Message = M;
-    type Error = std::convert::Infallible;
-
-    async fn on_message(&mut self, _message: Self::Message) -> Result<(), Self::Error> {
-        Ok(())
-    }
+pub fn new_actor<M>() -> (ActorInstanceConstructor<M>, ActorRef<M>) {
+    let (send, recv) = futures::channel::mpsc::unbounded();
+    let constructor = ActorInstanceConstructor { recv };
+    let actor_ref = ActorRef { send };
+    (constructor, actor_ref)
 }

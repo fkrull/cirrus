@@ -19,7 +19,7 @@ impl<M> NullSink<M> {
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl<M: Send> Actor for NullSink<M> {
     type Message = M;
     type Error = std::convert::Infallible;

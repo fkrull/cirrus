@@ -18,7 +18,7 @@ pub async fn run(
     let (retryhandler_actor, retryhandler) = cirrus_actor::new_actor();
     let (jobqueues_actor, jobqueues) = cirrus_actor::new_actor();
 
-    let mut jobhistory_actor = jobhistory_actor.into_instance(cirrus_actor::NullSink::new());
+    let mut jobhistory_actor = jobhistory_actor.into_instance(cirrus_actor::util::NullSink::new());
     let mut retryhandler_actor =
         retryhandler_actor.into_instance(retry::RetryHandler::new(jobqueues.clone(), jobhistory));
     let mut jobqueues_actor =

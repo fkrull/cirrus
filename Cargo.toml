@@ -36,4 +36,4 @@ default = []
 
 # desktop features
 desktop-commands = ["opener"]
-desktop = ["desktop-commands", "cirrus-core/keyring"]
+desktop = ["desktop-commands", "cirrus-core/keyring", "cirrus-daemon/desktop-notifications"]

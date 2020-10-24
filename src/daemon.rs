@@ -30,7 +30,7 @@ pub async fn run(
             jobhistory,
         ]));
     let mut notifications_actor =
-        notifications_actor.into_instance(notifications::Notifications::new());
+        notifications_actor.into_instance(notifications::Notifications::new()?);
     let mut jobhistory_actor = jobhistory_actor.into_instance(cirrus_actor::util::NullSink::new());
 
     let mut scheduler = scheduler::Scheduler::new(

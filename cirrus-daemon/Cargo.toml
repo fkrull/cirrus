@@ -17,3 +17,15 @@ uuid = { version = "0.8.1", features = ["v4"] }
 [dependencies.tokio]
 version = "0.3.0"
 features = ["time"]
+
+[target.'cfg(windows)'.dependencies]
+winrt = { version = "0.7.2", optional = true }
+
+[target.'cfg(not(windows))'.dependencies]
+notify-rust = { version = "4.0.0", optional = true }
+
+[features]
+default = []
+
+# desktop features
+desktop-notifications = ["winrt", "notify-rust"]

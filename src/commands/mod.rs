@@ -5,7 +5,7 @@ use cirrus_core::{
 };
 use clap::ArgMatches;
 
-#[cfg(feature = "desktop-integration")]
+#[cfg(feature = "desktop-commands")]
 pub mod desktop;
 pub mod secret;
 

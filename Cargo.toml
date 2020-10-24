@@ -9,7 +9,6 @@ members = [
     "cirrus-actor",
     "cirrus-core",
     "cirrus-daemon",
-    "cirrus-web",
 ]
 
 [dependencies]
@@ -36,7 +35,5 @@ features = ["fs", "macros", "signal", "rt-multi-thread"]
 default = []
 
 # desktop features
-desktop-integration = ["opener", "cirrus-core/keyring"]
-
-# release features
-#bundled-assets = ["cirrus-web/bundled-assets"]
+desktop-commands = ["opener"]
+desktop = ["desktop-commands", "cirrus-core/keyring"]

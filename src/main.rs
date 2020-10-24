@@ -88,7 +88,7 @@ async fn main() -> eyre::Result<()> {
                         .multiple(true),
                 ),
         );
-    #[cfg(feature = "desktop-integration")]
+    #[cfg(feature = "desktop-commands")]
     let cli = cli.subcommand(
         App::new("desktop")
             .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -119,7 +119,7 @@ async fn main() -> eyre::Result<()> {
             ("set", Some(matches)) => commands::secret::set(&secrets, &config, matches).await,
             _ => unreachable!("unexpected subcommand for secret"),
         },
-        #[cfg(feature = "desktop-integration")]
+        #[cfg(feature = "desktop-commands")]
         ("desktop", Some(matches)) => match matches.subcommand() {
             ("open-config-file", Some(_)) => commands::desktop::open_config_file(&config_path),
             _ => unreachable!("unexpected subcommand for desktop"),

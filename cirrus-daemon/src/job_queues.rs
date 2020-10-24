@@ -1,7 +1,7 @@
 use crate::job::{Job, JobStatus, JobStatusChange};
 use cirrus_actor::ActorRef;
 use cirrus_core::model;
-use log::error;
+use log::{error, info};
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,
@@ -81,9 +81,12 @@ impl RunQueue {
             let result = (&mut running.fut).await;
             let job = self.running.take().unwrap().job;
             let new_status = match result {
-                Ok(_) => JobStatus::FinishedSuccessfully,
+                Ok(_) => {
+                    info!("job '{}' finished successfully", job.spec.name());
+                    JobStatus::FinishedSuccessfully
+                }
                 Err(error) => {
-                    error!("job failed: {}", error);
+                    error!("job '{}' failed: {}", job.spec.name(), error);
                     JobStatus::FinishedWithError
                 }
             };

@@ -35,15 +35,15 @@ impl Secrets {
         match secret {
             Secret::FromEnvVar { env_var } => {
                 let value = std::env::var(env_var)
-                    .wrap_err(format!("environment variable '{}' not set", env_var))?;
+                    .wrap_err_with(|| format!("environment variable '{}' not set", env_var))?;
                 Ok(SecretValue(value))
             }
             Secret::FromOsKeyring { keyring } => get_secret(keyring),
             Secret::FromToml { toml, key } => {
                 let secrets_file = std::fs::read_to_string(toml)
-                    .wrap_err(format!("failed to read secrets file '{}'", toml))?;
+                    .wrap_err_with(|| format!("failed to read secrets file '{}'", toml))?;
                 let secrets: HashMap<&str, &str> = toml::from_str(&secrets_file)
-                    .wrap_err(format!("failed to parse secrets file '{}'", toml))?;
+                    .wrap_err_with(|| format!("failed to parse secrets file '{}'", toml))?;
                 secrets
                     .get(key.as_str())
                     .map(|s| s.to_owned())

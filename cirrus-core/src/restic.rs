@@ -1,5 +1,5 @@
 use crate::{model::backup, secrets::RepoWithSecrets};
-use eyre::eyre;
+use eyre::{eyre, Context};
 use futures::future::pending;
 use std::{
     path::PathBuf,
@@ -51,7 +51,7 @@ impl Restic {
             cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
         }
 
-        let child = cmd.spawn()?;
+        let child = cmd.spawn().wrap_err("failed to start restic process")?;
         Ok(ResticProcess::new(child))
     }
 

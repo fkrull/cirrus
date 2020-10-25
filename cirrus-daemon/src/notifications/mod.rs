@@ -5,6 +5,11 @@ mod winrt;
 #[cfg(all(windows, feature = "desktop-notifications"))]
 use self::winrt::DesktopNotifications;
 
+#[cfg(all(not(windows), feature = "desktop-notifications"))]
+mod notify;
+#[cfg(all(not(windows), feature = "desktop-notifications"))]
+use self::notify::DesktopNotifications;
+
 #[derive(Debug)]
 pub struct Notifications {
     #[cfg(feature = "desktop-notifications")]

@@ -4,24 +4,24 @@ mod backup;
 pub use backup::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub struct JobId(uuid::Uuid);
+pub struct Id(uuid::Uuid);
 
-impl JobId {
+impl Id {
     pub fn new() -> Self {
-        JobId(uuid::Uuid::new_v4())
+        Id(uuid::Uuid::new_v4())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Job {
-    pub id: JobId,
-    pub spec: JobSpec,
+    pub id: Id,
+    pub spec: Spec,
 }
 
 impl Job {
-    pub fn new(spec: JobSpec) -> Self {
+    pub fn new(spec: Spec) -> Self {
         Job {
-            id: JobId::new(),
+            id: Id::new(),
             spec,
         }
     }
@@ -34,20 +34,20 @@ pub(crate) struct QueueId<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub enum JobSpec {
+pub enum Spec {
     Backup(BackupSpec),
 }
 
-impl JobSpec {
+impl Spec {
     pub(crate) fn queue_id(&self) -> QueueId {
         match self {
-            JobSpec::Backup(spec) => spec.queue_id(),
+            Spec::Backup(spec) => spec.queue_id(),
         }
     }
 
     pub(crate) async fn run_job(self) -> eyre::Result<()> {
         match self {
-            JobSpec::Backup(spec) => spec.run_job().await,
+            Spec::Backup(spec) => spec.run_job().await,
         }
     }
 
@@ -57,21 +57,21 @@ impl JobSpec {
 
     pub(crate) fn name(&self) -> &str {
         match self {
-            JobSpec::Backup(spec) => spec.name(),
+            Spec::Backup(spec) => spec.name(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct JobStatusChange {
+pub struct StatusChange {
     pub job: Job,
     pub timestamp: chrono::DateTime<chrono::Utc>,
-    pub new_status: JobStatus,
+    pub new_status: Status,
 }
 
-impl JobStatusChange {
-    pub(crate) fn new(job: Job, new_status: JobStatus) -> Self {
-        JobStatusChange {
+impl StatusChange {
+    pub(crate) fn new(job: Job, new_status: Status) -> Self {
+        StatusChange {
             job,
             timestamp: chrono::Utc::now(),
             new_status,
@@ -80,7 +80,7 @@ impl JobStatusChange {
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum JobStatus {
+pub enum Status {
     Started,
     FinishedSuccessfully,
     FinishedWithError,

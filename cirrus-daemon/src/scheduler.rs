@@ -1,6 +1,6 @@
-use crate::job::{Job, JobSpec};
+use crate::job;
 use chrono::DateTime;
-use cirrus_core::{model, model::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{model, restic::Restic, secrets::Secrets};
 use eyre::eyre;
 use log::info;
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -9,10 +9,10 @@ const SCHEDULE_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Debug)]
 pub struct Scheduler {
-    config: Arc<Config>,
+    config: Arc<model::Config>,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
-    job_queues: cirrus_actor::ActorRef<Job>,
+    job_queues: cirrus_actor::ActorRef<job::Job>,
 
     start_time: DateTime<chrono::Utc>,
     previous_schedules: HashMap<model::backup::Name, DateTime<chrono::Utc>>,
@@ -20,10 +20,10 @@ pub struct Scheduler {
 
 impl Scheduler {
     pub fn new(
-        config: Arc<Config>,
+        config: Arc<model::Config>,
         restic: Arc<Restic>,
         secrets: Arc<Secrets>,
-        job_queues: cirrus_actor::ActorRef<Job>,
+        job_queues: cirrus_actor::ActorRef<job::Job>,
     ) -> Self {
         Scheduler {
             config,
@@ -63,7 +63,7 @@ impl Scheduler {
                     .ok_or_else(|| {
                         eyre!("missing repository definition '{}'", backup.repository.0)
                     })?;
-                let backup_job = Job::new(JobSpec::Backup(BackupSpec {
+                let backup_job = job::Job::new(job::Spec::Backup(BackupSpec {
                     restic: self.restic.clone(),
                     secrets: self.secrets.clone(),
                     repo_name: backup.repository.clone(),

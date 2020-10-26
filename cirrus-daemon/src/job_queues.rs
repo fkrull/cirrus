@@ -1,4 +1,4 @@
-use crate::job::{Job, JobStatus, JobStatusChange};
+use crate::job;
 use cirrus_actor::ActorRef;
 use cirrus_core::model;
 use log::{error, info};
@@ -21,7 +21,7 @@ async fn select_all_or_pending<F: Future + Unpin>(
 }
 
 struct RunningJob {
-    job: Job,
+    job: job::Job,
     fut: Pin<Box<dyn Future<Output = eyre::Result<()>> + Send>>,
 }
 
@@ -35,13 +35,13 @@ impl std::fmt::Debug for RunningJob {
 
 #[derive(Debug)]
 struct RunQueue {
-    statuschange_sink: ActorRef<JobStatusChange>,
+    statuschange_sink: ActorRef<job::StatusChange>,
     running: Option<RunningJob>,
-    queue: VecDeque<Job>,
+    queue: VecDeque<job::Job>,
 }
 
 impl RunQueue {
-    fn new(statuschange_sink: ActorRef<JobStatusChange>) -> Self {
+    fn new(statuschange_sink: ActorRef<job::StatusChange>) -> Self {
         RunQueue {
             statuschange_sink,
             running: None,
@@ -49,7 +49,7 @@ impl RunQueue {
         }
     }
 
-    fn push(&mut self, job: Job) {
+    fn push(&mut self, job: job::Job) {
         self.queue.push_back(job);
     }
 
@@ -70,7 +70,7 @@ impl RunQueue {
                     fut,
                 });
                 self.statuschange_sink
-                    .send(JobStatusChange::new(job, JobStatus::Started))?;
+                    .send(job::StatusChange::new(job, job::Status::Started))?;
             }
         }
         Ok(())
@@ -83,15 +83,15 @@ impl RunQueue {
             let new_status = match result {
                 Ok(_) => {
                     info!("job '{}' finished successfully", job.spec.name());
-                    JobStatus::FinishedSuccessfully
+                    job::Status::FinishedSuccessfully
                 }
                 Err(error) => {
                     error!("job '{}' failed: {}", job.spec.name(), error);
-                    JobStatus::FinishedWithError
+                    job::Status::FinishedWithError
                 }
             };
             self.statuschange_sink
-                .send(JobStatusChange::new(job, new_status))?;
+                .send(job::StatusChange::new(job, new_status))?;
         } else {
             futures::future::pending::<()>().await;
         }
@@ -101,13 +101,13 @@ impl RunQueue {
 
 #[derive(Debug)]
 struct PerRepositoryQueue {
-    statuschange_sink: ActorRef<JobStatusChange>,
+    statuschange_sink: ActorRef<job::StatusChange>,
     repo_queue: RunQueue,
     per_backup_queues: HashMap<model::backup::Name, RunQueue>,
 }
 
 impl PerRepositoryQueue {
-    fn new(statuschange_sink: ActorRef<JobStatusChange>) -> Self {
+    fn new(statuschange_sink: ActorRef<job::StatusChange>) -> Self {
         PerRepositoryQueue {
             repo_queue: RunQueue::new(statuschange_sink.clone()),
             statuschange_sink,
@@ -115,7 +115,7 @@ impl PerRepositoryQueue {
         }
     }
 
-    fn push(&mut self, job: Job) {
+    fn push(&mut self, job: job::Job) {
         let sink = &self.statuschange_sink;
         match job.spec.queue_id().backup {
             Some(backup) => self
@@ -170,19 +170,19 @@ impl PerRepositoryQueue {
 
 #[derive(Debug)]
 pub struct JobQueues {
-    statuschange_sink: ActorRef<JobStatusChange>,
+    statuschange_sink: ActorRef<job::StatusChange>,
     per_repo_queues: HashMap<model::repo::Name, PerRepositoryQueue>,
 }
 
 impl JobQueues {
-    pub fn new(statuschange_sink: ActorRef<JobStatusChange>) -> Self {
+    pub fn new(statuschange_sink: ActorRef<job::StatusChange>) -> Self {
         JobQueues {
             statuschange_sink,
             per_repo_queues: HashMap::new(),
         }
     }
 
-    fn push(&mut self, job: Job) {
+    fn push(&mut self, job: job::Job) {
         let sink = &self.statuschange_sink;
         self.per_repo_queues
             .entry(job.spec.queue_id().repo.clone())
@@ -211,7 +211,7 @@ impl JobQueues {
 
 #[async_trait::async_trait]
 impl cirrus_actor::Actor for JobQueues {
-    type Message = Job;
+    type Message = job::Job;
     type Error = eyre::Report;
 
     async fn on_message(&mut self, job: Self::Message) -> Result<(), Self::Error> {

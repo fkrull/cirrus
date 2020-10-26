@@ -1,4 +1,4 @@
-use crate::job::{Job, JobSpec};
+use crate::job;
 use windows::ui::notifications::{
     ToastNotification, ToastNotificationManager, ToastNotifier, ToastTemplateType,
 };
@@ -42,19 +42,19 @@ impl DesktopNotifications {
         Ok(DesktopNotifications { notifier })
     }
 
-    pub(super) fn notify_job_started(&mut self, job: &Job) -> eyre::Result<()> {
+    pub(super) fn notify_job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.started_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())
     }
 
-    pub(super) fn notify_job_succeeded(&mut self, job: &Job) -> eyre::Result<()> {
+    pub(super) fn notify_job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.success_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())
     }
 
-    pub(super) fn notify_job_failed(&mut self, job: &Job) -> eyre::Result<()> {
+    pub(super) fn notify_job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.failure_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())
@@ -70,21 +70,21 @@ impl DesktopNotifications {
         Ok(notification)
     }
 
-    fn started_message(&self, job: &Job) -> String {
+    fn started_message(&self, job: &job::Job) -> String {
         match &job.spec {
-            JobSpec::Backup(..) => format!("Backing up '{}'", job.spec.name()),
+            job::Spec::Backup(..) => format!("Backing up '{}'", job.spec.name()),
         }
     }
 
-    fn success_message(&self, job: &Job) -> String {
+    fn success_message(&self, job: &job::Job) -> String {
         match &job.spec {
-            JobSpec::Backup(..) => format!("Backup '{}' finished successfully", job.spec.name()),
+            job::Spec::Backup(..) => format!("Backup '{}' finished successfully", job.spec.name()),
         }
     }
 
-    fn failure_message(&self, job: &Job) -> String {
+    fn failure_message(&self, job: &job::Job) -> String {
         match &job.spec {
-            JobSpec::Backup(..) => format!("Backup '{}' failed", job.spec.name()),
+            job::Spec::Backup(..) => format!("Backup '{}' failed", job.spec.name()),
         }
     }
 }

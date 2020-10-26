@@ -1,4 +1,4 @@
-use crate::job::{JobStatus, JobStatusChange};
+use crate::job;
 
 #[cfg(all(windows, feature = "desktop-notifications"))]
 mod winrt;
@@ -27,22 +27,22 @@ impl Notifications {
 
 #[async_trait::async_trait]
 impl cirrus_actor::Actor for Notifications {
-    type Message = JobStatusChange;
+    type Message = job::StatusChange;
     type Error = eyre::Report;
 
     async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
         match message.new_status {
-            JobStatus::Started => {
+            job::Status::Started => {
                 #[cfg(feature = "desktop-notifications")]
                 self.desktop_notifications
                     .notify_job_started(&message.job)?;
             }
-            JobStatus::FinishedSuccessfully => {
+            job::Status::FinishedSuccessfully => {
                 #[cfg(feature = "desktop-notifications")]
                 self.desktop_notifications
                     .notify_job_succeeded(&message.job)?;
             }
-            JobStatus::FinishedWithError => {
+            job::Status::FinishedWithError => {
                 #[cfg(feature = "desktop-notifications")]
                 self.desktop_notifications.notify_job_failed(&message.job)?;
             }

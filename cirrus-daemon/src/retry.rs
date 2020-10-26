@@ -1,17 +1,20 @@
-use crate::job::{Job, JobId, JobStatus, JobStatusChange};
+use crate::job;
 use cirrus_actor::{Actor, ActorRef};
 use log::info;
 use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct RetryHandler {
-    job_sink: ActorRef<Job>,
-    statuschange_sink: ActorRef<JobStatusChange>,
-    attempts: HashMap<JobId, u32>,
+    job_sink: ActorRef<job::Job>,
+    statuschange_sink: ActorRef<job::StatusChange>,
+    attempts: HashMap<job::Id, u32>,
 }
 
 impl RetryHandler {
-    pub fn new(job_sink: ActorRef<Job>, statuschange_sink: ActorRef<JobStatusChange>) -> Self {
+    pub fn new(
+        job_sink: ActorRef<job::Job>,
+        statuschange_sink: ActorRef<job::StatusChange>,
+    ) -> Self {
         RetryHandler {
             job_sink,
             statuschange_sink,
@@ -22,12 +25,12 @@ impl RetryHandler {
 
 #[async_trait::async_trait]
 impl Actor for RetryHandler {
-    type Message = JobStatusChange;
+    type Message = job::StatusChange;
     type Error = eyre::Report;
 
     async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
         match message.new_status {
-            JobStatus::FinishedWithError => {
+            job::Status::FinishedWithError => {
                 let attempt = self.attempts.get(&message.job.id).copied().unwrap_or(1) + 1;
                 let max_attempts = message.job.spec.max_attempts();
                 if attempt <= max_attempts {
@@ -41,9 +44,9 @@ impl Actor for RetryHandler {
                     );
                     self.job_sink.send(message.job.clone())?;
                     self.attempts.insert(message.job.id, attempt);
-                    self.statuschange_sink.send(JobStatusChange::new(
+                    self.statuschange_sink.send(job::StatusChange::new(
                         message.job,
-                        JobStatus::Retried {
+                        job::Status::Retried {
                             attempt,
                             attempts_left,
                         },
@@ -55,7 +58,7 @@ impl Actor for RetryHandler {
                     self.statuschange_sink.send(message)?;
                 }
             }
-            JobStatus::FinishedSuccessfully => {
+            job::Status::FinishedSuccessfully => {
                 self.attempts.remove(&message.job.id);
                 self.statuschange_sink.send(message)?;
             }

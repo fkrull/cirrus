@@ -6,8 +6,8 @@ use std::path::PathBuf;
 
 fn default_config_path() -> eyre::Result<PathBuf> {
     dirs::config_dir()
-        .map(|dir| dir.join("cirrus").join("config.toml"))
-        .ok_or_else(|| eyre!("can't find config file"))
+        .map(|dir| dir.join("cirrus").join("backups.toml"))
+        .ok_or_else(|| eyre!("can't find backup config file"))
 }
 
 #[tokio::main]
@@ -21,7 +21,7 @@ async fn main() -> eyre::Result<()> {
                 .short("c")
                 .long("config")
                 .value_name("FILE")
-                .help("Set a custom config file")
+                .help("Set a custom backup config file")
                 .env("CIRRUS_CONFIG")
                 .takes_value(true),
         )

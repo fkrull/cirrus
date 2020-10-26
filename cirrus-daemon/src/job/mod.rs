@@ -55,7 +55,7 @@ impl Spec {
         3
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         match self {
             Spec::Backup(spec) => spec.name(),
         }

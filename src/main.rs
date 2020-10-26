@@ -156,6 +156,7 @@ async fn main() -> eyre::Result<()> {
     let appconfig = load_appconfig(&matches).await?;
     let restic = Restic::new(&appconfig.restic_binary);
     let secrets = Secrets;
+    let _ = config_path;
 
     match matches.subcommand() {
         ("restic", Some(matches)) => commands::restic(&restic, &secrets, &config, matches).await,
@@ -170,6 +171,6 @@ async fn main() -> eyre::Result<()> {
             ("open-config-file", Some(_)) => commands::desktop::open_config_file(&config_path),
             _ => unreachable!("unexpected subcommand for desktop"),
         },
-        _ => daemon::run(restic, secrets, config, &matches).await,
+        _ => daemon::run(restic, secrets, config, appconfig, &matches).await,
     }
 }

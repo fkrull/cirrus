@@ -9,12 +9,14 @@ members = [
     "cirrus-actor",
     "cirrus-core",
     "cirrus-daemon",
+    "cirrus-desktop-ui",
 ]
 
 [dependencies]
 cirrus-core = { path = "cirrus-core" }
 cirrus-actor = { path = "cirrus-actor" }
 cirrus-daemon = { path = "cirrus-daemon" }
+cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
 eyre = "0.6.1"
 clap = "2.33.1"
 dirs = "2.0.2"
@@ -36,4 +38,4 @@ default = []
 
 # desktop features
 desktop-commands = ["opener"]
-desktop = ["desktop-commands", "cirrus-core/keyring", "cirrus-daemon/desktop-notifications"]
+desktop = ["desktop-commands", "cirrus-core/keyring", "cirrus-desktop-ui"]

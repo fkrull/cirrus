@@ -262,6 +262,7 @@ dependencies = [
  "cirrus-actor",
  "cirrus-core",
  "cirrus-daemon",
+ "cirrus-desktop-ui",
  "clap",
  "color-eyre",
  "dirs 2.0.2",
@@ -314,9 +315,20 @@ dependencies = [
  "eyre",
  "futures",
  "log",
- "notify-rust",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "cirrus-desktop-ui"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cirrus-actor",
+ "cirrus-core",
+ "cirrus-daemon",
+ "eyre",
+ "notify-rust",
  "winrt 0.7.2",
 ]
 

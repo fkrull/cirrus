@@ -1,0 +1,18 @@
+[package]
+name = "cirrus-desktop-ui"
+version = "0.1.0"
+authors = ["Felix Krull <f_krull@gmx.de>"]
+edition = "2018"
+
+[dependencies]
+cirrus-core = { path = "../cirrus-core" }
+cirrus-daemon = { path = "../cirrus-daemon" }
+cirrus-actor = { path = "../cirrus-actor" }
+async-trait = "0.1.41"
+eyre = "0.6.1"
+
+[target.'cfg(windows)'.dependencies]
+winrt = "0.7.2"
+
+[target.'cfg(not(windows))'.dependencies]
+notify-rust = "4.0.0"

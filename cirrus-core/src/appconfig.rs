@@ -48,9 +48,9 @@ pub struct DesktopNotifications {
 impl Default for DesktopNotifications {
     fn default() -> Self {
         DesktopNotifications {
-            started: true,
+            started: false,
             success: false,
-            failure: false,
+            failure: true,
         }
     }
 }
@@ -71,9 +71,9 @@ mod tests {
                     desktop: Desktop {
                         status_icon: true,
                         notifications: DesktopNotifications {
-                            started: true,
+                            started: false,
                             success: false,
-                            failure: false
+                            failure: true
                         }
                     }
                 }
@@ -102,9 +102,9 @@ mod tests {
                     desktop: Desktop {
                         status_icon: true,
                         notifications: DesktopNotifications {
-                            started: true,
+                            started: false,
                             success: true,
-                            failure: false
+                            failure: true
                         }
                     }
                 }

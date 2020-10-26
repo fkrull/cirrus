@@ -2,28 +2,28 @@ use crate::job;
 use notify_rust::Notification;
 
 #[derive(Debug)]
-pub(super) struct DesktopNotifications;
+pub(crate) struct Notifications;
 
-impl DesktopNotifications {
-    pub(super) fn new() -> eyre::Result<Self> {
-        Ok(DesktopNotifications)
+impl Notifications {
+    pub(crate) fn new() -> eyre::Result<Self> {
+        Ok(Notifications)
     }
 
-    pub(super) fn notify_job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn notify_job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.base_notification()
             .summary(&self.started_message(job))
             .show()?;
         Ok(())
     }
 
-    pub(super) fn notify_job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn notify_job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.base_notification()
             .summary(&self.success_message(job))
             .show()?;
         Ok(())
     }
 
-    pub(super) fn notify_job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn notify_job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.base_notification()
             .summary(&self.failure_message(job))
             .icon("dialog-error")

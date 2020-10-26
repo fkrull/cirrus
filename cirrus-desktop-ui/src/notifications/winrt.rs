@@ -29,32 +29,32 @@ impl<T> WrapWinrtError for Result<T, winrt::Error> {
 }
 
 #[derive(Debug)]
-pub(super) struct DesktopNotifications {
+pub(crate) struct Notifications {
     notifier: ToastNotifier,
 }
 
-impl DesktopNotifications {
-    pub(super) fn new() -> eyre::Result<Self> {
+impl Notifications {
+    pub(crate) fn new() -> eyre::Result<Self> {
         let notifier = ToastNotificationManager::get_default()
             .wrap_winrt()?
             .create_toast_notifier_with_id(APP_ID)
             .wrap_winrt()?;
-        Ok(DesktopNotifications { notifier })
+        Ok(Notifications { notifier })
     }
 
-    pub(super) fn notify_job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn notify_job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.started_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())
     }
 
-    pub(super) fn notify_job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn notify_job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.success_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())
     }
 
-    pub(super) fn notify_job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn notify_job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.failure_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())

@@ -1,7 +1,24 @@
 use cirrus_daemon::job;
+use log::info;
 use std::sync::Arc;
 
 mod notifications;
+
+fn run_status_icon() -> eyre::Result<()> {
+    let mut app = systray::Application::new()?;
+    app.set_tooltip("Cirrus Backup")?;
+    app.add_menu_item("Test", |_| -> std::io::Result<()> {
+        info!("test menu item");
+        Ok(())
+    })?;
+    app.add_menu_separator()?;
+    app.add_menu_item("Exit", |_| -> std::io::Result<()> {
+        std::process::exit(0);
+    })?;
+    loop {
+        app.wait_for_message()?;
+    }
+}
 
 #[derive(Debug)]
 pub struct DesktopUi {
@@ -42,6 +59,13 @@ impl cirrus_actor::Actor for DesktopUi {
             }
             _ => {}
         }
+        Ok(())
+    }
+
+    async fn on_start(&mut self) -> Result<(), Self::Error> {
+        std::thread::spawn(|| {
+            run_status_icon().unwrap();
+        });
         Ok(())
     }
 }

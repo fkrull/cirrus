@@ -9,6 +9,10 @@ pub trait Actor: Send {
 
     async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error>;
 
+    async fn on_start(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     async fn on_close(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -34,6 +38,7 @@ pub struct ActorInstance<A: Actor> {
 
 impl<A: Actor> ActorInstance<A> {
     pub async fn run(&mut self) -> Result<(), A::Error> {
+        self.actor_impl.on_start().await?;
         loop {
             match self.select().await? {
                 ActorSelect::MessageReceived(message) => {

@@ -8,7 +8,7 @@ env_var = "TEST_PASSWORD"
 repository = "test"
 path = "."
 exclude_caches = true
-exclude = ["target"]
+excludes = ["target"]
 
 [[backups.test.triggers]]
 cron = "* * * * *"

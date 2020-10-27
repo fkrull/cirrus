@@ -15,6 +15,7 @@ pub async fn run(
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
     let config = Arc::new(config);
+    #[allow(unused_variables)]
     let appconfig = Arc::new(appconfig);
 
     let (jobqueues_actor, jobqueues) = cirrus_actor::new_actor();

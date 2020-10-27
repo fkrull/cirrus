@@ -32,7 +32,7 @@ async fn load_config(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, Config)
     Ok((config_path, config))
 }
 
-async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<AppConfig> {
+async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, AppConfig)> {
     let appconfig_path = matches
         .value_of_os("app-config")
         .map(PathBuf::from)
@@ -56,7 +56,7 @@ async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<AppConfig> {
         appconfig.restic_binary = restic_binary.to_owned();
     }
 
-    Ok(appconfig)
+    Ok((appconfig_path, appconfig))
 }
 
 #[tokio::main]
@@ -148,15 +148,17 @@ async fn main() -> eyre::Result<()> {
     let cli = cli.subcommand(
         App::new("desktop")
             .setting(AppSettings::SubcommandRequiredElseHelp)
-            .subcommand(App::new("open-config-file")),
+            .subcommand(App::new("open-config-file"))
+            .subcommand(App::new("open-appconfig-file")),
     );
 
     let matches = cli.get_matches();
+    #[allow(unused_variables)]
     let (config_path, config) = load_config(&matches).await?;
-    let appconfig = load_appconfig(&matches).await?;
+    #[allow(unused_variables)]
+    let (appconfig_path, appconfig) = load_appconfig(&matches).await?;
     let restic = Restic::new(&appconfig.restic_binary);
     let secrets = Secrets;
-    let _ = config_path;
 
     match matches.subcommand() {
         ("restic", Some(matches)) => commands::restic(&restic, &secrets, &config, matches).await,
@@ -169,6 +171,9 @@ async fn main() -> eyre::Result<()> {
         #[cfg(feature = "desktop-commands")]
         ("desktop", Some(matches)) => match matches.subcommand() {
             ("open-config-file", Some(_)) => commands::desktop::open_config_file(&config_path),
+            ("open-appconfig-file", Some(_)) => {
+                commands::desktop::open_appconfig_file(&appconfig_path).await
+            }
             _ => unreachable!("unexpected subcommand for desktop"),
         },
         _ => daemon::run(restic, secrets, config, appconfig, &matches).await,

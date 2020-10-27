@@ -27,17 +27,17 @@ impl cirrus_actor::Actor for DesktopUi {
         match message.new_status {
             job::Status::Started => {
                 if self.appconfig.daemon.desktop.notifications.started {
-                    self.notifications.notify_job_started(&message.job)?;
+                    self.notifications.job_started(&message.job)?;
                 }
             }
             job::Status::FinishedSuccessfully => {
                 if self.appconfig.daemon.desktop.notifications.success {
-                    self.notifications.notify_job_succeeded(&message.job)?;
+                    self.notifications.job_succeeded(&message.job)?;
                 }
             }
             job::Status::FinishedWithError => {
                 if self.appconfig.daemon.desktop.notifications.failure {
-                    self.notifications.notify_job_failed(&message.job)?;
+                    self.notifications.job_failed(&message.job)?;
                 }
             }
             _ => {}

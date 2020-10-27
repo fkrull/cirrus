@@ -9,21 +9,21 @@ impl Notifications {
         Ok(Notifications)
     }
 
-    pub(crate) fn notify_job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.base_notification()
             .summary(&self.started_message(job))
             .show()?;
         Ok(())
     }
 
-    pub(crate) fn notify_job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.base_notification()
             .summary(&self.success_message(job))
             .show()?;
         Ok(())
     }
 
-    pub(crate) fn notify_job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.base_notification()
             .summary(&self.failure_message(job))
             .icon("dialog-error")

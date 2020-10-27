@@ -42,19 +42,19 @@ impl Notifications {
         Ok(Notifications { notifier })
     }
 
-    pub(crate) fn notify_job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.started_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())
     }
 
-    pub(crate) fn notify_job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.success_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())
     }
 
-    pub(crate) fn notify_job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
         let notification = self.notification(self.failure_message(job)).wrap_winrt()?;
         self.notifier.show(notification).wrap_winrt()?;
         Ok(())

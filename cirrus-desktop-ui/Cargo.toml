@@ -10,7 +10,6 @@ cirrus-daemon = { path = "../cirrus-daemon" }
 cirrus-actor = { path = "../cirrus-actor" }
 async-trait = "0.1.41"
 eyre = "0.6.1"
-systray = "0.4.0"
 log = "0.4.11"
 tokio = "0.3.1"
 

@@ -1,7 +1,7 @@
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
+#[serde(rename_all = "kebab-case")]
 pub struct AppConfig {
-    #[serde(rename = "restic-binary")]
     pub restic_binary: String,
     pub daemon: Daemon,
 }
@@ -17,12 +17,14 @@ impl Default for AppConfig {
 
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 #[serde(default)]
+#[serde(rename_all = "kebab-case")]
 pub struct Daemon {
     pub desktop: Desktop,
 }
 
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
+#[serde(rename_all = "kebab-case")]
 pub struct Desktop {
     pub status_icon: bool,
     pub notifications: DesktopNotifications,
@@ -39,6 +41,7 @@ impl Default for Desktop {
 
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
+#[serde(rename_all = "kebab-case")]
 pub struct DesktopNotifications {
     pub started: bool,
     pub success: bool,
@@ -88,6 +91,9 @@ mod tests {
             r#"
             restic-binary = "/opt/restic"
 
+            [daemon.desktop]
+            status-icon = false
+
             [daemon.desktop.notifications]
             success = true
             "#,
@@ -100,7 +106,7 @@ mod tests {
                 restic_binary: "/opt/restic".to_owned(),
                 daemon: Daemon {
                     desktop: Desktop {
-                        status_icon: true,
+                        status_icon: false,
                         notifications: DesktopNotifications {
                             started: false,
                             success: true,

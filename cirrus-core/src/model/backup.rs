@@ -97,6 +97,7 @@ pub enum Trigger {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
 pub struct Definition {
     pub repository: repo::Name,
     pub path: Path,

@@ -31,6 +31,7 @@ impl Backups {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub repositories: Repositories,
     pub backups: Backups,
@@ -95,8 +96,8 @@ mod tests {
                 "/.local/share/Trash",
                 "/.cache"
             ]
-            exclude_caches = true
-            extra_args = ["--one-file-system"]
+            exclude-caches = true
+            extra-args = ["--one-file-system"]
 
             # look I don't remember cron syntax
             [[backups.home.triggers]]

@@ -15,6 +15,8 @@ tokio = "0.3.1"
 
 [target.'cfg(windows)'.dependencies]
 winrt = "0.7.2"
+trayicon = { version = "0.1.0-beta.18", features = ["winit"] }
+winit = "0.22.2"
 
 [target.'cfg(not(windows))'.dependencies]
 notify-rust = "4.0.0"

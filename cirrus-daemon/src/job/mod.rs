@@ -27,6 +27,12 @@ impl Job {
     }
 }
 
+impl PartialEq for Job {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct QueueId<'a> {
     pub repo: &'a model::repo::Name,

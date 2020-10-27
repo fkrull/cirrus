@@ -64,6 +64,13 @@ async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
     env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
+    // exit on thread panic
+    let panic_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        panic_hook(panic_info);
+        std::process::exit(1);
+    }));
+
     let cli = App::new("cirrus")
         .arg(
             Arg::with_name("config")

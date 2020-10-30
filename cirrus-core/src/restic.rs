@@ -21,6 +21,11 @@ pub struct Options {
 }
 
 impl Restic {
+    #[cfg(windows)]
+    const EXCLUDE_PARAM: &'static str = "--iexclude";
+    #[cfg(not(windows))]
+    const EXCLUDE_PARAM: &'static str = "--exclude";
+
     pub fn new(bin: impl Into<PathBuf>) -> Self {
         let bin = bin.into();
         Restic { bin }
@@ -69,7 +74,7 @@ impl Restic {
         args.push("backup".to_owned());
         args.push(backup.path.0.clone());
         for exclude in &backup.excludes {
-            args.push("--exclude".to_owned());
+            args.push(Self::EXCLUDE_PARAM.to_owned());
             args.push(exclude.0.clone());
         }
         if backup.exclude_caches {

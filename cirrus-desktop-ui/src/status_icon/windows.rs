@@ -1,5 +1,5 @@
+use super::model;
 use cirrus_daemon::job;
-use std::{borrow::Cow, collections::HashMap};
 use winit::{
     event::Event,
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
@@ -9,7 +9,7 @@ const ICON: &[u8] = include_bytes!("../resources/icon.ico");
 
 #[derive(Debug)]
 pub(crate) struct StatusIcon {
-    evloop_proxy: Option<EventLoopProxy<Events>>,
+    evloop_proxy: Option<EventLoopProxy<model::Event>>,
 }
 
 impl StatusIcon {
@@ -23,13 +23,15 @@ impl StatusIcon {
         let (send, recv) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let evloop = EventLoop::new_any_thread();
-            let mut model = Model::new();
+            let mut model = model::Model::new();
             let mut view = View::new(&evloop, &model).unwrap();
             send.send(evloop.create_proxy()).unwrap();
             evloop.run(move |event, _, control_flow| {
                 *control_flow = ControlFlow::Wait;
-                if let ViewUpdate::Changed = model.handle_event(event) {
-                    view.update(&model).unwrap()
+                if let Event::UserEvent(event) = event {
+                    if let model::HandleEventOutcome::UpdateView = model.handle_event(event) {
+                        view.update(&model).unwrap()
+                    }
                 }
             });
         });
@@ -43,7 +45,7 @@ impl StatusIcon {
         self.evloop_proxy
             .as_ref()
             .unwrap()
-            .send_event(Events::JobStarted(job.clone()))?;
+            .send_event(model::Event::JobStarted(job.clone()))?;
         Ok(())
     }
 
@@ -51,7 +53,7 @@ impl StatusIcon {
         self.evloop_proxy
             .as_ref()
             .unwrap()
-            .send_event(Events::JobSucceeded(job.clone()))?;
+            .send_event(model::Event::JobSucceeded(job.clone()))?;
         Ok(())
     }
 
@@ -59,99 +61,36 @@ impl StatusIcon {
         self.evloop_proxy
             .as_ref()
             .unwrap()
-            .send_event(Events::JobFailed(job.clone()))?;
+            .send_event(model::Event::JobFailed(job.clone()))?;
         Ok(())
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-enum Events {
-    JobStarted(job::Job),
-    JobSucceeded(job::Job),
-    JobFailed(job::Job),
-    Exit,
-}
-
-#[derive(Debug)]
-enum ViewUpdate {
-    Changed,
-    Unchanged,
-}
-
-#[derive(Debug)]
-struct Model {
-    running_jobs: HashMap<job::Id, job::Job>,
-}
-
-impl Model {
-    fn new() -> Self {
-        Model {
-            running_jobs: HashMap::new(),
-        }
-    }
-
-    fn handle_event(&mut self, event: Event<Events>) -> ViewUpdate {
-        match event {
-            Event::UserEvent(Events::JobStarted(job)) => {
-                self.running_jobs.insert(job.id, job);
-                ViewUpdate::Changed
-            }
-            Event::UserEvent(Events::JobSucceeded(job)) => {
-                self.running_jobs.remove(&job.id);
-                ViewUpdate::Changed
-            }
-            Event::UserEvent(Events::JobFailed(job)) => {
-                self.running_jobs.remove(&job.id);
-                ViewUpdate::Changed
-            }
-            Event::UserEvent(Events::Exit) => {
-                std::process::exit(0);
-            }
-            _ => ViewUpdate::Unchanged,
-        }
-    }
-
-    fn tooltip(&self) -> Cow<'static, str> {
-        if self.running_jobs.is_empty() {
-            "Cirrus — idle".into()
-        } else if self.running_jobs.len() == 1 {
-            let job = self.running_jobs.values().next().unwrap();
-            match &job.spec {
-                job::Spec::Backup(_) => {
-                    format!("Cirrus — backing up '{}'", &job.spec.name()).into()
-                }
-            }
-        } else {
-            format!("Cirrus — running {} jobs", self.running_jobs.len()).into()
-        }
-    }
-}
-
 struct View {
-    tray_icon: trayicon::TrayIcon<Events>,
+    tray_icon: trayicon::TrayIcon<model::Event>,
 }
 
-impl std::fmt::Debug for View {
+/*impl std::fmt::Debug for View {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("View")
             .field("tray_icon", &"<trayicon::TrayIcon>")
             .finish()
     }
-}
+}*/
 
 impl View {
-    fn new(evloop: &EventLoop<Events>, model: &Model) -> eyre::Result<Self> {
+    fn new(evloop: &EventLoop<model::Event>, model: &model::Model) -> eyre::Result<Self> {
         let tray_icon = trayicon::TrayIconBuilder::new()
             .sender_winit(evloop.create_proxy())
             .tooltip(&model.tooltip())
             .icon_from_buffer(ICON)
-            .menu(trayicon::MenuBuilder::new().item("Exit", Events::Exit))
+            .menu(trayicon::MenuBuilder::new().item("Exit", model::Event::Exit))
             .build()
             .map_err(|e| eyre::eyre!("failed to create tray icon: {:?}", e))?;
         Ok(View { tray_icon })
     }
 
-    fn update(&mut self, model: &Model) -> eyre::Result<()> {
+    fn update(&mut self, model: &model::Model) -> eyre::Result<()> {
         self.tray_icon
             .set_tooltip(&model.tooltip())
             .map_err(|e| eyre::eyre!("failed to set tooltip: {:?}", e))

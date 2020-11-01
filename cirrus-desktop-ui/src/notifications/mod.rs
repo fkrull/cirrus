@@ -1,9 +1,9 @@
 #[cfg(windows)]
-mod winrt;
+mod windows;
 #[cfg(windows)]
-pub(crate) use self::winrt::Notifications;
+pub(crate) use self::windows::Notifications;
 
-#[cfg(not(windows))]
-mod notify;
-#[cfg(not(windows))]
-pub(crate) use self::notify::Notifications;
+#[cfg(target_family = "unix")]
+mod xdg;
+#[cfg(target_family = "unix")]
+pub(crate) use self::xdg::Notifications;

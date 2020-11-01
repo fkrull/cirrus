@@ -368,6 +368,7 @@ dependencies = [
  "cirrus-core",
  "cirrus-daemon",
  "eyre",
+ "ksni",
  "log",
  "notify-rust",
  "tokio",
@@ -535,6 +536,36 @@ checksum = "5cd9e78c210146a1860f897db03412fd5091fd73100778e43ee255cca252cf32"
 dependencies = [
  "libc",
  "libdbus-sys",
+]
+
+[[package]]
+name = "dbus"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22c08adfeb70c940c14d8af988fa854dcb5529e6141f2397e4e0fa4c9375d094"
+dependencies = [
+ "libc",
+ "libdbus-sys",
+]
+
+[[package]]
+name = "dbus-codegen"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75aca5bc2d6b66a766c247e1ccd4c354084bc6b9b2ac0ac3b05814f0be76f295"
+dependencies = [
+ "clap",
+ "dbus 0.9.0",
+ "xml-rs 0.8.3",
+]
+
+[[package]]
+name = "dbus-tree"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26a1c139b794d571d930124e17fa4cae8a904dc8e916abf551ab763b00e93a63"
+dependencies = [
+ "dbus 0.9.0",
 ]
 
 [[package]]
@@ -902,6 +933,18 @@ dependencies = [
  "secret-service",
  "security-framework",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "ksni"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f747a7e3ab860520807e79a4e709f25a8df921078607a7d9ec909f48cfe72fc4"
+dependencies = [
+ "dbus 0.9.0",
+ "dbus-codegen",
+ "dbus-tree",
+ "thiserror",
 ]
 
 [[package]]

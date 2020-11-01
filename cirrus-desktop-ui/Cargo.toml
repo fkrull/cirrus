@@ -18,5 +18,6 @@ winrt = "0.7.2"
 trayicon = { version = "0.1.0-beta.18", features = ["winit"] }
 winit = "0.22.2"
 
-[target.'cfg(not(windows))'.dependencies]
+[target.'cfg(target_family = "unix")'.dependencies]
 notify-rust = "4.0.0"
+ksni = "0.1.2"

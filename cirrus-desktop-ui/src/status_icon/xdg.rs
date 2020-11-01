@@ -68,13 +68,22 @@ impl ksni::Tray for model::Model {
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
         use ksni::menu::*;
 
-        vec![StandardItem {
-            label: "Exit".to_owned(),
-            activate: Box::new(|this: &mut model::Model| {
-                this.handle_event(model::Event::Exit);
-            }),
-            ..Default::default()
-        }
-        .into()]
+        vec![
+            StandardItem {
+                label: self.status_text().into_owned(),
+                enabled: false,
+                ..Default::default()
+            }
+            .into(),
+            MenuItem::Sepatator,
+            StandardItem {
+                label: "Exit".to_owned(),
+                activate: Box::new(|this: &mut model::Model| {
+                    this.handle_event(model::Event::Exit);
+                }),
+                ..Default::default()
+            }
+            .into(),
+        ]
     }
 }

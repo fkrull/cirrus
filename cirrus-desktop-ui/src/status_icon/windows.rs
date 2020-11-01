@@ -70,14 +70,6 @@ struct View {
     tray_icon: trayicon::TrayIcon<model::Event>,
 }
 
-/*impl std::fmt::Debug for View {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("View")
-            .field("tray_icon", &"<trayicon::TrayIcon>")
-            .finish()
-    }
-}*/
-
 impl View {
     fn new(evloop: &EventLoop<model::Event>, model: &model::Model) -> eyre::Result<Self> {
         let tray_icon = trayicon::TrayIconBuilder::new()

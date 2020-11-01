@@ -48,7 +48,7 @@ impl Model {
         }
     }
 
-    fn app_name(&self) -> &'static str {
+    pub(super) fn app_name(&self) -> &'static str {
         "Cirrus"
     }
 

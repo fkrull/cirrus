@@ -87,3 +87,33 @@ impl ksni::Tray for model::Model {
         ]
     }
 }
+
+fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {
+    use png::{BitDepth, ColorType, Decoder, Transformations};
+
+    let mut decoder = Decoder::new(data);
+    decoder.set_transformations(Transformations::SWAP_ALPHA);
+    let (info, mut reader) = decoder.read_info()?;
+    if info.bit_depth != BitDepth::Eight {
+        return Err(eyre::eyre!(
+            "unsupported PNG bit depth: {:?}",
+            info.bit_depth
+        ));
+    }
+    if info.color_type != ColorType::RGBA {
+        return Err(eyre::eyre!("unsupported PNG format: {:?}", info.color_type));
+    }
+
+    let mut data =
+        vec![0u8; info.width * info.height * info.color_type.samples() * info.bit_depth as u8];
+    let mut pos = 0;
+    while let Some(row) = reader.next_row()? {
+        data[pos..pos + row.len()].copy_from_slice(row);
+        pos += row.len();
+    }
+    Ok(ksni::Icon {
+        width: info.width as i32,
+        height: info.height as i32,
+        data,
+    })
+}

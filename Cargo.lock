@@ -374,6 +374,7 @@ dependencies = [
  "tokio",
  "trayicon",
  "winit",
+ "winreg",
  "winrt 0.7.2",
 ]
 
@@ -2382,6 +2383,15 @@ dependencies = [
  "wayland-client",
  "winapi 0.3.9",
  "x11-dl",
+]
+
+[[package]]
+name = "winreg"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
+dependencies = [
+ "winapi 0.3.9",
 ]
 
 [[package]]

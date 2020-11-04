@@ -12,12 +12,12 @@ async-trait = "0.1.41"
 eyre = "0.6.1"
 log = "0.4.11"
 tokio = "0.3.1"
-winreg = "0.7.0"
 
 [target.'cfg(windows)'.dependencies]
 winrt = "0.7.2"
 trayicon = { version = "0.1.0-beta.18", features = ["winit"] }
 winit = "0.22.2"
+winreg = "0.7.0"
 
 [target.'cfg(target_family = "unix")'.dependencies]
 notify-rust = "4.0.0"

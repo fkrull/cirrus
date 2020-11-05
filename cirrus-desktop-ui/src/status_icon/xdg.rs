@@ -103,11 +103,9 @@ fn icon_pixmaps() -> eyre::Result<Vec<ksni::Icon>> {
 }
 
 fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {
-    use png::{BitDepth, ColorType, Decoder, Transformations};
+    use png::{BitDepth, ColorType, Decoder};
 
-    let mut decoder = Decoder::new(data);
-    decoder.set_transformations(Transformations::SWAP_ALPHA);
-    let (info, mut reader) = decoder.read_info()?;
+    let (info, mut reader) = Decoder::new(data).read_info()?;
     if info.bit_depth != BitDepth::Eight {
         return Err(eyre::eyre!(
             "unsupported PNG bit depth: {:?}",
@@ -121,9 +119,19 @@ fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {
     let mut data = vec![0u8; info.buffer_size()];
     reader.next_frame(&mut data)?;
     let info = reader.info();
+    rgba_to_argb(&mut data);
+
     Ok(ksni::Icon {
         width: info.width as i32,
         height: info.height as i32,
         data,
     })
+}
+
+fn rgba_to_argb(data: &mut [u8]) {
+    for offset in (0..data.len()).step_by(4) {
+        let alpha = data[offset + 3];
+        data.copy_within(offset..offset + 3, offset + 1);
+        data[offset] = alpha;
+    }
 }

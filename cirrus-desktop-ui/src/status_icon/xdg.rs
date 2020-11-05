@@ -3,12 +3,6 @@ use cirrus_daemon::job;
 
 const APP_ID: &'static str = "io.gitlab.fkrull.cirrus.Cirrus";
 
-const ICONS_LIGHT: [&[u8]; 3] = [
-    include_bytes!("../resources/16x16/status/cirrus-idle.light.png"),
-    include_bytes!("../resources/24x24/status/cirrus-idle.light.png"),
-    include_bytes!("../resources/48x48/status/cirrus-idle.light.png"),
-];
-
 pub(crate) struct StatusIcon {
     handle: Option<ksni::Handle<model::Model>>,
 }
@@ -94,44 +88,62 @@ impl ksni::Tray for model::Model {
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
-        icon_pixmaps().unwrap()
+        icons::get_icon_for_theme().clone()
     }
 }
 
-fn icon_pixmaps() -> eyre::Result<Vec<ksni::Icon>> {
-    ICONS_LIGHT.iter().map(|&data| load_png(data)).collect()
-}
+mod icons {
+    use once_cell::sync::Lazy;
 
-fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {
-    use png::{BitDepth, ColorType, Decoder};
+    const ICON_DATA_LIGHT: [&[u8]; 3] = [
+        include_bytes!("../resources/16x16/status/cirrus-idle.light.png"),
+        include_bytes!("../resources/24x24/status/cirrus-idle.light.png"),
+        include_bytes!("../resources/48x48/status/cirrus-idle.light.png"),
+    ];
 
-    let (info, mut reader) = Decoder::new(data).read_info()?;
-    if info.bit_depth != BitDepth::Eight {
-        return Err(eyre::eyre!(
-            "unsupported PNG bit depth: {:?}",
-            info.bit_depth
-        ));
+    static ICON_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
+        ICON_DATA_LIGHT
+            .iter()
+            .map(|&data| load_png(data))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+    });
+
+    pub(super) fn get_icon_for_theme() -> &'static Vec<ksni::Icon> {
+        &ICON_LIGHT
     }
-    if info.color_type != ColorType::RGBA {
-        return Err(eyre::eyre!("unsupported PNG format: {:?}", info.color_type));
+
+    fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {
+        use png::{BitDepth, ColorType, Decoder};
+
+        let (info, mut reader) = Decoder::new(data).read_info()?;
+        if info.bit_depth != BitDepth::Eight {
+            return Err(eyre::eyre!(
+                "unsupported PNG bit depth: {:?}",
+                info.bit_depth
+            ));
+        }
+        if info.color_type != ColorType::RGBA {
+            return Err(eyre::eyre!("unsupported PNG format: {:?}", info.color_type));
+        }
+
+        let mut data = vec![0u8; info.buffer_size()];
+        reader.next_frame(&mut data)?;
+        let info = reader.info();
+        rgba_to_argb(&mut data);
+
+        Ok(ksni::Icon {
+            width: info.width as i32,
+            height: info.height as i32,
+            data,
+        })
     }
 
-    let mut data = vec![0u8; info.buffer_size()];
-    reader.next_frame(&mut data)?;
-    let info = reader.info();
-    rgba_to_argb(&mut data);
-
-    Ok(ksni::Icon {
-        width: info.width as i32,
-        height: info.height as i32,
-        data,
-    })
-}
-
-fn rgba_to_argb(data: &mut [u8]) {
-    for offset in (0..data.len()).step_by(4) {
-        let alpha = data[offset + 3];
-        data.copy_within(offset..offset + 3, offset + 1);
-        data[offset] = alpha;
+    fn rgba_to_argb(data: &mut [u8]) {
+        for offset in (0..data.len()).step_by(4) {
+            let alpha = data[offset + 3];
+            data.copy_within(offset..offset + 3, offset + 1);
+            data[offset] = alpha;
+        }
     }
 }

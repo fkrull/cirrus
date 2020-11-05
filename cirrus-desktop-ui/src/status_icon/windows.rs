@@ -5,9 +5,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
 };
 
-const ICON_DARK: &[u8] = include_bytes!("../resources/cirrus-idle.dark.ico");
-const ICON_LIGHT: &[u8] = include_bytes!("../resources/cirrus-idle.light.ico");
-
 #[derive(Debug)]
 pub(crate) struct StatusIcon {
     evloop_proxy: Option<EventLoopProxy<model::Event>>,
@@ -76,7 +73,7 @@ impl View {
         let tray_icon = trayicon::TrayIconBuilder::new()
             .sender_winit(evloop.create_proxy())
             .tooltip(&model.tooltip())
-            .icon(get_icon_for_theme()?)
+            .icon(get_icon_for_theme()?.clone())
             .menu(trayicon::MenuBuilder::new().item("Exit", model::Event::Exit))
             .build()
             .map_err(|e| eyre::eyre!("failed to create tray icon: {:?}", e))?;
@@ -88,36 +85,49 @@ impl View {
             .set_tooltip(&model.tooltip())
             .map_err(|e| eyre::eyre!("failed to set tooltip: {:?}", e))?;
         self.tray_icon
-            .set_icon(&get_icon_for_theme()?)
+            .set_icon(get_icon_for_theme()?)
             .map_err(|e| eyre::eyre!("failed to set icon: {:?}", e))?;
         Ok(())
     }
 }
 
-#[derive(Debug)]
-enum SystrayTheme {
-    Light,
-    Dark,
-}
+mod icons {
+    use once_cell::sync::Lazy;
 
-fn systray_theme() -> eyre::Result<SystrayTheme> {
-    use winreg::enums::HKEY_CURRENT_USER;
-    use winreg::RegKey;
-    let personalize = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize")?;
-    let is_light: u32 = personalize.get_value("SystemUsesLightTheme")?;
-    if is_light != 0 {
-        Ok(SystrayTheme::Light)
-    } else {
-        Ok(SystrayTheme::Dark)
+    const ICON_DATA_LIGHT: &[u8] = include_bytes!("../resources/cirrus-idle.light.ico");
+    const ICON_DATA_DARK: &[u8] = include_bytes!("../resources/cirrus-idle.dark.ico");
+
+    static ICON_LIGHT: Lazy<trayicon::Icon> = Lazy::new(|| load_icon(ICON_DATA_LIGHT).unwrap());
+    static ICON_DARK: Lazy<trayicon::Icon> = Lazy::new(|| load_icon(ICON_DATA_DARK).unwrap());
+
+    pub(super) fn get_icon_for_theme() -> eyre::Result<&trayicon::Icon> {
+        match systray_theme()? {
+            SystrayTheme::Light => Ok(&ICON_LIGHT),
+            SystrayTheme::Dark => Ok(&ICON_DARK),
+        }
     }
-}
 
-fn get_icon_for_theme() -> eyre::Result<trayicon::Icon> {
-    let buffer = match systray_theme()? {
-        SystrayTheme::Light => ICON_DARK,
-        SystrayTheme::Dark => ICON_LIGHT,
-    };
-    trayicon::Icon::from_buffer(buffer, None, None)
-        .map_err(|e| eyre::eyre!("failed to load icon: {:?}", e))
+    #[derive(Debug)]
+    enum SystrayTheme {
+        Light,
+        Dark,
+    }
+
+    fn systray_theme() -> eyre::Result<SystrayTheme> {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        let personalize = RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize")?;
+        let is_light: u32 = personalize.get_value("SystemUsesLightTheme")?;
+        if is_light != 0 {
+            Ok(SystrayTheme::Light)
+        } else {
+            Ok(SystrayTheme::Dark)
+        }
+    }
+
+    fn load_icon(buffer: &[u8]) -> eyre::Result<trayicon::Icon> {
+        trayicon::Icon::from_buffer(buffer, None, None)
+            .map_err(|e| eyre::eyre!("failed to load icon: {:?}", e))
+    }
 }

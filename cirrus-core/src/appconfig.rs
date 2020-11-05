@@ -22,30 +22,23 @@ pub struct Daemon {
     pub desktop: Desktop,
 }
 
-#[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
-#[serde(default)]
-#[serde(rename_all = "kebab-case")]
-pub struct Desktop {
-    pub status_icon: StatusIcon,
-    pub notifications: DesktopNotifications,
-}
-
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 #[serde(rename_all = "kebab-case")]
-pub struct StatusIcon {
-    pub enabled: bool,
-    pub show_when_idle: bool,
+pub struct Desktop {
+    pub status_icon: bool,
+    pub notifications: DesktopNotifications,
 }
 
-impl Default for StatusIcon {
+impl Default for Desktop {
     fn default() -> Self {
-        StatusIcon {
-            enabled: true,
-            show_when_idle: false,
+        Desktop {
+            status_icon: true,
+            notifications: Default::default(),
         }
     }
 }
+
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 #[serde(rename_all = "kebab-case")]
@@ -79,10 +72,7 @@ mod tests {
                 restic_binary: "restic".to_owned(),
                 daemon: Daemon {
                     desktop: Desktop {
-                        status_icon: StatusIcon {
-                            enabled: true,
-                            show_when_idle: false
-                        },
+                        status_icon: true,
                         notifications: DesktopNotifications {
                             started: false,
                             success: false,
@@ -101,8 +91,8 @@ mod tests {
             r#"
             restic-binary = "/opt/restic"
 
-            [daemon.desktop.status-icon]
-            enabled = false
+            [daemon.desktop]
+            status-icon = false
 
             [daemon.desktop.notifications]
             success = true
@@ -116,10 +106,7 @@ mod tests {
                 restic_binary: "/opt/restic".to_owned(),
                 daemon: Daemon {
                     desktop: Desktop {
-                        status_icon: StatusIcon {
-                            enabled: false,
-                            show_when_idle: false
-                        },
+                        status_icon: false,
                         notifications: DesktopNotifications {
                             started: false,
                             success: true,

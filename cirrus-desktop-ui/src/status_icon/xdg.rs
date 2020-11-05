@@ -22,7 +22,7 @@ impl std::fmt::Debug for StatusIcon {
 }
 
 impl StatusIcon {
-    pub(crate) fn new(_show_when_idle: bool) -> eyre::Result<Self> {
+    pub(crate) fn new() -> eyre::Result<Self> {
         Ok(StatusIcon { handle: None })
     }
 

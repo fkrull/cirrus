@@ -13,8 +13,10 @@ pub struct DesktopUi {
 
 impl DesktopUi {
     pub fn new(appconfig: Arc<cirrus_core::appconfig::AppConfig>) -> eyre::Result<Self> {
-        let status_icon = if appconfig.daemon.desktop.status_icon {
-            Some(status_icon::StatusIcon::new()?)
+        let status_icon = if appconfig.daemon.desktop.status_icon.enabled {
+            Some(status_icon::StatusIcon::new(
+                appconfig.daemon.desktop.status_icon.show_when_idle,
+            )?)
         } else {
             None
         };

@@ -14,7 +14,7 @@ pub(crate) struct StatusIcon {
 }
 
 impl StatusIcon {
-    pub(crate) fn new() -> eyre::Result<Self> {
+    pub(crate) fn new(_show_when_idle: bool) -> eyre::Result<Self> {
         Ok(StatusIcon { evloop_proxy: None })
     }
 

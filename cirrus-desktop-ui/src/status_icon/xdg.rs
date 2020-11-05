@@ -3,7 +3,8 @@ use cirrus_daemon::job;
 
 const APP_ID: &'static str = "io.gitlab.fkrull.cirrus.Cirrus";
 
-const ICONS_LIGHT: [&[u8]; 2] = [
+const ICONS_LIGHT: [&[u8]; 3] = [
+    include_bytes!("../resources/16x16/status/cirrus-idle.light.png"),
     include_bytes!("../resources/24x24/status/cirrus-idle.light.png"),
     include_bytes!("../resources/48x48/status/cirrus-idle.light.png"),
 ];
@@ -117,16 +118,9 @@ fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {
         return Err(eyre::eyre!("unsupported PNG format: {:?}", info.color_type));
     }
 
-    let mut data = vec![
-        0u8;
-        (info.width * info.height * info.color_type.samples() as u32 * info.bit_depth as u32)
-            as usize
-    ];
-    let mut pos = 0;
-    while let Some(row) = reader.next_row()? {
-        data[pos..pos + row.len()].copy_from_slice(row);
-        pos += row.len();
-    }
+    let mut data = vec![0u8; info.buffer_size()];
+    reader.next_frame(&mut data)?;
+    let info = reader.info();
     Ok(ksni::Icon {
         width: info.width as i32,
         height: info.height as i32,

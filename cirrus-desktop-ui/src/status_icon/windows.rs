@@ -5,8 +5,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
 };
 
-const ICON_DARK: &[u8] = include_bytes!("../resources/cirrus-idle-dark.ico");
-const ICON_LIGHT: &[u8] = include_bytes!("../resources/cirrus-idle-light.ico");
+const ICON_DARK: &[u8] = include_bytes!("../resources/cirrus-idle.dark.ico");
+const ICON_LIGHT: &[u8] = include_bytes!("../resources/cirrus-idle.light.ico");
 
 #[derive(Debug)]
 pub(crate) struct StatusIcon {

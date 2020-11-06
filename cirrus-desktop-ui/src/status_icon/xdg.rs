@@ -83,6 +83,22 @@ impl ksni::Tray for model::Model {
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
         use ksni::menu::*;
 
+        let backups_menu = self
+            .backups()
+            .map(|name| {
+                let name = name.clone();
+                StandardItem {
+                    label: name.0.clone(),
+                    activate: Box::new(move |this: &mut model::Model| {
+                        this.handle_event(model::Event::RunBackup(name.clone()))
+                            .unwrap();
+                    }),
+                    ..Default::default()
+                }
+                .into()
+            })
+            .collect();
+
         vec![
             StandardItem {
                 label: self.status_text().into_owned(),
@@ -90,11 +106,17 @@ impl ksni::Tray for model::Model {
                 ..Default::default()
             }
             .into(),
+            SubMenu {
+                label: "Run Backup".to_string(),
+                submenu: backups_menu,
+                ..Default::default()
+            }
+            .into(),
             MenuItem::Sepatator,
             StandardItem {
                 label: "Exit".to_owned(),
                 activate: Box::new(|this: &mut model::Model| {
-                    this.handle_event(model::Event::Exit);
+                    this.handle_event(model::Event::Exit).unwrap();
                 }),
                 ..Default::default()
             }

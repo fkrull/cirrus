@@ -17,6 +17,12 @@ pub(super) enum HandleEventOutcome {
 }
 
 #[derive(Debug)]
+pub(super) enum Status {
+    Idle,
+    Running,
+}
+
+#[derive(Debug)]
 pub(super) struct Model {
     running_jobs: HashMap<job::Id, job::Job>,
 }
@@ -50,6 +56,14 @@ impl Model {
 
     pub(super) fn app_name(&self) -> &'static str {
         "Cirrus"
+    }
+
+    pub(super) fn status(&self) -> Status {
+        if self.running_jobs.is_empty() {
+            Status::Idle
+        } else {
+            Status::Running
+        }
     }
 
     pub(super) fn status_text(&self) -> Cow<'static, str> {

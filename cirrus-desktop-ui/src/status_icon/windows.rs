@@ -73,7 +73,7 @@ impl View {
         let tray_icon = trayicon::TrayIconBuilder::new()
             .sender_winit(evloop.create_proxy())
             .tooltip(&model.tooltip())
-            .icon(icons::get_icon_for_theme()?.clone())
+            .icon(icon_for_status(model)?.clone())
             .menu(trayicon::MenuBuilder::new().item("Exit", model::Event::Exit))
             .build()
             .map_err(|e| eyre::eyre!("failed to create tray icon: {:?}", e))?;
@@ -85,25 +85,42 @@ impl View {
             .set_tooltip(&model.tooltip())
             .map_err(|e| eyre::eyre!("failed to set tooltip: {:?}", e))?;
         self.tray_icon
-            .set_icon(icons::get_icon_for_theme()?)
+            .set_icon(icon_for_status(model)?)
             .map_err(|e| eyre::eyre!("failed to set icon: {:?}", e))?;
         Ok(())
+    }
+}
+
+fn icon_for_status(model: &model::Model) -> eyre::Result<&'static trayicon::Icon> {
+    match model.status() {
+        model::Status::Idle => icons::idle(),
+        model::Status::Running => icons::running(),
     }
 }
 
 mod icons {
     use once_cell::sync::Lazy;
 
-    const ICON_DATA_LIGHT: &[u8] = include_bytes!("../resources/cirrus-idle.light.ico");
-    const ICON_DATA_DARK: &[u8] = include_bytes!("../resources/cirrus-idle.dark.ico");
+    static IDLE_LIGHT: Lazy<trayicon::Icon> =
+        Lazy::new(|| load_icon(include_bytes!("../resources/cirrus-idle.light.ico")).unwrap());
+    static IDLE_DARK: Lazy<trayicon::Icon> =
+        Lazy::new(|| load_icon(include_bytes!("../resources/cirrus-idle.dark.ico")).unwrap());
+    static RUNNING_LIGHT: Lazy<trayicon::Icon> =
+        Lazy::new(|| load_icon(include_bytes!("../resources/cirrus-running.light.ico")).unwrap());
+    static RUNNING_DARK: Lazy<trayicon::Icon> =
+        Lazy::new(|| load_icon(include_bytes!("../resources/cirrus-running.dark.ico")).unwrap());
 
-    static ICON_LIGHT: Lazy<trayicon::Icon> = Lazy::new(|| load_icon(ICON_DATA_LIGHT).unwrap());
-    static ICON_DARK: Lazy<trayicon::Icon> = Lazy::new(|| load_icon(ICON_DATA_DARK).unwrap());
-
-    pub(super) fn get_icon_for_theme() -> eyre::Result<&'static trayicon::Icon> {
+    pub(super) fn idle() -> eyre::Result<&'static trayicon::Icon> {
         match systray_theme()? {
-            SystrayTheme::Light => Ok(&ICON_DARK),
-            SystrayTheme::Dark => Ok(&ICON_LIGHT),
+            SystrayTheme::Light => Ok(&IDLE_DARK),
+            SystrayTheme::Dark => Ok(&IDLE_LIGHT),
+        }
+    }
+
+    pub(super) fn running() -> eyre::Result<&'static trayicon::Icon> {
+        match systray_theme()? {
+            SystrayTheme::Light => Ok(&RUNNING_DARK),
+            SystrayTheme::Dark => Ok(&RUNNING_LIGHT),
         }
     }
 

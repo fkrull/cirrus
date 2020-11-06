@@ -63,14 +63,17 @@ impl Scheduler {
                     .ok_or_else(|| {
                         eyre!("missing repository definition '{}'", backup.repository.0)
                     })?;
-                let backup_job = job::Job::new(job::Spec::Backup(BackupSpec {
-                    restic: self.restic.clone(),
-                    secrets: self.secrets.clone(),
-                    repo_name: backup.repository.clone(),
-                    backup_name: name.clone(),
-                    repo: repo.clone(),
-                    backup: backup.clone(),
-                }));
+                let backup_job = job::Job::new(
+                    BackupSpec {
+                        restic: self.restic.clone(),
+                        secrets: self.secrets.clone(),
+                        repo_name: backup.repository.clone(),
+                        backup_name: name.clone(),
+                        repo: repo.clone(),
+                        backup: backup.clone(),
+                    }
+                    .into(),
+                );
                 info!("scheduling backup '{}'", backup_job.spec.name());
                 self.job_queues.send(backup_job)?;
                 self.previous_schedules.insert(name.clone(), now);

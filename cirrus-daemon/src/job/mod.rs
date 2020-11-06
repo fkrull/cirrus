@@ -44,6 +44,12 @@ pub enum Spec {
     Backup(BackupSpec),
 }
 
+impl From<BackupSpec> for Spec {
+    fn from(spec: BackupSpec) -> Self {
+        Spec::Backup(spec)
+    }
+}
+
 impl Spec {
     pub(crate) fn queue_id(&self) -> QueueId {
         match self {

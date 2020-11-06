@@ -4,6 +4,7 @@ use cirrus_daemon::job;
 const APP_ID: &'static str = "io.gitlab.fkrull.cirrus.Cirrus";
 
 pub(crate) struct StatusIcon {
+    deps: crate::Deps,
     handle: Option<ksni::Handle<model::Model>>,
 }
 
@@ -16,12 +17,13 @@ impl std::fmt::Debug for StatusIcon {
 }
 
 impl StatusIcon {
-    pub(crate) fn new() -> eyre::Result<Self> {
-        Ok(StatusIcon { handle: None })
+    pub(crate) fn new(deps: crate::Deps) -> eyre::Result<Self> {
+        Ok(StatusIcon { deps, handle: None })
     }
 
     pub(crate) fn start(&mut self) -> eyre::Result<()> {
-        let service = ksni::TrayService::new(model::Model::new());
+        let model = model::Model::new(self.deps.clone());
+        let service = ksni::TrayService::new(model);
         self.handle = Some(service.handle());
         service.spawn();
         Ok(())
@@ -29,21 +31,27 @@ impl StatusIcon {
 
     pub(crate) fn job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
-            model.handle_event(model::Event::JobStarted(job.clone()));
+            model
+                .handle_event(model::Event::JobStarted(job.clone()))
+                .unwrap();
         });
         Ok(())
     }
 
     pub(crate) fn job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
-            model.handle_event(model::Event::JobSucceeded(job.clone()));
+            model
+                .handle_event(model::Event::JobSucceeded(job.clone()))
+                .unwrap();
         });
         Ok(())
     }
 
     pub(crate) fn job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
-            model.handle_event(model::Event::JobFailed(job.clone()));
+            model
+                .handle_event(model::Event::JobFailed(job.clone()))
+                .unwrap();
         });
         Ok(())
     }
@@ -56,6 +64,13 @@ impl ksni::Tray for model::Model {
 
     fn title(&self) -> String {
         self.app_name().to_owned()
+    }
+
+    fn icon_pixmap(&self) -> Vec<ksni::Icon> {
+        match self.status() {
+            model::Status::Idle => icons::idle().clone(),
+            model::Status::Running => icons::running().clone(),
+        }
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
@@ -85,13 +100,6 @@ impl ksni::Tray for model::Model {
             }
             .into(),
         ]
-    }
-
-    fn icon_pixmap(&self) -> Vec<ksni::Icon> {
-        match self.status() {
-            model::Status::Idle => icons::idle().clone(),
-            model::Status::Running => icons::running().clone(),
-        }
     }
 }
 

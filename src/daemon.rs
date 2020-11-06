@@ -36,8 +36,13 @@ pub async fn run(
             jobhistory,
         ]));
     #[cfg(feature = "cirrus-desktop-ui")]
-    let mut desktop_ui_actor =
-        desktop_ui_actor.into_instance(cirrus_desktop_ui::DesktopUi::new(appconfig.clone())?);
+    let mut desktop_ui_actor = desktop_ui_actor.into_instance(cirrus_desktop_ui::DesktopUi::new(
+        appconfig.clone(),
+        config.clone(),
+        restic.clone(),
+        secrets.clone(),
+        jobqueues.clone(),
+    )?);
     let mut jobhistory_actor = jobhistory_actor.into_instance(cirrus_actor::util::NullSink::new());
 
     let mut scheduler = scheduler::Scheduler::new(

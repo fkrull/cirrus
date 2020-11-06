@@ -7,27 +7,32 @@ use winit::{
 
 #[derive(Debug)]
 pub(crate) struct StatusIcon {
+    deps: crate::Deps,
     evloop_proxy: Option<EventLoopProxy<model::Event>>,
 }
 
 impl StatusIcon {
-    pub(crate) fn new() -> eyre::Result<Self> {
-        Ok(StatusIcon { evloop_proxy: None })
+    pub(crate) fn new(deps: crate::Deps) -> eyre::Result<Self> {
+        Ok(StatusIcon {
+            deps,
+            evloop_proxy: None,
+        })
     }
 
     pub(crate) fn start(&mut self) -> eyre::Result<()> {
         use winit::platform::windows::EventLoopExtWindows;
 
         let (send, recv) = std::sync::mpsc::channel();
+        let mut model = model::Model::new(self.deps.clone());
         std::thread::spawn(move || {
             let evloop = EventLoop::new_any_thread();
-            let mut model = model::Model::new();
             let mut view = View::new(&evloop, &model).unwrap();
             send.send(evloop.create_proxy()).unwrap();
             evloop.run(move |event, _, control_flow| {
                 *control_flow = ControlFlow::Wait;
                 if let Event::UserEvent(event) = event {
-                    if let model::HandleEventOutcome::UpdateView = model.handle_event(event) {
+                    let outcome = model.handle_event(event).unwrap();
+                    if let model::HandleEventOutcome::UpdateView = outcome {
                         view.update(&model).unwrap()
                     }
                 }
@@ -74,7 +79,7 @@ impl View {
             .sender_winit(evloop.create_proxy())
             .tooltip(&model.tooltip())
             .icon(icon_for_status(model)?.clone())
-            .menu(trayicon::MenuBuilder::new().item("Exit", model::Event::Exit))
+            .menu(menu(model))
             .build()
             .map_err(|e| eyre::eyre!("failed to create tray icon: {:?}", e))?;
         Ok(View { tray_icon })
@@ -89,6 +94,18 @@ impl View {
             .map_err(|e| eyre::eyre!("failed to set icon: {:?}", e))?;
         Ok(())
     }
+}
+
+fn menu(model: &model::Model) -> trayicon::MenuBuilder<model::Event> {
+    let backups_menu = model
+        .backups()
+        .fold(trayicon::MenuBuilder::new(), |menu, name| {
+            menu.item(&name.0, model::Event::RunBackup(name.clone()))
+        });
+    trayicon::MenuBuilder::new()
+        .submenu("Run Backup", backups_menu)
+        .separator()
+        .item("Exit", model::Event::Exit)
 }
 
 fn icon_for_status(model: &model::Model) -> eyre::Result<&'static trayicon::Icon> {

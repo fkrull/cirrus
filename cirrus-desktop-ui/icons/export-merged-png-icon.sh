@@ -27,4 +27,4 @@ for object in $OBJECTS; do
   png_files="$png_files $filename"
 done
 
-convert -background transparent $png_files -layers flatten "$PNG"
+convert -background transparent $png_files -layers flatten -define png:color-type=6 "$PNG"

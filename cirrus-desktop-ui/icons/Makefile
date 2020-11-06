@@ -4,6 +4,8 @@ SIZES := 16 24 32 48
 meta/all: \
 		$(TARGET_DIR)/cirrus-idle.light.ico \
 		$(TARGET_DIR)/cirrus-idle.dark.ico \
+		$(TARGET_DIR)/cirrus-running.light.ico \
+		$(TARGET_DIR)/cirrus-running.dark.ico \
 
 meta/clean:
 	rm -r $(TARGET_DIR)/*

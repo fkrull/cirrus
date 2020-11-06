@@ -95,10 +95,11 @@ impl ksni::Tray for model::Model {
 mod icons {
     use once_cell::sync::Lazy;
 
-    const ICON_DATA_LIGHT: [&[u8]; 3] = [
-        include_bytes!("../resources/16x16/status/cirrus-idle.light.png"),
-        include_bytes!("../resources/24x24/status/cirrus-idle.light.png"),
-        include_bytes!("../resources/48x48/status/cirrus-idle.light.png"),
+    const ICON_DATA_LIGHT: [&[u8]; 4] = [
+        include_bytes!("../resources/16/cirrus-idle.light.png"),
+        include_bytes!("../resources/24/cirrus-idle.light.png"),
+        include_bytes!("../resources/32/cirrus-idle.light.png"),
+        include_bytes!("../resources/48/cirrus-idle.light.png"),
     ];
 
     static ICON_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {

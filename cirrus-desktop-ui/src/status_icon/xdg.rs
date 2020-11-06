@@ -88,30 +88,49 @@ impl ksni::Tray for model::Model {
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
-        icons::get_icon_for_theme().clone()
+        match self.status() {
+            model::Status::Idle => icons::idle().clone(),
+            model::Status::Running => icons::running().clone(),
+        }
     }
 }
 
 mod icons {
     use once_cell::sync::Lazy;
 
-    const ICON_DATA_LIGHT: [&[u8]; 4] = [
-        include_bytes!("../resources/16/cirrus-idle.light.png"),
-        include_bytes!("../resources/24/cirrus-idle.light.png"),
-        include_bytes!("../resources/32/cirrus-idle.light.png"),
-        include_bytes!("../resources/48/cirrus-idle.light.png"),
-    ];
-
-    static ICON_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
-        ICON_DATA_LIGHT
+    static IDLE_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
+        const ICON_DATA: [&'static [u8]; 4] = [
+            include_bytes!("../resources/16/cirrus-idle.light.png"),
+            include_bytes!("../resources/24/cirrus-idle.light.png"),
+            include_bytes!("../resources/32/cirrus-idle.light.png"),
+            include_bytes!("../resources/48/cirrus-idle.light.png"),
+        ];
+        ICON_DATA
+            .iter()
+            .map(|&data| load_png(data))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+    });
+    static RUNNING_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
+        const ICON_DATA: [&'static [u8]; 4] = [
+            include_bytes!("../resources/16/cirrus-running.light.png"),
+            include_bytes!("../resources/24/cirrus-running.light.png"),
+            include_bytes!("../resources/32/cirrus-running.light.png"),
+            include_bytes!("../resources/48/cirrus-running.light.png"),
+        ];
+        ICON_DATA
             .iter()
             .map(|&data| load_png(data))
             .collect::<Result<Vec<_>, _>>()
             .unwrap()
     });
 
-    pub(super) fn get_icon_for_theme() -> &'static Vec<ksni::Icon> {
-        &ICON_LIGHT
+    pub(super) fn idle() -> &'static Vec<ksni::Icon> {
+        &IDLE_LIGHT
+    }
+
+    pub(super) fn running() -> &'static Vec<ksni::Icon> {
+        &RUNNING_LIGHT
     }
 
     fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {

@@ -6,9 +6,15 @@ pub use backup::*;
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct Id(uuid::Uuid);
 
+impl Default for Id {
+    fn default() -> Self {
+        Id(uuid::Uuid::new_v4())
+    }
+}
+
 impl Id {
     pub fn new() -> Self {
-        Id(uuid::Uuid::new_v4())
+        Default::default()
     }
 }
 

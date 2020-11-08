@@ -1,3 +1,5 @@
+#![allow(clippy::transmute_ptr_to_ptr)] // for winrt::import!
+
 use crate::job;
 use windows::ui::notifications::{
     ToastNotification, ToastNotificationManager, ToastNotifier, ToastTemplateType,

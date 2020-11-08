@@ -160,7 +160,7 @@ impl PerRepositoryQueue {
             .per_backup_queues
             .values_mut()
             .map(|q| q.run())
-            .map(|f| Box::pin(f));
+            .map(Box::pin);
         let backup_jobs = select_all_or_pending(backup_jobs);
         pin_mut!(backup_jobs);
         select(repo_job, backup_jobs).await;
@@ -203,7 +203,7 @@ impl JobQueues {
             .per_repo_queues
             .values_mut()
             .map(|q| q.run())
-            .map(|f| Box::pin(f));
+            .map(Box::pin);
         select_all_or_pending(jobs).await?;
         Ok(())
     }

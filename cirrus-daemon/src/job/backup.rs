@@ -34,7 +34,6 @@ impl BackupSpec {
             &self.backup,
             &Options {
                 capture_output: false,
-                ..Default::default()
             },
         )?;
         process.wait().await?;

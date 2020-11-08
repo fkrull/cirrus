@@ -22,7 +22,7 @@ async fn load_config(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, Config)
         .value_of_os("config")
         .map(PathBuf::from)
         .map(Ok)
-        .unwrap_or_else(|| default_config_path())
+        .unwrap_or_else(default_config_path)
         .wrap_err("failed to get default path for the config file")?;
     let config_string = tokio::fs::read_to_string(&config_path)
         .await
@@ -37,7 +37,7 @@ async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, AppC
         .value_of_os("app-config")
         .map(PathBuf::from)
         .map(Ok)
-        .unwrap_or_else(|| default_app_config_path())
+        .unwrap_or_else(default_app_config_path)
         .wrap_err("failed to get default path for the application config file")?;
     let mut appconfig: AppConfig = tokio::fs::read_to_string(&appconfig_path)
         .await

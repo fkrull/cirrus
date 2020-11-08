@@ -103,8 +103,7 @@ async fn main() -> eyre::Result<()> {
                     .takes_value(true),
             ),
         )
-        .subcommand(App::new("list-backups"))
-        .subcommand(App::new("list-repos").alias("list-repositories"))
+        .subcommand(App::new("config").help("print the active configuration"))
         .subcommand(
             App::new("secret")
                 .alias("secrets")
@@ -172,8 +171,7 @@ async fn main() -> eyre::Result<()> {
     match matches.subcommand() {
         ("restic", Some(matches)) => commands::restic(&restic, &secrets, &config, matches).await,
         ("backup", Some(matches)) => commands::backup(&restic, &secrets, &config, matches).await,
-        ("list-backups", Some(matches)) => commands::list_backups(&config, matches),
-        ("list-repos", Some(matches)) => commands::list_repos(&config, matches),
+        ("config", Some(matches)) => commands::config(&config, matches),
         ("secret", Some(matches)) => match matches.subcommand() {
             ("list", Some(matches)) => commands::secret::list(&secrets, &config, matches).await,
             ("set", Some(matches)) => commands::secret::set(&secrets, &config, matches).await,

@@ -46,40 +46,7 @@ pub async fn backup(
         .await
 }
 
-pub fn list_repos(config: &Config, _matches: &ArgMatches<'_>) -> eyre::Result<()> {
-    let repos: Vec<_> = config
-        .repositories
-        .iter()
-        .map(|(name, definition)| (name.0.as_str(), definition.url.0.as_str()))
-        .collect();
-    print_table(&repos);
+pub fn config(config: &Config, _matches: &ArgMatches<'_>) -> eyre::Result<()> {
+    print!("{}", toml::to_string_pretty(config)?);
     Ok(())
-}
-
-pub fn list_backups(config: &Config, _matches: &ArgMatches<'_>) -> eyre::Result<()> {
-    let backups: Vec<_> = config
-        .backups
-        .iter()
-        .map(|(name, definition)| (name.0.as_str(), definition.path.0.as_str()))
-        .collect();
-    print_table(&backups);
-    Ok(())
-}
-
-fn print_table(rows: &[(&str, &str)]) -> Option<()> {
-    let a_max = rows.iter().map(|r| r.0.len()).max()?;
-    let b_max = rows.iter().map(|r| r.1.len()).max()?;
-    for &(a, b) in rows {
-        print!("{}    {}", padded(a, a_max), padded(b, b_max));
-    }
-    Some(())
-}
-
-fn padded(s: &str, to: usize) -> String {
-    let mut buf = String::with_capacity(to);
-    buf.push_str(s);
-    for _ in s.len()..to {
-        buf.push(' ');
-    }
-    buf
 }

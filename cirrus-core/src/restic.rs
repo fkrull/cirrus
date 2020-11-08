@@ -63,24 +63,31 @@ impl Restic {
     pub fn backup(
         &self,
         repo_with_secrets: RepoWithSecrets,
-        backup: &backup::Definition,
+        name: &backup::Name,
+        definition: &backup::Definition,
         options: &Options,
     ) -> eyre::Result<ResticProcess> {
-        self.run(Some(repo_with_secrets), Self::backup_args(backup), options)
+        self.run(
+            Some(repo_with_secrets),
+            Self::backup_args(name, definition),
+            options,
+        )
     }
 
-    fn backup_args(backup: &backup::Definition) -> Vec<String> {
+    fn backup_args(name: &backup::Name, definition: &backup::Definition) -> Vec<String> {
         let mut args = Vec::new();
         args.push("backup".to_owned());
-        args.push(backup.path.0.clone());
-        for exclude in &backup.excludes {
+        args.push(definition.path.0.clone());
+        args.push("--tag".to_owned());
+        args.push(format!("cirrus-backup-{}", name.0));
+        for exclude in &definition.excludes {
             args.push(Self::EXCLUDE_PARAM.to_owned());
             args.push(exclude.0.clone());
         }
-        if backup.exclude_caches {
+        if definition.exclude_caches {
             args.push("--exclude-caches".to_owned());
         }
-        for arg in &backup.extra_args {
+        for arg in &definition.extra_args {
             args.push(arg.clone());
         }
         args

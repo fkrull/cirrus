@@ -41,7 +41,7 @@ pub async fn backup(
     let repo = config.repository_for_backup(backup)?;
     let repo_with_secrets = secrets.get_secrets(repo)?;
     restic
-        .backup(repo_with_secrets, backup, &Options::default())?
+        .backup(repo_with_secrets, &backup_name, backup, &Options::default())?
         .wait()
         .await
 }

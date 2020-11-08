@@ -13,6 +13,10 @@ impl Repositories {
     pub fn get(&self, name: &repo::Name) -> Option<&repo::Definition> {
         self.0.get(name)
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&repo::Name, &repo::Definition)> {
+        self.0.iter()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]

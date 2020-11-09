@@ -24,6 +24,7 @@ test:
   extends: .rust-sccache
   stage: test
   script:
+    - rustup component add clippy rustfmt
     - cargo fmt -- --check
     - cargo clippy --workspace
     - cargo test --workspace --all-features

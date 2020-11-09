@@ -13,11 +13,29 @@
       - sccache/
   before_script:
     - apt-get update
-    - apt-get install -y libdbus-1-dev
+    - apt-get install -y libdbus-1-dev binutils-multiarch
     - curl -L "${SCCACHE_URL}" | tar -C /usr/bin/ -xz --wildcards --strip-components=1 '*/sccache'
+
+# build release binary
+.release-binary:
+  extends: .sccache
+  variables:
+    RUSTFLAGS: -Clinker=rust-lld
+    STRIP: strip
+    FEATURES:
+  script:
+    - rustup target add ${TARGET}
+    - cargo build --release --target ${TARGET} --features ${FEATURES}
+    - cp target/${TARGET}/release/cirrus ./
+    - ${STRIP} cirrus
+  artifacts:
+    paths:
+      - cirrus
+    expire_in: 1 day
 
 stages:
   - test
+  - build
   - package
 
 test:
@@ -28,3 +46,15 @@ test:
     - cargo fmt -- --check
     - cargo clippy --workspace
     - cargo test --workspace --all-features
+
+build-x86_64:
+  extends: .release-binary
+  stage: build
+  variables:
+    TARGET: x86_64-unknown-linux-musl
+
+build-armv7:
+  extends: .release-binary
+  stage: build
+  variables:
+    TARGET: armv7-unknown-linux-musleabihf

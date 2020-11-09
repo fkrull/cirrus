@@ -1,3 +1,66 @@
+stages:
+  - test
+  - build
+  - package
+
+test:
+  extends: .sccache
+  stage: test
+  script:
+    - rustup component add clippy rustfmt
+    - cargo fmt -- --check
+    - cargo clippy --workspace
+    - cargo test --workspace --all-features
+
+release:x86_64:
+  extends: .releasebinary
+  stage: build
+  variables:
+    TARGET: x86_64-unknown-linux-musl
+
+release:armv7:
+  extends: .releasebinary
+  stage: build
+  variables:
+    TARGET: armv7-unknown-linux-musleabihf
+
+docker:armv7:
+  stage: package
+  needs: ["release:armv7"]
+  image: fedora:33
+  variables:
+    BALENA_QEMU: https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-arm.tar.gz
+    BALENA_QEMU_SHA256: ae0144b8b803ddb8620b7e6d5fd68e699a97e0e9c523d283ad54fcabc0e615f8
+    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
+    RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
+    BASE_IMAGE: arm32v7/alpine:3.12
+  before_script:
+    - dnf install -y buildah curl gzip bzip2 tar
+  script:
+    - curl -o qemu.tar.gz "$BALENA_QEMU"
+    - echo $BALENA_QEMU_SHA256  qemu.tar.gz | sha256sum -c
+    - tar xaf qemu.tar.gz
+    - cp qemu-*/qemu-*-static qemu-user-static
+    - chmod +x qemu-user-static
+
+    - curl -o restic.bz2 "$RESTIC"
+    - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
+    - bunzip2 restic.bz2
+
+    - ctr=$(buildah from "$BASE_IMAGE")
+    - buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
+    - buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "mkdir -p /cache /config/cirrus"
+    - chmod 0755 restic cirrus
+    - buildah copy $ctr restic cirrus /usr/bin/
+    - buildah config \
+        --env XDG_CONFIG_HOME=/config \
+        --env XDG_CACHE_HOME=/cache \
+        --entrypoint /usr/bin/cirrus \
+        --volume /cache \
+        $ctr
+    - buildah commit $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:arm32v7-latest
+
+
 # Rust with sccache
 .sccache:
   image: rust:1
@@ -32,30 +95,3 @@
     paths:
       - cirrus
     expire_in: 1 day
-
-# ----
-stages:
-  - test
-  - build
-  - package
-
-test:
-  extends: .sccache
-  stage: test
-  script:
-    - rustup component add clippy rustfmt
-    - cargo fmt -- --check
-    - cargo clippy --workspace
-    - cargo test --workspace --all-features
-
-release:x86_64:
-  extends: .releasebinary
-  stage: build
-  variables:
-    TARGET: x86_64-unknown-linux-musl
-
-release:armv7:
-  extends: .releasebinary
-  stage: build
-  variables:
-    TARGET: armv7-unknown-linux-musleabihf

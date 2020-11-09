@@ -1,0 +1,29 @@
+# Rust with sccache
+.rust-sccache:
+  image: rust:1
+  variables:
+    SCCACHE_URL: https://github.com/mozilla/sccache/releases/download/0.2.13/sccache-0.2.13-x86_64-unknown-linux-musl.tar.gz
+    CARGO_TARGET_DIR: ${CI_PROJECT_DIR}/target
+    CARGO_HOME: ${CI_PROJECT_DIR}/cargo
+    SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
+    RUSTC_WRAPPER: sccache
+  cache:
+    paths:
+      - cargo/
+      - sccache/
+  before_script:
+    - apt-get update
+    - apt-get install -y libdbus-1-dev
+    - curl -L "${SCCACHE_URL}" | tar -C /usr/bin/ -xz --wildcards --strip-components=1 '*/sccache'
+
+stages:
+  - test
+  - package
+
+test:
+  extends: .rust-sccache
+  stage: test
+  script:
+    - cargo fmt -- --check
+    - cargo clippy --workspace
+    - cargo test --workspace --all-features

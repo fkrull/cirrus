@@ -7,7 +7,11 @@ pub fn open_config_file(config_file: &Path) -> eyre::Result<()> {
 }
 
 pub async fn open_appconfig_file(appconfig_file: &Path) -> eyre::Result<()> {
-    tokio::fs::OpenOptions::new().create(true).append(true).open(appconfig_file).await?;
+    tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(appconfig_file)
+        .await?;
 
     opener::open(appconfig_file).wrap_err_with(|| {
         format!(

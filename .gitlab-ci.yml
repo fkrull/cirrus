@@ -1,5 +1,5 @@
 # Rust with sccache
-.rust-sccache:
+.sccache:
   image: rust:1
   variables:
     SCCACHE_URL: https://github.com/mozilla/sccache/releases/download/0.2.13/sccache-0.2.13-x86_64-unknown-linux-musl.tar.gz
@@ -17,8 +17,8 @@
     - curl -L "${SCCACHE_URL}" | tar -C /usr/bin/ -xz --wildcards --strip-components=1 '*/sccache'
 
 # build release binary
-.release-binary:
-  extends: .rust-sccache
+.releasebinary:
+  extends: .sccache
   variables:
     RUSTFLAGS: -Clinker=rust-lld
     STRIP: strip
@@ -33,13 +33,14 @@
       - cirrus
     expire_in: 1 day
 
+# ----
 stages:
   - test
   - build
   - package
 
 test:
-  extends: .rust-sccache
+  extends: .sccache
   stage: test
   script:
     - rustup component add clippy rustfmt
@@ -47,14 +48,14 @@ test:
     - cargo clippy --workspace
     - cargo test --workspace --all-features
 
-build-x86_64:
-  extends: .release-binary
+release:x86_64:
+  extends: .releasebinary
   stage: build
   variables:
     TARGET: x86_64-unknown-linux-musl
 
-build-armv7:
-  extends: .release-binary
+release:armv7:
+  extends: .releasebinary
   stage: build
   variables:
     TARGET: armv7-unknown-linux-musleabihf

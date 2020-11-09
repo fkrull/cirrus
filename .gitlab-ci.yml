@@ -54,12 +54,10 @@ docker:armv7:
     - buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "mkdir -p /cache /config/cirrus"
     - chmod 0755 restic cirrus
     - buildah copy $ctr restic cirrus /usr/bin/
-    - buildah config \
-        --env XDG_CONFIG_HOME=/config \
-        --env XDG_CACHE_HOME=/cache \
-        --entrypoint /usr/bin/cirrus \
-        --volume /cache \
-        $ctr
+    - buildah config --env XDG_CONFIG_HOME=/config $ctr
+    - buildah config --env XDG_CACHE_HOME=/cache $ctr
+    - buildah config --entrypoint /usr/bin/cirrus $ctr
+    - buildah config --volume /cache $ctr
     - buildah commit $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:arm32v7-latest
 
 

@@ -22,10 +22,10 @@
   variables:
     RUSTFLAGS: -Clinker=rust-lld
     STRIP: strip
-    FEATURES:
+    FEATURES: ""
   script:
     - rustup target add ${TARGET}
-    - cargo build --release --target ${TARGET} --features ${FEATURES}
+    - cargo build --release --target ${TARGET} --features "${FEATURES}"
     - cp target/${TARGET}/release/cirrus ./
     - ${STRIP} cirrus
   artifacts:

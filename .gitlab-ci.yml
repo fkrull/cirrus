@@ -18,7 +18,7 @@
 
 # build release binary
 .release-binary:
-  extends: .sccache
+  extends: .rust-sccache
   variables:
     RUSTFLAGS: -Clinker=rust-lld
     STRIP: strip

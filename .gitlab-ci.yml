@@ -91,6 +91,7 @@ docker:armv7:
     - cargo build --release --target ${TARGET} --features "${FEATURES}"
     - cp target/${TARGET}/release/cirrus ./
     - ${STRIP} cirrus
+    - ls -lh cirrus
   artifacts:
     paths:
       - cirrus

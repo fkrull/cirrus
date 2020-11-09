@@ -35,6 +35,7 @@ docker:armv7:
     RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
     BASE_IMAGE: arm32v7/alpine:3.12
     STORAGE_DRIVER: vfs
+    BUILDAH_ISOLATION: chroot
   before_script:
     - dnf install -y buildah curl gzip bzip2 tar
   script:

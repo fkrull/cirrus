@@ -1,11 +1,10 @@
 stages:
-  - test
   - build
   - package
 
 test:
   extends: .sccache
-  stage: test
+  stage: build
   script:
     - rustup component add clippy rustfmt
     - cargo fmt -- --check
@@ -37,13 +36,13 @@ docker:armv7:
   before_script:
     - dnf install -y buildah curl gzip bzip2 tar
   script:
-    - curl -o qemu.tar.gz "$BALENA_QEMU"
+    - curl -L -o qemu.tar.gz "$BALENA_QEMU"
     - echo $BALENA_QEMU_SHA256  qemu.tar.gz | sha256sum -c
     - tar xaf qemu.tar.gz
     - cp qemu-*/qemu-*-static qemu-user-static
     - chmod +x qemu-user-static
 
-    - curl -o restic.bz2 "$RESTIC"
+    - curl -L -o restic.bz2 "$RESTIC"
     - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
     - bunzip2 restic.bz2
 

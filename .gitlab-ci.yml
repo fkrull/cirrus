@@ -97,6 +97,9 @@ container-image:x86_64:
 container-image:manifest-list:
   stage: container-manifest-list
   image: fedora:33
+  variables:
+    STORAGE_DRIVER: vfs
+    BUILDAH_ISOLATION: chroot
   before_script:
     - dnf install -y buildah
   script:

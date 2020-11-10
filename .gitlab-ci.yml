@@ -113,6 +113,8 @@ server:manifest-list:
 # download restic
 .restic:
   image: fedora:33
+  before_script:
+    - dnf install -y bzip2
   script:
     - curl -L -o restic.bz2 "$RESTIC"
     - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c

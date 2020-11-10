@@ -36,8 +36,8 @@ release:windows:x86_64:desktop:
     - shared-windows
     - windows
     - windows-1809
-  only:
-    - tags
+  #only:
+  #  - tags
   stage: build
   before_script:
     - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe

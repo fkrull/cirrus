@@ -17,18 +17,24 @@ test:
 
 release:x86_64:
   extends: .release
+  only:
+    - tags
   stage: build
   variables:
     TARGET: x86_64-unknown-linux-musl
 
 release:armv7:
   extends: .release
+  only:
+    - tags
   stage: build
   variables:
     TARGET: armv7-unknown-linux-musleabihf
 
 restic:x86_64:
   extends: .restic
+  only:
+    - tags
   stage: build
   variables:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
@@ -36,6 +42,8 @@ restic:x86_64:
 
 restic:armv7:
   extends: .restic
+  only:
+    - tags
   stage: build
   variables:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
@@ -43,6 +51,8 @@ restic:armv7:
 
 server:x86_64:
   extends: .buildah
+  only:
+    - tags
   stage: package
   needs: [ "release:x86_64", "restic:x86_64" ]
   script:
@@ -51,6 +61,8 @@ server:x86_64:
 
 server:armv7:
   extends: .buildah
+  only:
+    - tags
   stage: package
   needs: [ "release:armv7", "restic:armv7" ]
   variables:
@@ -68,6 +80,8 @@ server:armv7:
 
 server:manifest-list:
   extends: .buildah
+  only:
+    - tags
   stage: publish
   script:
     - buildah manifest create cirrus

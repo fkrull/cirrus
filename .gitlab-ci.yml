@@ -138,7 +138,7 @@ container-image:manifest-list:
     - rustup target add ${TARGET}
     - cargo build --release --target ${TARGET} --features "${FEATURES}"
     - cp target/${TARGET}/release/cirrus ./
-    - ${STRIP} cirrus
+    #- ${STRIP} cirrus
     - ls -lh cirrus
   artifacts:
     paths:

@@ -30,7 +30,7 @@ release:armv7:
 
 container-image:armv7:
   stage: package
-  needs: ["release:armv7"]
+  needs: [ "release:armv7" ]
   image: fedora:33
   variables:
     BALENA_QEMU: https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-arm.tar.gz
@@ -67,7 +67,7 @@ container-image:armv7:
 
 container-image:x86_64:
   stage: package
-  needs: ["release:x86_64"]
+  needs: [ "release:x86_64" ]
   image: fedora:33
   variables:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
@@ -103,8 +103,8 @@ container-image:manifest-list:
   before_script:
     - dnf install -y buildah
   script:
-    - buildah manifest create cirrus \
-      ${CONTAINER_IMAGE}-linux-arm32v7 \
+    - buildah manifest create cirrus
+      ${CONTAINER_IMAGE}-linux-arm32v7
       ${CONTAINER_IMAGE}-linux-amd64
     - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus ${CONTAINER_IMAGE}
 

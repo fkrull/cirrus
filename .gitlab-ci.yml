@@ -1,3 +1,7 @@
+variables:
+  # TODO: replace
+  CONTAINER_IMAGE: docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
+
 stages:
   - build
   - package
@@ -13,13 +17,13 @@ test:
     - cargo test --workspace --all-features
 
 release:x86_64:
-  extends: .releasebinary
+  extends: .release
   stage: build
   variables:
     TARGET: x86_64-unknown-linux-musl
 
 release:armv7:
-  extends: .releasebinary
+  extends: .release
   stage: build
   variables:
     TARGET: armv7-unknown-linux-musleabihf
@@ -47,12 +51,8 @@ container-image:armv7:
     - curl -L -o restic.bz2 "$RESTIC"
     - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
     - bunzip2 restic.bz2
-
-    - sh package/container-image.sh \
-        docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7 \
-        arm32v7/alpine:3.12 \
-        qemu-user-static \
-        "--creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD"
+    - image=$(sh package/container-image.sh arm32v7/alpine:3.12 qemu-user-static)
+    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD $image ${CONTAINER_IMAGE}-linux-arm32v7
 
     #- ctr=$(buildah from "$BASE_IMAGE")
     #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
@@ -80,12 +80,8 @@ container-image:x86_64:
     - curl -L -o restic.bz2 "$RESTIC"
     - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
     - bunzip2 restic.bz2
-
-    - sh package/container-image.sh \
-      docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-amd64 \
-      amd64/alpine:3.12 \
-      "" \
-      "--creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD"
+    - image=$(sh package/container-image.sh amd64/alpine:3.12)
+    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD $image ${CONTAINER_IMAGE}-linux-amd64
 
     #- ctr=$(buildah from "$BASE_IMAGE")
     #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
@@ -105,9 +101,9 @@ container-image:manifest-list:
     - dnf install -y buildah
   script:
     - buildah manifest create cirrus \
-        docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7 \
-        docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-amd64
-    - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest
+      ${CONTAINER_IMAGE}-linux-arm32v7 \
+      ${CONTAINER_IMAGE}-linux-amd64
+    - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus ${CONTAINER_IMAGE}
 
 
 # Rust with sccache
@@ -129,7 +125,7 @@ container-image:manifest-list:
     - curl -L "${SCCACHE_URL}" | tar -C /usr/bin/ -xz --wildcards --strip-components=1 '*/sccache'
 
 # build release binary
-.releasebinary:
+.release:
   extends: .sccache
   variables:
     RUSTFLAGS: -Clinker=rust-lld

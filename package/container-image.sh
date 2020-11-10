@@ -1,10 +1,10 @@
 #!/bin/sh
 set -eu
 
-IMAGE=$1
-BASE_IMAGE=$2
-QEMU_USER=${3-}
-COMMIT_ARGS=${4-}
+BASE_IMAGE=$1
+QEMU_USER=${2-}
+
+IMAGE_NAME=cirrus-container-build
 
 function buildah_run {
   if [ -n "$QEMU_USER" ]; then
@@ -26,4 +26,6 @@ buildah config --env XDG_CACHE_HOME=/cache $ctr
 buildah config --entrypoint /usr/bin/cirrus $ctr
 buildah config --volume /cache $ctr
 
-buildah commit $COMMIT_ARGS $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7
+buildah commit $ctr $IMAGE_NAME
+
+echo $IMAGE_NAME

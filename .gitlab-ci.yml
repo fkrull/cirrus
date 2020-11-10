@@ -58,7 +58,7 @@ docker:armv7:
     - buildah config --env XDG_CACHE_HOME=/cache $ctr
     - buildah config --entrypoint /usr/bin/cirrus $ctr
     - buildah config --volume /cache $ctr
-    - buildah commit $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:arm32v7-latest
+    - buildah commit --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7
 
 
 # Rust with sccache

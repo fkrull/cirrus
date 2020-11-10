@@ -1,6 +1,7 @@
 stages:
   - build
   - package
+  - container-manifest-list
 
 test:
   extends: .sccache
@@ -23,17 +24,15 @@ release:armv7:
   variables:
     TARGET: armv7-unknown-linux-musleabihf
 
-docker:armv7:
+container-image:armv7:
   stage: package
   needs: ["release:armv7"]
-  #image: quay.io/buildah/stable:latest
   image: fedora:33
   variables:
     BALENA_QEMU: https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-arm.tar.gz
     BALENA_QEMU_SHA256: ae0144b8b803ddb8620b7e6d5fd68e699a97e0e9c523d283ad54fcabc0e615f8
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
     RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
-    BASE_IMAGE: arm32v7/alpine:3.12
     STORAGE_DRIVER: vfs
     BUILDAH_ISOLATION: chroot
   before_script:
@@ -49,16 +48,66 @@ docker:armv7:
     - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
     - bunzip2 restic.bz2
 
-    - ctr=$(buildah from "$BASE_IMAGE")
-    - buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
-    - buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "mkdir -p /cache /config/cirrus"
-    - chmod 0755 restic cirrus
-    - buildah copy $ctr restic cirrus /usr/bin/
-    - buildah config --env XDG_CONFIG_HOME=/config $ctr
-    - buildah config --env XDG_CACHE_HOME=/cache $ctr
-    - buildah config --entrypoint /usr/bin/cirrus $ctr
-    - buildah config --volume /cache $ctr
-    - buildah commit --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7
+    - sh package/container-image.sh \
+        docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7 \
+        arm32v7/alpine:3.12 \
+        qemu-user-static \
+        "--creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD"
+
+    #- ctr=$(buildah from "$BASE_IMAGE")
+    #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
+    #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "mkdir -p /cache /config/cirrus"
+    #- chmod 0755 restic cirrus
+    #- buildah copy $ctr restic cirrus /usr/bin/
+    #- buildah config --env XDG_CONFIG_HOME=/config $ctr
+    #- buildah config --env XDG_CACHE_HOME=/cache $ctr
+    #- buildah config --entrypoint /usr/bin/cirrus $ctr
+    #- buildah config --volume /cache $ctr
+    #- buildah commit  $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7
+
+container-image:x86_64:
+  stage: package
+  needs: ["release:x86_64"]
+  image: fedora:33
+  variables:
+    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
+    RESTIC_SHA256: f559e774c91f1201ffddba74d5758dec8342ad2b50a3bcd735ccb0c88839045c
+    STORAGE_DRIVER: vfs
+    BUILDAH_ISOLATION: chroot
+  before_script:
+    - dnf install -y buildah curl gzip bzip2 tar
+  script:
+    - curl -L -o restic.bz2 "$RESTIC"
+    - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
+    - bunzip2 restic.bz2
+
+    - sh package/container-image.sh \
+      docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-amd64 \
+      amd64/alpine:3.12 \
+      "" \
+      "--creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD"
+
+    #- ctr=$(buildah from "$BASE_IMAGE")
+    #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
+    #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "mkdir -p /cache /config/cirrus"
+    #- chmod 0755 restic cirrus
+    #- buildah copy $ctr restic cirrus /usr/bin/
+    #- buildah config --env XDG_CONFIG_HOME=/config $ctr
+    #- buildah config --env XDG_CACHE_HOME=/cache $ctr
+    #- buildah config --entrypoint /usr/bin/cirrus $ctr
+    #- buildah config --volume /cache $ctr
+    #- buildah commit  $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7
+
+container-image:manifest-list:
+  stage: container-manifest-list
+  image: fedora:33
+  before_script:
+    - dnf install -y buildah
+  script:
+    - buildah manifest create cirrus \
+        docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7 \
+        docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-amd64
+    - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest
 
 
 # Rust with sccache

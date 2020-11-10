@@ -51,9 +51,8 @@ container-image:armv7:
     - curl -L -o restic.bz2 "$RESTIC"
     - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
     - bunzip2 restic.bz2
-    - image=$(sh package/container-image.sh arm32v7/alpine:3.12 qemu-user-static)
-    - echo "$image"
-    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD $image ${CONTAINER_IMAGE}-linux-arm32v7
+    - sh package/container-image.sh arm32v7/alpine:3.12 qemu-user-static
+    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus-container-build ${CONTAINER_IMAGE}-linux-arm32v7
 
     #- ctr=$(buildah from "$BASE_IMAGE")
     #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
@@ -81,9 +80,8 @@ container-image:x86_64:
     - curl -L -o restic.bz2 "$RESTIC"
     - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
     - bunzip2 restic.bz2
-    - image=$(sh package/container-image.sh amd64/alpine:3.12)
-    - echo "$image"
-    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD $image ${CONTAINER_IMAGE}-linux-amd64
+    - sh package/container-image.sh amd64/alpine:3.12
+    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus-container-build ${CONTAINER_IMAGE}-linux-amd64
 
     #- ctr=$(buildah from "$BASE_IMAGE")
     #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"

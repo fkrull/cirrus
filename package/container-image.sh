@@ -27,5 +27,3 @@ buildah config --entrypoint /usr/bin/cirrus $ctr
 buildah config --volume /cache $ctr
 
 buildah commit $ctr $IMAGE_NAME
-
-echo $IMAGE_NAME

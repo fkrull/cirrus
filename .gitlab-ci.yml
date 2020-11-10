@@ -1,11 +1,10 @@
 variables:
-  # TODO: replace
-  CONTAINER_IMAGE: docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
+  SERVER_IMAGE: docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_TAG}
 
 stages:
   - build
   - package
-  - container-manifest-list
+  - publish
 
 test:
   extends: .sccache
@@ -28,19 +27,35 @@ release:armv7:
   variables:
     TARGET: armv7-unknown-linux-musleabihf
 
-container-image:armv7:
+restic:x86_64:
+  extends: .restic
+  stage: build
+  variables:
+    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
+    RESTIC_SHA256: f559e774c91f1201ffddba74d5758dec8342ad2b50a3bcd735ccb0c88839045c
+
+restic:armv7:
+  extends: .restic
+  stage: build
+  variables:
+    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
+    RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
+
+server:x86_64:
+  extends: .buildah
   stage: package
-  needs: [ "release:armv7" ]
-  image: fedora:33
+  needs: [ "release:x86_64", "restic:x86_64" ]
+  script:
+    - sh package/container-image.sh amd64/alpine:3.12
+    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus-container-build ${SERVER_IMAGE}-linux-amd64
+
+server:armv7:
+  extends: .buildah
+  stage: package
+  needs: [ "release:armv7", "restic:armv7" ]
   variables:
     BALENA_QEMU: https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-arm.tar.gz
     BALENA_QEMU_SHA256: ae0144b8b803ddb8620b7e6d5fd68e699a97e0e9c523d283ad54fcabc0e615f8
-    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
-    RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
-    STORAGE_DRIVER: vfs
-    BUILDAH_ISOLATION: chroot
-  before_script:
-    - dnf install -y buildah curl gzip bzip2 tar
   script:
     - curl -L -o qemu.tar.gz "$BALENA_QEMU"
     - echo $BALENA_QEMU_SHA256  qemu.tar.gz | sha256sum -c
@@ -48,65 +63,17 @@ container-image:armv7:
     - cp qemu-*/qemu-*-static qemu-user-static
     - chmod +x qemu-user-static
 
-    - curl -L -o restic.bz2 "$RESTIC"
-    - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
-    - bunzip2 restic.bz2
     - sh package/container-image.sh arm32v7/alpine:3.12 qemu-user-static
-    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus-container-build ${CONTAINER_IMAGE}-linux-arm32v7
+    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus-container-build ${SERVER_IMAGE}-linux-arm32v7
 
-    #- ctr=$(buildah from "$BASE_IMAGE")
-    #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
-    #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "mkdir -p /cache /config/cirrus"
-    #- chmod 0755 restic cirrus
-    #- buildah copy $ctr restic cirrus /usr/bin/
-    #- buildah config --env XDG_CONFIG_HOME=/config $ctr
-    #- buildah config --env XDG_CACHE_HOME=/cache $ctr
-    #- buildah config --entrypoint /usr/bin/cirrus $ctr
-    #- buildah config --volume /cache $ctr
-    #- buildah commit  $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7
-
-container-image:x86_64:
-  stage: package
-  needs: [ "release:x86_64" ]
-  image: fedora:33
-  variables:
-    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
-    RESTIC_SHA256: f559e774c91f1201ffddba74d5758dec8342ad2b50a3bcd735ccb0c88839045c
-    STORAGE_DRIVER: vfs
-    BUILDAH_ISOLATION: chroot
-  before_script:
-    - dnf install -y buildah curl gzip bzip2 tar
-  script:
-    - curl -L -o restic.bz2 "$RESTIC"
-    - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
-    - bunzip2 restic.bz2
-    - sh package/container-image.sh amd64/alpine:3.12
-    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus-container-build ${CONTAINER_IMAGE}-linux-amd64
-
-    #- ctr=$(buildah from "$BASE_IMAGE")
-    #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "apk add --no-cache ca-certificates openssh-client"
-    #- buildah run -v $PWD:/build $ctr -- /build/qemu-user-static --execve /bin/sh -c "mkdir -p /cache /config/cirrus"
-    #- chmod 0755 restic cirrus
-    #- buildah copy $ctr restic cirrus /usr/bin/
-    #- buildah config --env XDG_CONFIG_HOME=/config $ctr
-    #- buildah config --env XDG_CACHE_HOME=/cache $ctr
-    #- buildah config --entrypoint /usr/bin/cirrus $ctr
-    #- buildah config --volume /cache $ctr
-    #- buildah commit  $ctr docker://registry.gitlab.com/fkrull/cirrus/cirrus:latest-linux-arm32v7
-
-container-image:manifest-list:
-  stage: container-manifest-list
-  image: fedora:33
-  variables:
-    STORAGE_DRIVER: vfs
-    BUILDAH_ISOLATION: chroot
-  before_script:
-    - dnf install -y buildah
+server:manifest-list:
+  extends: .buildah
+  stage: publish
   script:
     - buildah manifest create cirrus
-      ${CONTAINER_IMAGE}-linux-arm32v7
-      ${CONTAINER_IMAGE}-linux-amd64
-    - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus ${CONTAINER_IMAGE}
+      ${SERVER_IMAGE}-linux-arm32v7
+      ${SERVER_IMAGE}-linux-amd64
+    - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus ${SERVER_IMAGE}
 
 
 # Rust with sccache
@@ -132,15 +99,35 @@ container-image:manifest-list:
   extends: .sccache
   variables:
     RUSTFLAGS: -Clinker=rust-lld
-    STRIP: strip
     FEATURES: ""
   script:
     - rustup target add ${TARGET}
     - cargo build --release --target ${TARGET} --features "${FEATURES}"
     - cp target/${TARGET}/release/cirrus ./
-    #- ${STRIP} cirrus
     - ls -lh cirrus
   artifacts:
     paths:
       - cirrus
-    expire_in: 1 day
+    expire_in: 1 hour
+
+# download restic
+.restic:
+  image: fedora:33
+  script:
+    - curl -L -o restic.bz2 "$RESTIC"
+    - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
+    - bunzip2 restic.bz2
+    - chmod +x restic
+  artifacts:
+    paths:
+      - restic
+    expire_in: 1 hour
+
+# buildah
+.buildah:
+  image: fedora:33
+  variables:
+    STORAGE_DRIVER: vfs
+    BUILDAH_ISOLATION: chroot
+  before_script:
+    - dnf install -y buildah curl gzip bzip2 tar

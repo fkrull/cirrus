@@ -13,7 +13,7 @@ test:
     - rustup component add clippy rustfmt
     - cargo fmt -- --check
     - sccache --start-server
-    - cargo clippy --workspace
+    - cargo clippy --workspace -- -D warnings
     - cargo test --workspace --all-features
     - sccache --show-stats
 

@@ -1,7 +1,7 @@
 use super::model;
 use cirrus_daemon::job;
 
-const APP_ID: &'static str = "io.gitlab.fkrull.cirrus.Cirrus";
+const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
 pub(crate) struct StatusIcon {
     deps: crate::Deps,
@@ -129,7 +129,7 @@ mod icons {
     use once_cell::sync::Lazy;
 
     static IDLE_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
-        const ICON_DATA: [&'static [u8]; 4] = [
+        const ICON_DATA: [&[u8]; 4] = [
             include_bytes!("../resources/16/cirrus-idle.light.png"),
             include_bytes!("../resources/24/cirrus-idle.light.png"),
             include_bytes!("../resources/32/cirrus-idle.light.png"),
@@ -142,7 +142,7 @@ mod icons {
             .unwrap()
     });
     static RUNNING_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
-        const ICON_DATA: [&'static [u8]; 4] = [
+        const ICON_DATA: [&[u8]; 4] = [
             include_bytes!("../resources/16/cirrus-running.light.png"),
             include_bytes!("../resources/24/cirrus-running.light.png"),
             include_bytes!("../resources/32/cirrus-running.light.png"),

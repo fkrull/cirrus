@@ -105,6 +105,7 @@ server:manifest-list:
     CARGO_HOME: ${CI_PROJECT_DIR}/cargo
     SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
     RUSTC_WRAPPER: sccache
+    RUST_LOG: sccache=debug
   cache:
     paths:
       - cargo/

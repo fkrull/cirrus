@@ -1,14 +1,17 @@
 variables:
   SERVER_IMAGE: docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_TAG}
 
+include:
+  - template: 'Workflows/Branch-Pipelines.gitlab-ci.yml'
+
 stages:
+  - test
   - build
   - package
-  - publish
 
 test:
   extends: .rust
-  stage: build
+  stage: test
   script:
     - rustup component add clippy rustfmt
     - cargo fmt -- --check
@@ -17,26 +20,33 @@ test:
     - cargo test --workspace --all-features
     - sccache --show-stats
 
+# release binary steps
 release:linux:x86_64:
   extends: .release:linux
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
   stage: build
   variables:
     TARGET: x86_64-unknown-linux-musl
 
 release:linux:armv7:
   extends: .release:linux
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
   stage: build
   variables:
     TARGET: armv7-unknown-linux-musleabihf
 
 release:windows:x86_64:desktop:
   extends: .release:windows
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
   stage: build
   variables:
     TARGET: x86_64-pc-windows-msvc
@@ -44,8 +54,10 @@ release:windows:x86_64:desktop:
 
 restic:linux:x86_64:
   extends: .restic:linux
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
   stage: build
   variables:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
@@ -53,8 +65,10 @@ restic:linux:x86_64:
 
 restic:linux:armv7:
   extends: .restic:linux
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
   stage: build
   variables:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
@@ -62,17 +76,21 @@ restic:linux:armv7:
 
 restic:windows:x86_64:
   extends: .restic:windows
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
   stage: build
   variables:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
     RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
 
+# package steps
 server:linux:x86_64:
   extends: .buildah
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
   stage: package
   needs: [ "release:linux:x86_64", "restic:linux:x86_64" ]
   script:
@@ -81,8 +99,9 @@ server:linux:x86_64:
 
 server:linux:armv7:
   extends: .buildah
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
   stage: package
   needs: [ "release:linux:armv7", "restic:linux:armv7" ]
   variables:
@@ -100,9 +119,10 @@ server:linux:armv7:
 
 server:manifest-list:
   extends: .buildah
-  only:
-    - tags
-  stage: publish
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+  stage: package
   script:
     - buildah manifest create cirrus
       ${SERVER_IMAGE}-linux-arm32v7
@@ -189,7 +209,7 @@ server:manifest-list:
     - apk add --no-cache curl bzip2
   script:
     - curl -L -o restic.bz2 "$RESTIC"
-    - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
+    - echo "$RESTIC_SHA256 *restic.bz2" | sha256sum -c
     - bunzip2 restic.bz2
     - chmod +x restic
   artifacts:
@@ -203,7 +223,7 @@ server:manifest-list:
     - apk add --no-cache curl unzip
   script:
     - curl -L -o restic.zip "$RESTIC"
-    - echo $RESTIC_SHA256  restic.zip | sha256sum -c
+    - echo "$RESTIC_SHA256 *restic.zip" | sha256sum -c
     - unzip restic.zip
     - mv restic_*.exe restic.exe
   artifacts:

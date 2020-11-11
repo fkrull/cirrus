@@ -17,7 +17,7 @@ impl<E: Debug + Display + Error> SyncError<E> {
     }
 }
 
-const KEYRING_SERVICE: &'static str = "io.gitlab.fkrull.cirrus";
+const KEYRING_SERVICE: &str = "io.gitlab.fkrull.cirrus";
 
 pub(super) fn get_secret(name: &str) -> eyre::Result<SecretValue> {
     let value = Keyring::new(KEYRING_SERVICE, name)

@@ -75,7 +75,7 @@ impl ksni::Tray for model::Model {
 
     fn tool_tip(&self) -> ksni::ToolTip {
         ksni::ToolTip {
-            title: self.tooltip().to_owned(),
+            title: self.tooltip(),
             ..Default::default()
         }
     }

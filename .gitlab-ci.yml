@@ -105,7 +105,6 @@ server:manifest-list:
     CARGO_HOME: ${CI_PROJECT_DIR}/cargo
     SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
     RUSTC_WRAPPER: sccache
-    RUST_LOG: sccache=debug
   cache:
     paths:
       - cargo/
@@ -124,6 +123,7 @@ server:manifest-list:
     - curl -L "${SCCACHE_URL}" -o sccache.tar.gz
     - echo $SCCACHE_SHA256  sccache.tar.gz | sha256sum -c
     - tar -C /usr/bin/ -xz -f sccache.tar.gz --wildcards --strip-components=1 '*/sccache'
+    - sccache --start-server
   after_script:
     - sccache --show-stats
 
@@ -159,6 +159,7 @@ server:manifest-list:
     - ./rustup-init.exe -y --default-host="$TARGET" --default-toolchain=stable --profile=minimal
     - $env:CARGO_HOME="${CI_PROJECT_DIR}/cargo"
     - $env:PATH += ";$env:USERPROFILE/.cargo/bin"
+    - sccache --start-server
   script:
     - cargo build --release --features "$FEATURES"
     - cp target/release/cirrus.exe cirrus.exe

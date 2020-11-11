@@ -35,8 +35,8 @@ release:linux:armv7:
 
 release:windows:x86_64:desktop:
   extends: .release:windows
-  #only:
-  #  - tags
+  only:
+    - tags
   stage: build
   variables:
     TARGET: x86_64-pc-windows-msvc

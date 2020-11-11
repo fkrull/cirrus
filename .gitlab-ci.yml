@@ -10,6 +10,8 @@ test:
   extends: .sccache
   stage: build
   script:
+    - echo CACHE
+    - ls -lR cargo sccache
     - rustup component add clippy rustfmt
     - cargo fmt -- --check
     - cargo clippy --workspace

@@ -116,10 +116,13 @@ server:manifest-list:
   image: rust:1
   variables:
     SCCACHE_URL: https://github.com/mozilla/sccache/releases/download/0.2.13/sccache-0.2.13-x86_64-unknown-linux-musl.tar.gz
+    SCCACHE_SHA256: 28a5499e340865b08b632306b435913beb590fbd7b49a3f887a623b459fabdeb
   before_script:
     - apt-get update
-    - apt-get install -y libdbus-1-dev binutils-multiarch
-    - curl -L "${SCCACHE_URL}" | tar -C /usr/bin/ -xz --wildcards --strip-components=1 '*/sccache'
+    - apt-get install -y libdbus-1-dev
+    - curl -L "${SCCACHE_URL}" -o sccache.tar.gz
+    - echo $SCCACHE_SHA256  sccache.tar.gz | sha256sum -c
+    - tar -C /usr/bin/ -xz -f sccache.tar.gz --wildcards --strip-components=1 '*/sccache'
   after_script:
     - sccache --show-stats
 

@@ -47,7 +47,7 @@ release:windows:x86_64:desktop:
     SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
     RUSTC_WRAPPER: sccache
   before_script:
-    - choco install rustup.install sccache
+    - choco install -y rustup.install sccache
     - rustup -y --default-host=$TARGET --default-toolchain=stable --profile=minimal
   script:
     - RefreshEnv

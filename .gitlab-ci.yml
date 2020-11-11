@@ -7,11 +7,9 @@ stages:
   - publish
 
 test:
-  extends: .sccache
+  extends: .rust
   stage: build
   script:
-    - echo CACHE
-    - ls -lR cargo sccache
     - rustup component add clippy rustfmt
     - cargo fmt -- --check
     - cargo clippy --workspace
@@ -34,38 +32,13 @@ release:linux:armv7:
     TARGET: armv7-unknown-linux-musleabihf
 
 release:windows:x86_64:desktop:
-  tags:
-    - shared-windows
-    - windows
-    - windows-1809
+  extends: .release:windows
   #only:
   #  - tags
   stage: build
   variables:
     TARGET: x86_64-pc-windows-msvc
     FEATURES: desktop
-    CARGO_TARGET_DIR: ${CI_PROJECT_DIR}/target
-    #CARGO_HOME: ${CI_PROJECT_DIR}/cargo
-    SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
-    RUSTC_WRAPPER: sccache
-  before_script:
-    - choco install -y sccache
-    - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
-    - ./rustup-init.exe -y --default-host=$TARGET --default-toolchain=stable --profile=minimal
-    - $env:PATH="$env:USERPROFILE/.cargo/bin;$env:PATH"
-    - $env:CARGO_HOME="${CI_PROJECT_DIR}/cargo"
-  script:
-    - cargo build --release --features "$FEATURES"
-    - cp target/release/cirrus.exe cirrus.exe
-    - ls cirrus.exe
-  cache:
-    paths:
-      - cargo/
-      - sccache/
-  artifacts:
-    paths:
-      - cirrus.exe
-    expire_in: 1 day
 
 restic:linux:x86_64:
   extends: .restic
@@ -126,12 +99,9 @@ server:manifest-list:
     - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus ${SERVER_IMAGE}
 
 
-# Rust with sccache
+# sccache settings
 .sccache:
-  image: rust:1
   variables:
-    SCCACHE_URL: https://github.com/mozilla/sccache/releases/download/0.2.13/sccache-0.2.13-x86_64-unknown-linux-musl.tar.gz
-    CARGO_TARGET_DIR: ${CI_PROJECT_DIR}/target
     CARGO_HOME: ${CI_PROJECT_DIR}/cargo
     SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
     RUSTC_WRAPPER: sccache
@@ -139,14 +109,21 @@ server:manifest-list:
     paths:
       - cargo/
       - sccache/
+
+# Rust with sccache
+.rust:
+  extends: .sccache
+  image: rust:1
+  variables:
+    SCCACHE_URL: https://github.com/mozilla/sccache/releases/download/0.2.13/sccache-0.2.13-x86_64-unknown-linux-musl.tar.gz
   before_script:
     - apt-get update
     - apt-get install -y libdbus-1-dev binutils-multiarch
     - curl -L "${SCCACHE_URL}" | tar -C /usr/bin/ -xz --wildcards --strip-components=1 '*/sccache'
 
-# build release binary
+# build Linux release binary
 .release:linux:
-  extends: .sccache
+  extends: .rust
   variables:
     RUSTFLAGS: -Clinker=rust-lld
     FEATURES: ""
@@ -158,6 +135,31 @@ server:manifest-list:
   artifacts:
     paths:
       - cirrus
+    expire_in: 1 day
+
+# build Windows release binary
+release:windows:
+  extends: .sccache
+  tags:
+    - shared-windows
+    - windows
+    - windows-1809
+  variables:
+    FEATURES: ""
+  before_script:
+    - choco install -y sccache
+    - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
+    - $env:CARGO_HOME="$env:USERPROFILE/.cargo"
+    - ./rustup-init.exe -y --default-host="$TARGET" --default-toolchain=stable --profile=minimal
+    - $env:CARGO_HOME="${CI_PROJECT_DIR}/cargo"
+    - $env:PATH += ";$env:USERPROFILE/.cargo/bin"
+  script:
+    - cargo build --release --features "$FEATURES"
+    - cp target/release/cirrus.exe cirrus.exe
+    - ls cirrus.exe
+  artifacts:
+    paths:
+      - cirrus.exe
     expire_in: 1 day
 
 # download restic

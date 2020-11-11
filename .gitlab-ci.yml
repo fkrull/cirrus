@@ -12,8 +12,10 @@ test:
   script:
     - rustup component add clippy rustfmt
     - cargo fmt -- --check
+    - sccache --start-server
     - cargo clippy --workspace
     - cargo test --workspace --all-features
+    - sccache --show-stats
 
 release:linux:x86_64:
   extends: .release:linux
@@ -123,9 +125,6 @@ server:manifest-list:
     - curl -L "${SCCACHE_URL}" -o sccache.tar.gz
     - echo $SCCACHE_SHA256  sccache.tar.gz | sha256sum -c
     - tar -C /usr/bin/ -xz -f sccache.tar.gz --wildcards --strip-components=1 '*/sccache'
-    - sccache --start-server
-  after_script:
-    - sccache --show-stats
 
 # build Linux release binary
 .release:linux:
@@ -134,9 +133,11 @@ server:manifest-list:
     RUSTFLAGS: -Clinker=rust-lld
     FEATURES: ""
   script:
+    - sccache --start-server
     - rustup target add ${TARGET}
     - cargo build --release --target ${TARGET} --features "${FEATURES}"
     - cp target/${TARGET}/release/cirrus ./
+    - sccache --show-stats
     - ls -lh cirrus
   artifacts:
     paths:
@@ -159,13 +160,12 @@ server:manifest-list:
     - ./rustup-init.exe -y --default-host="$TARGET" --default-toolchain=stable --profile=minimal
     - $env:CARGO_HOME="${CI_PROJECT_DIR}/cargo"
     - $env:PATH += ";$env:USERPROFILE/.cargo/bin"
-    - sccache --start-server
   script:
+    - sccache --start-server
     - cargo build --release --features "$FEATURES"
     - cp target/release/cirrus.exe cirrus.exe
-    - ls cirrus.exe
-  after_script:
     - sccache --show-stats
+    - ls cirrus.exe
   artifacts:
     paths:
       - cirrus.exe

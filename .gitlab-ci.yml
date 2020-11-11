@@ -47,8 +47,10 @@ release:windows:x86_64:desktop:
     SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
     RUSTC_WRAPPER: sccache
   before_script:
-    - choco install -y rustup.install sccache
-    - RefreshEnv; rustup -y --default-host=$TARGET --default-toolchain=stable --profile=minimal
+    - choco install -y sccache
+    - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
+    - ./rustup-init.exe -y --default-host=$TARGET --default-toolchain=stable --profile=minimal
+    - $env:PATH="$env:USERPROFILE/.cargo/bin;$env:PATH"
   script:
     - cargo build --release --features "$FEATURES"
     - cp target/release/cirrus.exe cirrus.exe

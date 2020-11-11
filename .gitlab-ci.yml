@@ -43,7 +43,7 @@ release:windows:x86_64:desktop:
     FEATURES: desktop
 
 restic:linux:x86_64:
-  extends: .restic
+  extends: .restic:linux
   only:
     - tags
   stage: build
@@ -52,13 +52,22 @@ restic:linux:x86_64:
     RESTIC_SHA256: f559e774c91f1201ffddba74d5758dec8342ad2b50a3bcd735ccb0c88839045c
 
 restic:linux:armv7:
-  extends: .restic
+  extends: .restic:linux
   only:
     - tags
   stage: build
   variables:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
     RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
+
+restic:windows:x86_64:
+  extends: .restic:windows
+  only:
+    - tags
+  stage: build
+  variables:
+    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
+    RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
 
 server:linux:x86_64:
   extends: .buildah
@@ -100,6 +109,8 @@ server:manifest-list:
       ${SERVER_IMAGE}-linux-amd64
     - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus ${SERVER_IMAGE}
 
+
+# ----
 
 # sccache settings
 .sccache:
@@ -172,10 +183,10 @@ server:manifest-list:
     expire_in: 1 day
 
 # download restic
-.restic:
-  image: fedora:33
+.restic:linux:
+  image: alpine:3.12
   before_script:
-    - dnf install -y bzip2
+    - apk add --no-cache curl bzip2
   script:
     - curl -L -o restic.bz2 "$RESTIC"
     - echo $RESTIC_SHA256  restic.bz2 | sha256sum -c
@@ -184,6 +195,20 @@ server:manifest-list:
   artifacts:
     paths:
       - restic
+    expire_in: 1 day
+
+.restic:windows:
+  image: alpine:3.12
+  before_script:
+    - apk add --no-cache curl unzip
+  script:
+    - curl -L -o restic.zip "$RESTIC"
+    - echo $RESTIC_SHA256  restic.zip | sha256sum -c
+    - unzip restic.zip
+    - mv restic_*.exe restic.exe
+  artifacts:
+    paths:
+      - restic.exe
     expire_in: 1 day
 
 # buildah

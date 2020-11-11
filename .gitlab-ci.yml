@@ -120,6 +120,8 @@ server:manifest-list:
     - apt-get update
     - apt-get install -y libdbus-1-dev binutils-multiarch
     - curl -L "${SCCACHE_URL}" | tar -C /usr/bin/ -xz --wildcards --strip-components=1 '*/sccache'
+  after_script:
+    - sccache --show-stats
 
 # build Linux release binary
 .release:linux:
@@ -157,6 +159,8 @@ server:manifest-list:
     - cargo build --release --features "$FEATURES"
     - cp target/release/cirrus.exe cirrus.exe
     - ls cirrus.exe
+  after_script:
+    - sccache --show-stats
   artifacts:
     paths:
       - cirrus.exe

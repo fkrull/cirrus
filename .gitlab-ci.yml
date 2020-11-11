@@ -49,8 +49,8 @@ release:windows:x86_64:desktop:
   before_script:
     - choco install -y rustup.install sccache
     - rustup -y --default-host=$TARGET --default-toolchain=stable --profile=minimal
-  script:
     - RefreshEnv
+  script:
     - cargo build --release --features "$FEATURES"
     - cp target/release/cirrus.exe cirrus.exe
     - ls cirrus.exe

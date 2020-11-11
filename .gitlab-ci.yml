@@ -184,6 +184,7 @@ server:manifest-list:
     - windows-1809
   variables:
     FEATURES: ""
+    RUSTFLAGS: -Ctarget-feature=+crt-static
   before_script:
     - choco install -y sccache
     - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+         xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10">
+    <Identity Name="CirrusBackup.Cirrus"
+              Version="${APPX_VERSION}"
+              Publisher="CN=CirrusBackup"
+              ProcessorArchitecture="${APPX_ARCH}"/>
+
+    <Properties>
+        <DisplayName>Cirrus</DisplayName>
+        <PublisherDisplayName>Felix Krull</PublisherDisplayName>
+        <!-- TODO: description and logo -->
+        <Description>Backup thing</Description>
+        <Logo>dummy.png</Logo>
+    </Properties>
+
+    <Resources>
+        <Resource Language="en-US"/>
+    </Resources>
+
+    <Dependencies>
+        <!-- TODO: or Windows 8? -->
+        <TargetDeviceFamily Name="MSIXCore.Desktop" MinVersion="6.1.7601.0" MaxVersionTested="10.0.14393.0"/>
+        <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.16299.0" MaxVersionTested="10.0.19041.0"/>
+    </Dependencies>
+
+    <Capabilities>
+        <rescap:Capability Name="runFullTrust"/>
+    </Capabilities>
+
+    <Applications>
+        <Application Id="cirrus"
+                     Executable="cirrus.exe"
+                     EntryPoint="Windows.FullTrustApplication">
+            <!-- TODO: description and logos and background color -->
+            <uap:VisualElements DisplayName="Cirrus"
+                                Description="Backup thing"
+                                Square150x150Logo="dummy.png"
+                                Square44x44Logo="dummy.png"
+                                BackgroundColor="aliceBlue"/>
+
+            <Extensions>
+                <uap3:Extension Category="windows.appExecutionAlias"
+                                Executable="cirrus.exe"
+                                EntryPoint="Windows.FullTrustApplication">
+                    <uap3:AppExecutionAlias>
+                        <desktop:ExecutionAlias Alias="cirrus.exe"/>
+                    </uap3:AppExecutionAlias>
+                </uap3:Extension>
+
+                <desktop:Extension Category="windows.startupTask"
+                                   Executable="cirrus.exe"
+                                   EntryPoint="Windows.FullTrustApplication">
+                    <desktop:StartupTask
+                            TaskId="Cirrus"
+                            Enabled="true"
+                            DisplayName="Cirrus"/>
+                </desktop:Extension>
+            </Extensions>
+        </Application>
+    </Applications>
+</Package>

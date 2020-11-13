@@ -9,6 +9,7 @@ RUN dnf install -y \
       gzip \
       make \
       openssl-devel \
+      skopeo \
       tar \
       unzip \
       zlib-devel && \

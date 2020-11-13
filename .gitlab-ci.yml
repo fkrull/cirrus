@@ -1,7 +1,7 @@
 variables:
   IMAGE_REGISTRY: docker://registry.gitlab.com/fkrull/cirrus
   CI_TOOLS_IMAGE: ${IMAGE_REGISTRY}/ci-tools:latest
-  SERVER_IMAGE: ${IMAGE_REGISTRY}/server:${CI_COMMIT_TAG}
+  SERVER_IMAGE: ${IMAGE_REGISTRY}/server
 
 include:
   - template: 'Workflows/Branch-Pipelines.gitlab-ci.yml'
@@ -11,6 +11,7 @@ stages:
   - test
   - build
   - package
+  - publish
 
 tools:ci-tools-image:
   extends: .buildah
@@ -35,6 +36,7 @@ test:
     - cargo clippy --workspace --all-features
     - cargo test --workspace --all-features
     - sccache --show-stats
+
 
 # release binary steps
 release:linux:x86_64:
@@ -101,23 +103,29 @@ restic:windows:x86_64:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
     RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
 
+
 # package steps
 server:linux:x86_64:
   extends: .buildah
   rules:
     - if: $CI_COMMIT_TAG
       when: always
+    - when: manual
   stage: package
   needs: [ "release:linux:x86_64", "restic:linux:x86_64" ]
   script:
     - sh package/container-image.sh amd64/alpine:3.12
-    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus-container-build ${SERVER_IMAGE}-linux-amd64
+    - buildah push
+        --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+        cirrus-container-build
+        ${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}-linux-amd64
 
 server:linux:armv7:
   extends: .buildah
   rules:
     - if: $CI_COMMIT_TAG
       when: always
+    - when: manual
   stage: package
   needs: [ "release:linux:armv7", "restic:linux:armv7" ]
   variables:
@@ -131,19 +139,40 @@ server:linux:armv7:
     - chmod +x qemu-user-static
 
     - sh package/container-image.sh arm32v7/alpine:3.12 qemu-user-static
-    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus-container-build ${SERVER_IMAGE}-linux-arm32v7
+    - buildah push
+        --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+        cirrus-container-build
+        ${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}-linux-arm32v7
 
 server:manifest-list:
   extends: .buildah
   rules:
     - if: $CI_COMMIT_TAG
       when: always
+    - when: manual
   stage: package
   script:
     - buildah manifest create cirrus
-      ${SERVER_IMAGE}-linux-arm32v7
-      ${SERVER_IMAGE}-linux-amd64
-    - buildah manifest push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD cirrus ${SERVER_IMAGE}
+        ${SERVER_IMAGE}-linux-arm32v7
+        ${SERVER_IMAGE}-linux-amd64
+    - buildah manifest push
+        --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+        cirrus
+        ${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}
+
+
+# publish
+publish:server:
+  extends: .buildah
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+  stage: publish
+  script:
+    - skopeo copy
+        --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+        ${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}
+        ${SERVER_IMAGE}:latest
 
 
 # ----

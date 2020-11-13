@@ -248,6 +248,5 @@ server:manifest-list:
 .buildah:
   image: ${CI_TOOLS_IMAGE}
   variables:
-    #STORAGE_DRIVER: vfs
-    STORAGE_DRIVER: overlay
+    STORAGE_DRIVER: vfs
     BUILDAH_ISOLATION: chroot

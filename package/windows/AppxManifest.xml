@@ -12,8 +12,8 @@
     <Properties>
         <DisplayName>Cirrus</DisplayName>
         <PublisherDisplayName>Felix Krull</PublisherDisplayName>
-        <!-- TODO: description and logo -->
-        <Description>Backup thing</Description>
+        <!-- TODO: logo -->
+        <Description>A configuration-driven backup program</Description>
         <Logo>dummy.png</Logo>
     </Properties>
 
@@ -22,8 +22,6 @@
     </Resources>
 
     <Dependencies>
-        <!-- TODO: or Windows 8? -->
-        <TargetDeviceFamily Name="MSIXCore.Desktop" MinVersion="6.1.7601.0" MaxVersionTested="10.0.14393.0"/>
         <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.16299.0" MaxVersionTested="10.0.19041.0"/>
     </Dependencies>
 
@@ -35,9 +33,9 @@
         <Application Id="cirrus"
                      Executable="cirrus.exe"
                      EntryPoint="Windows.FullTrustApplication">
-            <!-- TODO: description and logos and background color -->
+            <!-- TODO: logos and background color -->
             <uap:VisualElements DisplayName="Cirrus"
-                                Description="Backup thing"
+                                Description="A configuration-driven backup program"
                                 Square150x150Logo="dummy.png"
                                 Square44x44Logo="dummy.png"
                                 BackgroundColor="aliceBlue"/>

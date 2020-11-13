@@ -5,6 +5,7 @@ RUN dnf install -y \
       clang \
       cmake \
       curl \
+      gettext \
       git \
       gzip \
       make \

@@ -1,5 +1,5 @@
 variables:
-  IMAGE_REGISTRY: docker://registry.gitlab.com/fkrull/cirrus
+  IMAGE_REGISTRY: registry.gitlab.com/fkrull/cirrus
   CI_TOOLS_IMAGE: ${IMAGE_REGISTRY}/ci-tools:latest
   SERVER_IMAGE: ${IMAGE_REGISTRY}/server
 
@@ -24,7 +24,7 @@ tools:ci-tools-image:
     - buildah build-using-dockerfile
         -f .ci/tools.Containerfile
         --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-        -t ${CI_TOOLS_IMAGE}
+        -t docker://${CI_TOOLS_IMAGE}
 
 test:
   extends: .rust
@@ -118,7 +118,7 @@ server:linux:x86_64:
     - buildah push
         --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
         cirrus-container-build
-        ${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}-linux-amd64
+        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}-linux-amd64
 
 server:linux:armv7:
   extends: .buildah
@@ -142,7 +142,7 @@ server:linux:armv7:
     - buildah push
         --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
         cirrus-container-build
-        ${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}-linux-arm32v7
+        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}-linux-arm32v7
 
 server:manifest-list:
   extends: .buildah
@@ -153,12 +153,12 @@ server:manifest-list:
   stage: package
   script:
     - buildah manifest create cirrus
-        ${SERVER_IMAGE}-linux-arm32v7
-        ${SERVER_IMAGE}-linux-amd64
+        docker://${SERVER_IMAGE}-linux-arm32v7
+        docker://${SERVER_IMAGE}-linux-amd64
     - buildah manifest push
         --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
         cirrus
-        ${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}
+        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}
 
 
 # publish
@@ -171,8 +171,8 @@ publish:server:
   script:
     - skopeo copy
         --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-        ${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}
-        ${SERVER_IMAGE}:latest
+        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}
+        docker://${SERVER_IMAGE}:latest
 
 
 # ----

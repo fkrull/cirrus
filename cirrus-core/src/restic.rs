@@ -56,6 +56,11 @@ impl Restic {
             cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
         }
 
+        #[cfg(windows)]
+        if atty::isnt(atty::Stream::Stdout) {
+            cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+        }
+
         let child = cmd.spawn().wrap_err("failed to start restic process")?;
         Ok(ResticProcess::new(child))
     }

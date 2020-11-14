@@ -336,6 +336,7 @@ dependencies = [
 name = "cirrus-core"
 version = "0.1.0"
 dependencies = [
+ "atty",
  "chrono",
  "cron-parser",
  "eyre",
@@ -348,6 +349,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml",
+ "winapi 0.3.9",
 ]
 
 [[package]]

@@ -1,6 +1,5 @@
 use cirrus::{commands, daemon};
-use cirrus_core::appconfig::AppConfig;
-use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{appconfig::AppConfig, model::Config, restic::Restic, secrets::Secrets};
 use clap::{App, AppSettings, Arg, ArgMatches, ArgSettings};
 use eyre::{eyre, WrapErr};
 use std::path::PathBuf;

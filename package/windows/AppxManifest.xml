@@ -14,7 +14,7 @@
         <PublisherDisplayName>Felix Krull</PublisherDisplayName>
         <!-- TODO: logo -->
         <Description>A configuration-driven backup program</Description>
-        <Logo>dummy.png</Logo>
+        <Logo>Square150x150Logo.png</Logo>
     </Properties>
 
     <Resources>
@@ -36,9 +36,9 @@
             <!-- TODO: logos and background color -->
             <uap:VisualElements DisplayName="Cirrus"
                                 Description="A configuration-driven backup program"
-                                Square150x150Logo="dummy.png"
-                                Square44x44Logo="dummy.png"
-                                BackgroundColor="aliceBlue"/>
+                                Square44x44Logo="Square44x44Logo.png"
+                                Square150x150Logo="Square150x150Logo.png"
+                                BackgroundColor="#ce008c"/>
 
             <Extensions>
                 <uap3:Extension Category="windows.appExecutionAlias"

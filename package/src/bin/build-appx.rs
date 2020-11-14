@@ -47,25 +47,24 @@ fn main() -> eyre::Result<()> {
         .unzip_single()
         .download()?;
 
-    // create manifest
+    // copy files
+    for path in read_dir("package/appx")? {
+        cp(
+            &path,
+            Path::new("target/appx/DEST").with_file_name(path.file_name().unwrap()),
+        )?;
+    }
+
+    // expand manifest
     let appx_arch = match args.target.as_str() {
         "x86_64-pc-windows-msvc" => "x64",
         "i686-pc-windows-msvc" => "x86",
         _ => eyre::bail!("unknown architecture"),
     };
-    let manifest = read_file("package/windows/AppxManifest.xml")?
+    let manifest = read_file("target/appx/AppxManifest.xml")?
         .replace("$APPX_VERSION", &args.version)
         .replace("$APPX_ARCH", appx_arch);
     write_file("target/appx/AppxManifest.xml", manifest)?;
-
-    // copy images
-    for png in glob::glob("package/windows/*.png")? {
-        let png = png?;
-        cp(
-            &png,
-            Path::new("target/appx/DEST").with_file_name(png.file_name().unwrap()),
-        )?;
-    }
 
     // build appx
     cmd!("makeappx pack /h SHA256 /o /d target/appx /p target/Cirrus.appx").run()?;

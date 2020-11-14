@@ -387,6 +387,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "cirrus-windows-wrapper"
+version = "0.1.0"
+dependencies = [
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "clap"
 version = "2.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

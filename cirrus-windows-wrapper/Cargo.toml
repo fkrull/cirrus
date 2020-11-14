@@ -1,0 +1,9 @@
+[package]
+name = "cirrus-windows-wrapper"
+version = "0.1.0"
+authors = ["Felix Krull <f_krull@gmx.de>"]
+edition = "2018"
+
+[dependencies.winapi]
+version = "0.3.9"
+features = ["winbase"]

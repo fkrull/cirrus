@@ -31,7 +31,7 @@
 
     <Applications>
         <Application Id="cirrus"
-                     Executable="cirrus.exe"
+                     Executable="cirrus-windows-wrapper.exe"
                      EntryPoint="Windows.FullTrustApplication">
             <!-- TODO: logos and background color -->
             <uap:VisualElements DisplayName="Cirrus"
@@ -50,7 +50,7 @@
                 </uap3:Extension>
 
                 <desktop:Extension Category="windows.startupTask"
-                                   Executable="cirrus.exe"
+                                   Executable="cirrus-windows-wrapper.exe"
                                    EntryPoint="Windows.FullTrustApplication">
                     <desktop:StartupTask
                             TaskId="Cirrus"

@@ -1,0 +1,16 @@
+[package]
+name = "package"
+version = "0.1.0"
+authors = ["Felix Krull <f_krull@gmx.de>"]
+edition = "2018"
+
+[dependencies]
+argh = "0.1.4"
+eyre = "0.6.3"
+glob = "0.3.0"
+hex = "0.4.2"
+sha2 = "0.9.2"
+tempfile = "3.1.0"
+ureq = { version = "1.5.2", default-features = false, features = ["native-tls"] }
+xshell = "0.1.6"
+zip = "0.5.8"

@@ -5,9 +5,9 @@
          xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
          xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10">
     <Identity Name="CirrusBackup.Cirrus"
-              Version="${APPX_VERSION}"
+              Version="$APPX_VERSION"
               Publisher="CN=CirrusBackup"
-              ProcessorArchitecture="${APPX_ARCH}"/>
+              ProcessorArchitecture="$APPX_ARCH"/>
 
     <Properties>
         <DisplayName>Cirrus</DisplayName>

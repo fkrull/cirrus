@@ -59,17 +59,6 @@ release:linux:armv7:
   variables:
     TARGET: armv7-unknown-linux-musleabihf
 
-release:windows:x86_64:desktop:
-  extends: .release:windows
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-  stage: build
-  variables:
-    TARGET: x86_64-pc-windows-msvc
-    FEATURES: desktop
-
 restic:linux:x86_64:
   extends: .restic:linux
   rules:
@@ -91,17 +80,6 @@ restic:linux:armv7:
   variables:
     RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
     RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
-
-restic:windows:x86_64:
-  extends: .restic:windows
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-  stage: build
-  variables:
-    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
-    RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
 
 
 # package steps
@@ -250,7 +228,7 @@ publish:server:
     - $env:CARGO_HOME="${CI_PROJECT_DIR}/cargo"
     - $env:PATH += ";$env:USERPROFILE/.cargo/bin"
   script:
-    - [System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx
+    - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
     - sccache --start-server
     - cargo run -p package --bin appx --
         --target ${TARGET}

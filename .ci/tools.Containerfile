@@ -1,5 +1,6 @@
 FROM centos:8
 RUN dnf install -y \
+      # baseline tools
       bzip2 \
       curl \
       git \
@@ -7,16 +8,21 @@ RUN dnf install -y \
       tar \
       unzip \
 
+      # container tools
       buildah \
       skopeo \
 
+      # build tools
       clang \
       cmake \
       make \
 
-      dbus-devel \
+      # tool dependencies
       openssl-devel \
       zlib-devel \
+
+      # cirrus build dependencies
+      dbus-devel \
       && \
     dnf clean all
 
@@ -84,4 +90,5 @@ RUN mkdir sccache && \
 # Rust
 ENV RUST_VERSION=1.47.0
 RUN curl https://sh.rustup.rs -sSf | \
-    sh -s -- -y --profile default --default-toolchain $RUST_VERSION
+    CARGO_HOME=/usr/local/cargo sh -s -- -y --profile default --no-modify-path --default-toolchain $RUST_VERSION
+ENV PATH=/usr/local/cargo/bin:$PATH

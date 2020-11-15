@@ -27,7 +27,10 @@ fn main() -> eyre::Result<()> {
     let target = args.target;
 
     // compile cirrus
-    cmd!("cargo build --release --target={target}").run()?;
+    {
+        let _e = pushenv("RUSTFLAGS", "-Clinker=rust-lld");
+        cmd!("cargo build --release --target={target}").run()?;
+    }
 
     // download restic
     download(args.restic_url, "target/restic.bz2")

@@ -253,8 +253,6 @@ publish:server:
 
 # build Linux container image
 .container-image:
-  variables:
-    RUSTFLAGS: -Clinker=rust-lld
   before_script:
     - rustup target add ${TARGET}
   script:

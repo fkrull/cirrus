@@ -3,18 +3,29 @@ variables:
   CI_TOOLS_IMAGE: ${IMAGE_REGISTRY}/ci-tools:latest
   SERVER_IMAGE: ${IMAGE_REGISTRY}/server
 
+  STORAGE_DRIVER: vfs
+  BUILDAH_ISOLATION: chroot
+  CARGO_HOME: ${CI_PROJECT_DIR}/cargo
+  SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
+  RUSTC_WRAPPER: sccache
+
+image: ${CI_TOOLS_IMAGE}
+
+cache:
+  paths:
+    - cargo/
+    - sccache/
+
 include:
   - template: 'Workflows/Branch-Pipelines.gitlab-ci.yml'
 
 stages:
   - tools
   - test
-  #- build
   - package
   - publish
 
 tools:ci-tools-image:
-  extends: .buildah
   stage: tools
   image: fedora:33
   when: manual
@@ -28,10 +39,8 @@ tools:ci-tools-image:
         .ci
 
 test:
-  extends: .rust
   stage: test
   script:
-    - rustup component add clippy rustfmt
     - cargo fmt -- --check
     - sccache --start-server
     - cargo clippy --workspace --all-features
@@ -84,15 +93,44 @@ test:
 
 
 # package steps
-appx:x86_64:
-  extends: .appx
+container-image:linux:x86_64:
+  extends: .container-image
+  stage: package
   rules:
     - if: $CI_COMMIT_TAG
       when: always
     - when: manual
-  stage: package
   variables:
-    VERSION: ${CI_COMMIT_REF_SLUG}
+    TARGET: x86_64-unknown-linux-musl
+    RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
+    RESTIC_SHA256: f559e774c91f1201ffddba74d5758dec8342ad2b50a3bcd735ccb0c88839045c
+    BASE_IMAGE: amd64/alpine:3.12
+    TAG: ${CI_COMMIT_REF_SLUG}-linux-amd64
+
+container-image:linux:armv7:
+  extends: .container-image
+  stage: package
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
+  variables:
+    TARGET: armv7-unknown-linux-musleabihf
+    RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
+    RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
+    BASE_IMAGE: arm32v7/alpine:3.12
+    QEMU_BINARY: /usr/bin/qemu-arm-static
+    TAG: ${CI_COMMIT_REF_SLUG}-linux-arm32v7
+
+appx:x86_64:
+  extends: .appx
+  stage: package
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
+  variables:
+    APPX_VERSION: ${CI_COMMIT_REF_SLUG}
     TARGET: x86_64-pc-windows-msvc
     RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
     RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
@@ -171,6 +209,7 @@ publish:server:
 
 # sccache settings
 .sccache:
+  image: ${CI_TOOLS_IMAGE}
   variables:
     CARGO_HOME: ${CI_PROJECT_DIR}/cargo
     SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
@@ -212,9 +251,28 @@ publish:server:
       - cirrus
     expire_in: 1 day
 
+# build Linux container image
+.container-image:
+  variables:
+    RUSTFLAGS: -Clinker=rust-lld
+  before_script:
+    - rustup target add ${TARGET}
+  script:
+    - sccache --start-server
+    - cargo run -p package --bin container-image --
+      --target ${TARGET}
+      --restic-url ${RESTIC_URL}
+      --restic-sha256 ${RESTIC_SHA256}
+      --base-image ${BASE_IMAGE}
+      --qemu-binary ${QEMU_BINARY}
+    - sccache --show-stats
+    - buildah push
+      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      cirrus-container-image
+      docker://${IMAGE_REGISTRY}/server:${TAG}
+
 # build Windows appx package
 .appx:
-  extends: .sccache
   tags:
     - shared-windows
     - windows
@@ -232,11 +290,11 @@ publish:server:
     - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
     - sccache --start-server
     - cargo run -p package --bin appx --
-        --target=${TARGET}
-        --restic-url=${RESTIC_URL}
-        --restic-sha256=${RESTIC_SHA256}
-        --version=${VERSION}
-        --certificate=certificate.pfx
+      --target ${TARGET}
+      --restic-url ${RESTIC_URL}
+      --restic-sha256 ${RESTIC_SHA256}
+      --version ${APPX_VERSION}
+      --certificate certificate.pfx
     - sccache --show-stats
   after_script:
     - Remove-Item certificate.pfx

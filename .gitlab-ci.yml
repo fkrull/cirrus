@@ -105,7 +105,7 @@ container-image:linux:x86_64:
     RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
     RESTIC_SHA256: f559e774c91f1201ffddba74d5758dec8342ad2b50a3bcd735ccb0c88839045c
     BASE_IMAGE: amd64/alpine:3.12
-    TAG: ${CI_COMMIT_REF_SLUG}-linux-amd64
+    TAG: ${CI_COMMIT_REF_NAME}-linux-amd64
 
 container-image:linux:armv7:
   extends: .container-image
@@ -120,7 +120,7 @@ container-image:linux:armv7:
     RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
     BASE_IMAGE: arm32v7/alpine:3.12
     QEMU_BINARY: /usr/bin/qemu-arm-static
-    TAG: ${CI_COMMIT_REF_SLUG}-linux-arm32v7
+    TAG: ${CI_COMMIT_REF_NAME}-linux-arm32v7
 
 appx:x86_64:
   extends: .appx
@@ -130,7 +130,7 @@ appx:x86_64:
       when: always
     - when: manual
   variables:
-    APPX_VERSION: ${CI_COMMIT_REF_SLUG}
+    APPX_VERSION: ${CI_COMMIT_REF_NAME}
     TARGET: x86_64-pc-windows-msvc
     RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
     RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
@@ -201,7 +201,7 @@ publish:server:
   script:
     - skopeo copy
         --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}
+        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_NAME}
         docker://${SERVER_IMAGE}:latest
 
 
@@ -292,9 +292,8 @@ publish:server:
         | Sort-Object
         | Select-Object -Last 1
     - $env:PATH += ";$sdkPath\bin\$latest\x64"
-
-    - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
   script:
+    - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
     - sccache --start-server
     - cargo run -p package --bin appx --
       --target ${TARGET}

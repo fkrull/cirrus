@@ -64,7 +64,7 @@ test-cert:
     - $env:PATH += ";$sdkPath\bin\$latest\x64"
   script:
     - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
-    - Certutil -importPfx My certificate.pfx -p "$APPX_CERTIFICATE_PASSWORD"
+    - Certutil -p "$APPX_CERTIFICATE_PASSWORD" -importPfx My certificate.pfx
   after_script:
     - Remove-Item certificate.pfx
 

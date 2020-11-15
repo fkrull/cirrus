@@ -2,8 +2,8 @@ use package::download;
 use std::path::Path;
 use xshell::*;
 
+/// Build an appx package.
 #[derive(argh::FromArgs)]
-/// Reach new heights.
 struct Args {
     /// rust compile target
     #[argh(option)]

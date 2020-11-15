@@ -2,6 +2,7 @@ use package::download;
 use std::path::Path;
 use xshell::*;
 
+/// Build a container image.
 #[derive(argh::FromArgs)]
 struct Args {
     /// rust compile target

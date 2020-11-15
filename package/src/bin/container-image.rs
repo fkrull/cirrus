@@ -64,9 +64,7 @@ fn main() -> eyre::Result<()> {
 fn buildah_run(ctr: &str, qemu_binary: Option<&String>, script: &str) -> eyre::Result<()> {
     if let Some(qemu_binary) = qemu_binary {
         let qemu_binary = Path::new(qemu_binary).canonicalize()?;
-        let dir = qemu_binary.parent().unwrap();
-        let file = qemu_binary.file_name().unwrap();
-        cmd!("buildah run -v {dir}:/qemu {ctr} -- /qemu/{file} --execve /bin/sh -c {script}")
+        cmd!("buildah run -v {qemu_binary}:/qemu {ctr} -- /qemu --execve /bin/sh -c {script}")
             .run()?;
     } else {
         cmd!("buildah run {ctr} -- /bin/sh -c {script}").run()?;

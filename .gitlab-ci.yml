@@ -25,6 +25,7 @@ tools:ci-tools-image:
         -f .ci/tools.Containerfile
         --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
         -t docker://${CI_TOOLS_IMAGE}
+        .ci
 
 test:
   extends: .rust
@@ -93,7 +94,7 @@ appx:x86_64:
   variables:
     VERSION: ${CI_COMMIT_REF_SLUG}
     TARGET: x86_64-pc-windows-msvc
-    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
+    RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
     RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
 
 #server:linux:x86_64:
@@ -231,11 +232,11 @@ publish:server:
     - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
     - sccache --start-server
     - cargo run -p package --bin appx --
-        --target ${TARGET}
-        --restic-url ${RESTIC_URL}
-        --restic-sha256 ${RESTIC_SHA256}
-        --version ${VERSION}
-        --certificate certificate.pfx
+        --target=${TARGET}
+        --restic-url=${RESTIC_URL}
+        --restic-sha256=${RESTIC_SHA256}
+        --version=${VERSION}
+        --certificate=certificate.pfx
     - sccache --show-stats
   after_script:
     - Remove-Item certificate.pfx

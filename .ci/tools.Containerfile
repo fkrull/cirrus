@@ -1,20 +1,23 @@
 FROM centos:8
 RUN dnf install -y \
-      buildah \
       bzip2 \
-      clang \
-      cmake \
       curl \
-      dbus-devel \
-      gettext \
       git \
       gzip \
-      make \
-      openssl-devel \
-      skopeo \
       tar \
       unzip \
-      zlib-devel && \
+
+      buildah \
+      skopeo \
+
+      clang \
+      cmake \
+      make \
+
+      dbus-devel \
+      openssl-devel \
+      zlib-devel \
+      && \
     dnf clean all
 
 # MSIX SDK
@@ -66,10 +69,6 @@ RUN bash /install-qemu.sh $QEMU_AARCH64_URL $QEMU_AARCH64_SHA256 /usr/bin/qemu-a
 
 RUN rm /install-qemu.sh
 
-# Rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --profile standard --default-toolchain stable
-RUN rustup component add clippy rustfmt
-
 # sccache
 ENV SCCACHE_URL=https://github.com/mozilla/sccache/releases/download/0.2.13/sccache-0.2.13-x86_64-unknown-linux-musl.tar.gz
 ENV SCCACHE_SHA256=28a5499e340865b08b632306b435913beb590fbd7b49a3f887a623b459fabdeb
@@ -81,3 +80,10 @@ RUN mkdir sccache && \
     tar -C /usr/bin/ -xz -f sccache.tgz --wildcards --strip-components=1 '*/sccache' && \
     cd .. && \
     rm -rf sccache
+
+# Rust
+ENV RUST_VERSION=1.47.0
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- -y --profile default --no-modify-path --default-toolchain $RUST_VERSION && \
+    $HOME/.cargo/bin/rustup component add clippy rustfmt && \
+    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc

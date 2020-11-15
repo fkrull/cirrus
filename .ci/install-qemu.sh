@@ -16,4 +16,4 @@ cd $tmp
 curl -L -o qemu.tgz $QEMU_URL
 echo "$QEMU_SHA256 *qemu.tgz" | sha256sum -c
 tar xaf qemu.tgz
-install qemu-*/qemu-*- $QEMU_OUT_BIN
+install qemu-*/qemu-*-static $QEMU_OUT_BIN

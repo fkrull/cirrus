@@ -6,7 +6,7 @@
          xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10">
     <Identity Name="CirrusBackup.Cirrus"
               Version="$APPX_VERSION"
-              Publisher="CN=CirrusBackup"
+              Publisher="CN=Cirrus, O=CirrusBackup"
               ProcessorArchitecture="$APPX_ARCH"/>
 
     <Properties>

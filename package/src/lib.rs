@@ -13,16 +13,16 @@ pub struct Download {
     unzip_single: bool,
 }
 
-impl Download {
-    pub fn new(url: impl Into<String>, to: impl Into<PathBuf>) -> Self {
-        Self {
-            url: url.into(),
-            to: to.into(),
-            expected_sha256: None,
-            unzip_single: false,
-        }
+pub fn download(url: impl Into<String>, to: impl Into<PathBuf>) -> Download {
+    Download {
+        url: url.into(),
+        to: to.into(),
+        expected_sha256: None,
+        unzip_single: false,
     }
+}
 
+impl Download {
     pub fn expected_sha256(self, expected_sha256: impl Into<String>) -> Self {
         Self {
             expected_sha256: Some(expected_sha256.into()),
@@ -37,7 +37,7 @@ impl Download {
         }
     }
 
-    pub fn download(self) -> eyre::Result<()> {
+    pub fn run(self) -> eyre::Result<()> {
         let response = get(&self.url)?;
         let mut tmp = tempfile::tempfile()?;
         copy(&mut response.into_reader(), &mut tmp)?;

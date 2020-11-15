@@ -1,10 +1,10 @@
-use package::Download;
+use package::download;
 use std::path::Path;
 use xshell::*;
 
 #[derive(argh::FromArgs)]
 /// Reach new heights.
-struct BuildAppx {
+struct Args {
     /// rust compile target
     #[argh(option)]
     target: String,
@@ -23,7 +23,7 @@ struct BuildAppx {
 }
 
 fn main() -> eyre::Result<()> {
-    let args: BuildAppx = argh::from_env();
+    let args: Args = argh::from_env();
     let target = args.target.as_str();
 
     // compile cirrus
@@ -42,10 +42,10 @@ fn main() -> eyre::Result<()> {
     )?;
 
     // download restic
-    Download::new(args.restic_url, "target/appx/restic.exe")
+    download(args.restic_url, "target/appx/restic.exe")
         .expected_sha256(args.restic_sha256)
         .unzip_single()
-        .download()?;
+        .run()?;
 
     // copy files
     for path in read_dir("package/appx")? {

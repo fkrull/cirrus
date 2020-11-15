@@ -48,6 +48,28 @@ test:
     - sccache --show-stats
 
 
+test-cert:
+  stage: test
+  tags:
+    - shared-windows
+    - windows
+    - windows-1809
+  before_script:
+    - $sdkPath = (Get-ItemProperty "HKLM:\Software\Microsoft\Windows Kits\Installed Roots").KitsRoot10
+    - $latest = Get-ChildItem "$sdkPath\bin"
+      | Foreach-Object {$_.Name}
+      | Select-String "10.0"
+      | Sort-Object
+      | Select-Object -Last 1
+    - $env:PATH += ";$sdkPath\bin\$latest\x64"
+  script:
+    - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
+    - Certutil -importPfx My certificate.pfx -p "$APPX_CERTIFICATE_PASSWORD"
+  after_script:
+    - Remove-Item certificate.pfx
+
+
+
 # release binary steps
 #release:linux:x86_64:
 #  extends: .release:linux

@@ -105,6 +105,19 @@ restic:windows:x86_64:
 
 
 # package steps
+appx:x86_64:
+  extends: .appx
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
+  stage: package
+  variables:
+    VERSION: ${CI_COMMIT_REF_SLUG}
+    TARGET: x86_64-pc-windows-msvc
+    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
+    RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
+
 server:linux:x86_64:
   extends: .buildah
   rules:
@@ -220,16 +233,15 @@ publish:server:
       - cirrus
     expire_in: 1 day
 
-# build Windows release binary
-.release:windows:
+# build Windows appx package
+.appx:
   extends: .sccache
   tags:
     - shared-windows
     - windows
     - windows-1809
   variables:
-    FEATURES: ""
-    RUSTFLAGS: -Ctarget-feature=+crt-static
+    CERTIFICATE_PASSWORD: ${APPX_CERTIFICATE_PASSWORD}
   before_script:
     - choco install -y sccache
     - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
@@ -238,15 +250,21 @@ publish:server:
     - $env:CARGO_HOME="${CI_PROJECT_DIR}/cargo"
     - $env:PATH += ";$env:USERPROFILE/.cargo/bin"
   script:
+    - [System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx
     - sccache --start-server
-    - cargo build --release --features "$FEATURES"
-    - cp target/release/cirrus.exe cirrus.exe
+    - cargo run -p package --bin appx --
+        --target ${TARGET}
+        --restic-url ${RESTIC_URL}
+        --restic-sha256 ${RESTIC_SHA256}
+        --version ${VERSION}
+        --certificate certificate.pfx
     - sccache --show-stats
-    - ls cirrus.exe
+  after_script:
+    - Remove-Item certificate.pfx
   artifacts:
     paths:
-      - cirrus.exe
-    expire_in: 1 day
+      - target/Cirrus.appx
+    expire_in: 1 week
 
 # download restic
 .restic:linux:
@@ -259,18 +277,6 @@ publish:server:
   artifacts:
     paths:
       - restic
-    expire_in: 1 day
-
-.restic:windows:
-  image: ${CI_TOOLS_IMAGE}
-  script:
-    - curl -L -o restic.zip "$RESTIC"
-    - echo "$RESTIC_SHA256 *restic.zip" | sha256sum -c
-    - unzip restic.zip
-    - mv restic_*.exe restic.exe
-  artifacts:
-    paths:
-      - restic.exe
     expire_in: 1 day
 
 # buildah

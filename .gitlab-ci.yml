@@ -280,12 +280,21 @@ publish:server:
   before_script:
     - choco install -y sccache
     - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
-    - $env:CARGO_HOME="$env:USERPROFILE/.cargo"
+    - $env:CARGO_HOME = "$env:USERPROFILE/.cargo"
     - ./rustup-init.exe -y --default-host="$TARGET" --default-toolchain=stable --profile=minimal
-    - $env:CARGO_HOME="${CI_PROJECT_DIR}/cargo"
+    - $env:CARGO_HOME = "${CI_PROJECT_DIR}/cargo"
     - $env:PATH += ";$env:USERPROFILE/.cargo/bin"
-  script:
+
+    - $sdkPath = (Get-ItemProperty "HKLM:\Software\Microsoft\Windows Kits\Installed Roots").KitsRoot10
+    - $latest = Get-ChildItem "$sdkPath\bin"
+        | Foreach-Object {$_.Name}
+        | Select-String "10.0"
+        | Sort-Object
+        | Select-Object -Last 1
+    - $env:PATH += ";$sdkPath\bin\$latest\x64"
+
     - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
+  script:
     - sccache --start-server
     - cargo run -p package --bin appx --
       --target ${TARGET}

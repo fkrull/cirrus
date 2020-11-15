@@ -262,7 +262,7 @@ publish:server:
       --restic-url ${RESTIC_URL}
       --restic-sha256 ${RESTIC_SHA256}
       --base-image ${BASE_IMAGE}
-      --qemu-binary ${QEMU_BINARY}
+      --qemu-binary "${QEMU_BINARY}"
     - sccache --show-stats
     - buildah push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD

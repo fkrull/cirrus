@@ -43,16 +43,13 @@ fn main() -> eyre::Result<()> {
     let base_image = args.base_image;
     let ctr = cmd!("buildah from {base_image}").read()?;
 
+    let qemu = args.qemu_binary.as_ref().filter(|s| !s.is_empty());
     buildah_run(
         &ctr,
-        args.qemu_binary.as_ref(),
+        qemu,
         "apk add --no-cache ca-certificates openssh-client",
     )?;
-    buildah_run(
-        &ctr,
-        args.qemu_binary.as_ref(),
-        "mkdir -p /cache /config/cirrus",
-    )?;
+    buildah_run(&ctr, qemu, "mkdir -p /cache /config/cirrus")?;
 
     cmd!("buildah copy {ctr} target/restic target/{target}/release/cirrus /usr/bin/").run()?;
     cmd!("buildah config --env XDG_CONFIG_HOME=/config {ctr}").run()?;

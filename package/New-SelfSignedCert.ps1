@@ -10,5 +10,5 @@ $thumbprint = (New-SelfSignedCertificate `
 ).Thumbprint
 Write-Output "Enter pfx file password:"
 $password = Read-Host -AsSecureString
-Export-PfxCertificate -cert "Cert:\CurrentUser\My\$thumbprint" -FilePath certificate.pfx -Password $password
-Export-Certificate -cert "Cert:\CurrentUser\My\$thumbprint" -FilePath certificate-public.crt
+Export-PfxCertificate -cert "Cert:\CurrentUser\My\$thumbprint" -FilePath target\certificate.pfx -Password $password
+Export-Certificate -cert "Cert:\CurrentUser\My\$thumbprint" -FilePath target\certificate-public.crt

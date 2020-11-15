@@ -1,3 +1,5 @@
+params([string]$target)
+
 $ErrorActionPreference = $Stop;
 
 $thumbprint = (New-SelfSignedCertificate `
@@ -10,5 +12,4 @@ $thumbprint = (New-SelfSignedCertificate `
 ).Thumbprint
 Write-Output "Enter pfx file password:"
 $password = Read-Host -AsSecureString
-Export-PfxCertificate -cert "Cert:\CurrentUser\My\$thumbprint" -FilePath target\certificate.pfx -Password $password
-Export-Certificate -cert "Cert:\CurrentUser\My\$thumbprint" -FilePath target\certificate-public.crt
+Export-PfxCertificate -Cert cert:\CurrentUser\My\$thumbprint -FilePath $target -Password $password

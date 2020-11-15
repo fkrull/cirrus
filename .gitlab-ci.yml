@@ -48,28 +48,6 @@ test:
     - sccache --show-stats
 
 
-test-cert:
-  stage: test
-  tags:
-    - shared-windows
-    - windows
-    - windows-1809
-  before_script:
-    - $sdkPath = (Get-ItemProperty "HKLM:\Software\Microsoft\Windows Kits\Installed Roots").KitsRoot10
-    - $latest = Get-ChildItem "$sdkPath\bin"
-      | Foreach-Object {$_.Name}
-      | Select-String "10.0"
-      | Sort-Object
-      | Select-Object -Last 1
-    - $env:PATH += ";$sdkPath\bin\$latest\x64"
-  script:
-    - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
-    - Certutil -p "$APPX_CERTIFICATE_PASSWORD" -importPfx My certificate.pfx
-  after_script:
-    - Remove-Item certificate.pfx
-
-
-
 # release binary steps
 #release:linux:x86_64:
 #  extends: .release:linux
@@ -316,13 +294,14 @@ publish:server:
     - $env:PATH += ";$sdkPath\bin\$latest\x64"
   script:
     - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
+    - $thumbprint = package\import-certificate.ps1 certificate.pfx
     - sccache --start-server
     - cargo run -p package --bin appx --
       --target ${TARGET}
       --restic-url ${RESTIC_URL}
       --restic-sha256 ${RESTIC_SHA256}
       --version ${APPX_VERSION}
-      --certificate certificate.pfx
+      --certificate $thumbprint
     - sccache --show-stats
   after_script:
     - Remove-Item certificate.pfx

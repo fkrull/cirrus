@@ -84,6 +84,4 @@ RUN mkdir sccache && \
 # Rust
 ENV RUST_VERSION=1.47.0
 RUN curl https://sh.rustup.rs -sSf | \
-    sh -s -- -y --profile default --no-modify-path --default-toolchain $RUST_VERSION && \
-    $HOME/.cargo/bin/rustup component add clippy rustfmt && \
-    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+    sh -s -- -y --profile default --default-toolchain $RUST_VERSION

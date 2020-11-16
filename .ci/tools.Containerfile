@@ -2,6 +2,8 @@ FROM centos:8
 RUN dnf install -y \
       # baseline tools
       curl \
+      gcc \
+      glibc-devel \
       gzip \
       tar \
       unzip \

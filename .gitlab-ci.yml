@@ -42,7 +42,6 @@ test:
   script:
     - cargo fmt -- --check
     - sccache --start-server
-    - cargo clippy --workspace --all-features
     - cargo test --workspace --all-features
     - sccache --show-stats
 
@@ -83,11 +82,7 @@ server:linux:armv7:
 
 server:manifest-list:
   stage: manifest-list
-  needs: [ "server:linux:armv7", "server:linux:x86_64" ]
-  #rules:
-  #  - if: $CI_COMMIT_TAG
-  #    when: always
-  #  - when: manual
+  needs: [ "server:linux:x86_64" ,"server:linux:armv7" ]
   script:
     - buildah manifest create cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-amd64
@@ -101,6 +96,9 @@ server:manifest-list:
 publish:server:
   stage: publish
   needs: [ "server:manifest-list" ]
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
   script:
     - skopeo copy
       --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD

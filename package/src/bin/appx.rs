@@ -71,7 +71,7 @@ fn main() -> eyre::Result<()> {
     cmd!("makeappx pack /h SHA256 /o /d target/appx /p target/Cirrus.appx").run()?;
 
     // sign
-    cmd!("SignTool sign /fd SHA256 /a /sha1 {certificate} target/Cirrus.appx").run()?;
+    cmd!("SignTool sign /fd SHA256 /a /sm /sha1 {certificate} target/Cirrus.appx").run()?;
 
     Ok(())
 }

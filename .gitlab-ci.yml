@@ -32,10 +32,9 @@ tools:ci-tools-image:
     - dnf install -y buildah
   script:
     - buildah build-using-dockerfile
-      -f .ci/tools.Containerfile
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       -t docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
-      .ci
+      build-scripts/ci-tools
 
 test:
   stage: test
@@ -112,7 +111,7 @@ pages:
     - if: $CI_COMMIT_TAG
       when: always
   script:
-    - cargo run -p package --bin publish-files
+    - cargo run -p build-scripts --bin publish-files
   artifacts:
     paths:
       - public
@@ -125,7 +124,7 @@ pages:
     - rustup target add ${TARGET}
   script:
     - sccache --start-server
-    - cargo run -p package --bin server --
+    - cargo run -p build-scripts --bin server --
       --target ${TARGET}
       --qemu-binary "${QEMU_BINARY}"
     - sccache --show-stats
@@ -156,9 +155,9 @@ pages:
       | Select-Object -Last 1
     - $env:PATH += ";$sdkPath\bin\$latest\x64"
   script:
-    - $thumbprint = package\windows\import-base64-certificate.ps1 Cert:\LocalMachine\My
+    - $thumbprint = build-scripts\windows\import-base64-certificate.ps1 Cert:\LocalMachine\My
     - sccache --start-server
-    - cargo run -p package --bin appx --
+    - cargo run -p build-scripts --bin appx --
       --target ${TARGET}
       --version ${APPX_VERSION}
       --cert-thumbprint $thumbprint

@@ -23,7 +23,7 @@ fn main() -> eyre::Result<()> {
     }
 
     // download restic
-    package::restic(&target, "target/restic")?;
+    build_scripts::restic(&target, "target/restic")?;
 
     // build container image
     let base_image = base_image(&target)?;

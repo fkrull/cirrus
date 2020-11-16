@@ -11,7 +11,7 @@ members = [
     "cirrus-daemon",
     "cirrus-desktop-ui",
     "cirrus-windows-wrapper",
-    "package",
+    "build-scripts",
 ]
 
 [dependencies]

@@ -25,7 +25,8 @@ fn main() -> eyre::Result<()> {
         }
     }
 
-    let index = read_file("package/publish/index.html")?.replace("$DOWNLOADS", &downloads_html);
+    let index =
+        read_file("build-scripts/publish/index.html")?.replace("$DOWNLOADS", &downloads_html);
     write_file("public/index.html", index)?;
 
     Ok(())

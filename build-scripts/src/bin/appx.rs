@@ -37,10 +37,10 @@ fn main() -> eyre::Result<()> {
     )?;
 
     // download restic
-    package::restic(&target, "target/appx/restic.exe")?;
+    build_scripts::restic(&target, "target/appx/restic.exe")?;
 
     // copy files
-    for path in read_dir("package/windows/appx")? {
+    for path in read_dir("build-scripts/windows/appx")? {
         cp(&path, "target/appx/")?;
     }
 
@@ -67,7 +67,7 @@ fn main() -> eyre::Result<()> {
 
     // generate appinstaller file
     let appinstaller = format!("Cirrus_{}.appinstaller", appx_arch);
-    let appinstaller_xml = read_file("package/windows/Cirrus.appinstaller")?
+    let appinstaller_xml = read_file("build-scripts/windows/Cirrus.appinstaller")?
         .replace("$APPX_VERSION", &args.version)
         .replace("$APPX_ARCH", appx_arch)
         .replace("$APPX_FILENAME", &appx_filename)

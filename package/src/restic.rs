@@ -1,19 +1,4 @@
 use crate::download;
-use xshell::*;
-
-fn download_restic_bz2(url: &str, sha256: &str, dest_file: &str) -> eyre::Result<()> {
-    download(url, dest_file)
-        .expected_sha256(sha256)
-        .bunzip2()
-        .run()
-}
-
-fn download_restic_zip(url: &str, sha256: &str, dest_file: &str) -> eyre::Result<()> {
-    download(url, dest_file)
-        .expected_sha256(sha256)
-        .unzip_single()
-        .run()
-}
 
 pub fn restic(target: &str, dest_file: &str) -> eyre::Result<()> {
     match target {

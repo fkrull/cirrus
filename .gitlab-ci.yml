@@ -154,5 +154,6 @@ publish:server:
     - sccache --show-stats
   artifacts:
     paths:
-      - target/Cirrus.appx
+      - target/*.appx
+      - target/*.appinstaller
     expire_in: 1 day

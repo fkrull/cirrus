@@ -165,6 +165,5 @@ pages:
     - sccache --show-stats
   artifacts:
     paths:
-      - target/*.appx
-      - target/*.appinstaller
+      - public
     expire_in: 1 day

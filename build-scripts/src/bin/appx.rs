@@ -52,8 +52,9 @@ fn main() -> eyre::Result<()> {
     write_file("target/appx/AppxManifest.xml", manifest)?;
 
     // build appx
+    mkdir_p("public")?;
     let appx_filename = format!("Cirrus_{}_{}.appx", args.version, appx_arch);
-    cmd!("makeappx pack /h SHA256 /o /d target/appx /p target/{appx_filename}").run()?;
+    cmd!("makeappx pack /h SHA256 /o /d target/appx /p public/{appx_filename}").run()?;
 
     // sign
     let cert_thumbprint = args.cert_thumbprint;
@@ -62,7 +63,7 @@ fn main() -> eyre::Result<()> {
     } else {
         None
     };
-    cmd!("SignTool sign /fd SHA256 /a /sha1 {cert_thumbprint} {cert_store_flags...} target/{appx_filename}")
+    cmd!("SignTool sign /fd SHA256 /a /sha1 {cert_thumbprint} {cert_store_flags...} public/{appx_filename}")
         .run()?;
 
     // generate appinstaller file
@@ -72,7 +73,7 @@ fn main() -> eyre::Result<()> {
         .replace("$APPX_ARCH", appx_arch)
         .replace("$APPX_FILENAME", &appx_filename)
         .replace("$APPINSTALLER", &appinstaller);
-    write_file(format!("target/{}", appinstaller), appinstaller_xml)?;
+    write_file(format!("public/{}", appinstaller), appinstaller_xml)?;
 
     Ok(())
 }

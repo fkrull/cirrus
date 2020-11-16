@@ -40,7 +40,7 @@ fn main() -> eyre::Result<()> {
     package::restic(&target, "target/appx/restic.exe")?;
 
     // copy files
-    for path in read_dir("package/appx")? {
+    for path in read_dir("package/windows/appx")? {
         cp(&path, "target/appx/")?;
     }
 

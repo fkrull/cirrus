@@ -144,7 +144,7 @@ publish:server:
       | Select-Object -Last 1
     - $env:PATH += ";$sdkPath\bin\$latest\x64"
   script:
-    - $thumbprint = package\import-base64-certificate.ps1 Cert:\LocalMachine\My
+    - $thumbprint = package\windows\import-base64-certificate.ps1 Cert:\LocalMachine\My
     - sccache --start-server
     - cargo run -p package --bin appx --
       --target ${TARGET}

@@ -1,7 +1,6 @@
 FROM centos:8
 RUN dnf install -y \
       # baseline tools
-      bzip2 \
       curl \
       gzip \
       tar \

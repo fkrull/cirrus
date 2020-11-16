@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2017/2"
               Version="1.0.0.0"
-              Uri="https://fkrull.gitlab.io/cirrus/downloads/$APPINSTALLER">
+              Uri="https://fkrull.gitlab.io/cirrus/$APPINSTALLER">
     <MainPackage Name="CirrusBackup.Cirrus"
                  Publisher="CN=Cirrus, O=CirrusBackup"
                  Version="$APPX_VERSION"
                  ProcessorArchitecture="$APPX_ARCH"
-                 Uri="https://fkrull.gitlab.io/cirrus/downloads/$APPX_FILENAME"/>
+                 Uri="https://fkrull.gitlab.io/cirrus/$APPX_FILENAME"/>
 
     <UpdateSettings>
         <OnLaunch HoursBetweenUpdateChecks="12" />

@@ -17,7 +17,7 @@ struct Args {
     /// package version
     #[argh(option)]
     version: String,
-    /// certificate thumbprint
+    /// certificate file
     #[argh(option)]
     certificate: String,
 }
@@ -26,6 +26,7 @@ fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
     let target = args.target.as_str();
     let certificate = args.certificate;
+    let certificate_password = std::env::var("CERTIFICATE_PASSWORD")?;
 
     // compile cirrus
     cmd!("cargo build --release --features=desktop --target={target}").run()?;
@@ -71,7 +72,11 @@ fn main() -> eyre::Result<()> {
     cmd!("makeappx pack /h SHA256 /o /d target/appx /p target/Cirrus.appx").run()?;
 
     // sign
-    cmd!("SignTool sign /fd SHA256 /a /sm /sha1 {certificate} target/Cirrus.appx").run()?;
+    cmd!(
+        "SignTool sign /fd SHA256 /sm /a /f {certificate} /p {certificate_password} target/Cirrus.appx"
+    )
+    .dont_echo_cmd()
+    .run()?;
 
     Ok(())
 }

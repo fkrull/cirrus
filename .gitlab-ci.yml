@@ -294,14 +294,13 @@ publish:server:
     - $env:PATH += ";$sdkPath\bin\$latest\x64"
   script:
     - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
-    - $thumbprint = package\import-certificate.ps1 certificate.pfx
     - sccache --start-server
     - cargo run -p package --bin appx --
       --target ${TARGET}
       --restic-url ${RESTIC_URL}
       --restic-sha256 ${RESTIC_SHA256}
       --version ${APPX_VERSION}
-      --certificate $thumbprint
+      --certificate certificate.pfx
     - sccache --show-stats
   after_script:
     - Remove-Item certificate.pfx

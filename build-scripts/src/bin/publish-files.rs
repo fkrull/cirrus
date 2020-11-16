@@ -11,7 +11,7 @@ fn main() -> eyre::Result<()> {
             .to_str()
             .ok_or_else(|| eyre::eyre!("non-utf8 filename {:?}", file))?;
         downloads_html.push_str(&format!(
-            r#"<li><a href="/{}">{}</a></li>"#,
+            r#"<li><a href="/cirrus/{}">{}</a></li>"#,
             filename, filename
         ));
     }

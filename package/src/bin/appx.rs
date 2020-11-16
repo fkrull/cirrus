@@ -1,5 +1,3 @@
-use package::download;
-use std::path::Path;
 use xshell::*;
 
 /// Build an appx package.
@@ -8,12 +6,6 @@ struct Args {
     /// rust compile target
     #[argh(option)]
     target: String,
-    /// restic package url
-    #[argh(option)]
-    restic_url: String,
-    /// restic expected SHA256
-    #[argh(option)]
-    restic_sha256: String,
     /// package version
     #[argh(option)]
     version: String,
@@ -45,10 +37,7 @@ fn main() -> eyre::Result<()> {
     )?;
 
     // download restic
-    download(args.restic_url, "target/appx/restic.exe")
-        .expected_sha256(args.restic_sha256)
-        .unzip_single()
-        .run()?;
+    package::restic(&target, "target/appx/restic.exe")?;
 
     // copy files
     for path in read_dir("package/appx")? {
@@ -56,11 +45,7 @@ fn main() -> eyre::Result<()> {
     }
 
     // expand manifest
-    let appx_arch = match args.target.as_str() {
-        "x86_64-pc-windows-msvc" => "x64",
-        "i686-pc-windows-msvc" => "x86",
-        _ => eyre::bail!("unknown target"),
-    };
+    let appx_arch = appx_arch(&target)?;
     let manifest = read_file("target/appx/AppxManifest.xml")?
         .replace("$APPX_VERSION", &args.version)
         .replace("$APPX_ARCH", appx_arch);
@@ -79,4 +64,12 @@ fn main() -> eyre::Result<()> {
     cmd!("SignTool sign /fd SHA256 /a /sha1 {cert_thumbprint} {cert_store_flags...} target/Cirrus.appx").run()?;
 
     Ok(())
+}
+
+fn appx_arch(target: &str) -> eyre::Result<&str> {
+    Ok(match target {
+        "x86_64-pc-windows-msvc" => "x64",
+        "i686-pc-windows-msvc" => "x86",
+        _ => eyre::bail!("unknown target {}", target),
+    })
 }

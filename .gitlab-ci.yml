@@ -55,9 +55,6 @@ server:linux:x86_64:
     - when: manual
   variables:
     TARGET: x86_64-unknown-linux-musl
-    RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
-    RESTIC_SHA256: f559e774c91f1201ffddba74d5758dec8342ad2b50a3bcd735ccb0c88839045c
-    BASE_IMAGE: amd64/alpine:3.12
     TAG: ${CI_COMMIT_REF_NAME}-linux-amd64
 
 server:linux:armv7:
@@ -69,9 +66,6 @@ server:linux:armv7:
     - when: manual
   variables:
     TARGET: armv7-unknown-linux-musleabihf
-    RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
-    RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
-    BASE_IMAGE: arm32v7/alpine:3.12
     QEMU_BINARY: /usr/bin/qemu-arm-static
     TAG: ${CI_COMMIT_REF_NAME}-linux-arm32v7
 
@@ -99,8 +93,6 @@ appx:x86_64:
     - when: manual
   variables:
     TARGET: x86_64-pc-windows-msvc
-    RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
-    RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
     APPX_VERSION: ${CI_COMMIT_REF_NAME}
 
 # publish
@@ -125,9 +117,6 @@ publish:server:
     - sccache --start-server
     - cargo run -p package --bin server --
       --target ${TARGET}
-      --restic-url ${RESTIC_URL}
-      --restic-sha256 ${RESTIC_SHA256}
-      --base-image ${BASE_IMAGE}
       --qemu-binary "${QEMU_BINARY}"
     - sccache --show-stats
     - buildah push
@@ -161,8 +150,6 @@ publish:server:
     - sccache --start-server
     - cargo run -p package --bin appx --
       --target ${TARGET}
-      --restic-url ${RESTIC_URL}
-      --restic-sha256 ${RESTIC_SHA256}
       --version ${APPX_VERSION}
       --cert-thumbprint $thumbprint
       --use-system-cert-store

@@ -1,4 +1,3 @@
-use package::download;
 use std::path::Path;
 use xshell::*;
 
@@ -8,15 +7,6 @@ struct Args {
     /// rust compile target
     #[argh(option)]
     target: String,
-    /// restic package url
-    #[argh(option)]
-    restic_url: String,
-    /// restic expected SHA256
-    #[argh(option)]
-    restic_sha256: String,
-    /// base image (must be Alpine)
-    #[argh(option)]
-    base_image: String,
     /// QEMU binary (must support --execve flag), may be empty
     #[argh(option)]
     qemu_binary: String,
@@ -33,14 +23,10 @@ fn main() -> eyre::Result<()> {
     }
 
     // download restic
-    download(args.restic_url, "target/restic.bz2")
-        .expected_sha256(args.restic_sha256)
-        .run()?;
-    cmd!("bunzip2 target/restic.bz2").run()?;
-    cmd!("chmod 0755 target/restic").run()?;
+    package::restic(&target, "target/restic")?;
 
     // build container image
-    let base_image = args.base_image;
+    let base_image = base_image(&target)?;
     let ctr = cmd!("buildah from {base_image}").read()?;
 
     let qemu = Some(args.qemu_binary).filter(|s| !s.is_empty());
@@ -59,6 +45,14 @@ fn main() -> eyre::Result<()> {
     cmd!("buildah commit {ctr} cirrus-server-image").run()?;
 
     Ok(())
+}
+
+fn base_image(target: &str) -> eyre::Result<&str> {
+    Ok(match target {
+        "x86_64-unknown-linux-musl" => "amd64/alpine:3.12",
+        "armv7-unknown-linux-musleabihf" => "arm32v7/alpine:3.12",
+        _ => eyre::bail!("unknown target {}", target),
+    })
 }
 
 fn buildah_run(ctr: &str, qemu_binary: Option<&String>, script: &str) -> eyre::Result<()> {

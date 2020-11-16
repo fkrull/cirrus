@@ -19,13 +19,15 @@ struct Args {
     version: String,
     /// certificate thumbprint
     #[argh(option)]
-    certificate: String,
+    cert_thumbprint: String,
+    /// use system certificate store
+    #[argh(switch)]
+    use_system_cert_store: bool,
 }
 
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
     let target = args.target.as_str();
-    let certificate = args.certificate;
 
     // compile cirrus
     cmd!("cargo build --release --features=desktop --target={target}").run()?;
@@ -71,7 +73,13 @@ fn main() -> eyre::Result<()> {
     cmd!("makeappx pack /h SHA256 /o /d target/appx /p target/Cirrus.appx").run()?;
 
     // sign
-    cmd!("SignTool sign /fd SHA256 /a /sm /sha1 {certificate} target/Cirrus.appx").run()?;
+    let cert_thumbprint = args.cert_thumbprint;
+    let cert_store_flags = if args.use_system_cert_store {
+        Some("/sm")
+    } else {
+        None
+    };
+    cmd!("SignTool sign /fd SHA256 /a /sha1 {cert_thumbprint} {cert_store_flags...} target/Cirrus.appx").run()?;
 
     Ok(())
 }

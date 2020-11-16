@@ -275,8 +275,6 @@ publish:server:
     - shared-windows
     - windows
     - windows-1809
-  variables:
-    CERTIFICATE_PASSWORD: ${APPX_CERTIFICATE_PASSWORD}
   before_script:
     - choco install -y sccache
     - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
@@ -293,15 +291,14 @@ publish:server:
         | Select-Object -Last 1
     - $env:PATH += ";$sdkPath\bin\$latest\x64"
   script:
-    - "[System.Convert]::FromBase64String($APPX_CERTIFICATE_FILE) | Set-Content -Encoding Byte -Path certificate.pfx"
-    - $thumbprint = package\import-certificate.ps1 certificate.pfx
+    - $thumbprint = package\import-base64-certificate.ps1 APPX_CERTIFICATE_FILE APPX_CERTIFICATE_PASSWORD
     - sccache --start-server
     - cargo run -p package --bin appx --
       --target ${TARGET}
       --restic-url ${RESTIC_URL}
       --restic-sha256 ${RESTIC_SHA256}
       --version ${APPX_VERSION}
-      --certificate $thumbprint
+      --certificate-thumbprint $thumbprint
     - sccache --show-stats
   after_script:
     - Remove-Item certificate.pfx

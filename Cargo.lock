@@ -314,6 +314,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bzip2"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "275d84fe348b838dc49477d39770682839b3e73e21a3eadc07b12924f1a9fcbe"
+dependencies = [
+ "bzip2-sys",
+ "libc",
+]
+
+[[package]]
 name = "bzip2-sys"
 version = "0.1.9+1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1671,6 +1681,7 @@ name = "package"
 version = "0.1.0"
 dependencies = [
  "argh",
+ "bzip2 0.4.1",
  "eyre",
  "hex",
  "sha2 0.9.2",
@@ -2976,7 +2987,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "543adf038106b64cfca4711c82c917d785e3540e04f7996554488f988ec43124"
 dependencies = [
  "byteorder",
- "bzip2",
+ "bzip2 0.3.3",
  "crc32fast",
  "flate2",
  "thiserror",

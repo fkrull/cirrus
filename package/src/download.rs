@@ -6,11 +6,18 @@ use std::{
 };
 
 #[derive(Debug)]
+enum DecompressMode {
+    None,
+    UnzipSingle,
+    Bunzip2,
+}
+
+#[derive(Debug)]
 pub struct Download {
     url: String,
     to: PathBuf,
     expected_sha256: Option<String>,
-    unzip_single: bool,
+    decompress_mode: DecompressMode,
 }
 
 pub fn download(url: impl Into<String>, to: impl Into<PathBuf>) -> Download {
@@ -18,23 +25,24 @@ pub fn download(url: impl Into<String>, to: impl Into<PathBuf>) -> Download {
         url: url.into(),
         to: to.into(),
         expected_sha256: None,
-        unzip_single: false,
+        decompress_mode: DecompressMode::None,
     }
 }
 
 impl Download {
-    pub fn expected_sha256(self, expected_sha256: impl Into<String>) -> Self {
-        Self {
-            expected_sha256: Some(expected_sha256.into()),
-            ..self
-        }
+    pub fn expected_sha256(mut self, expected_sha256: impl Into<String>) -> Self {
+        self.expected_sha256 = Some(expected_sha256.into());
+        self
     }
 
-    pub fn unzip_single(self) -> Self {
-        Self {
-            unzip_single: true,
-            ..self
-        }
+    pub fn unzip_single(mut self) -> Self {
+        self.decompress_mode = DecompressMode::UnzipSingle;
+        self
+    }
+
+    pub fn bunzip2(mut self) -> Self {
+        self.decompress_mode = DecompressMode::Bunzip2;
+        self
     }
 
     pub fn run(self) -> eyre::Result<()> {
@@ -49,12 +57,19 @@ impl Download {
 
         let mut out = File::create(self.to)?;
         reset(&mut tmp)?;
-        if self.unzip_single {
-            let mut arc = zip::ZipArchive::new(&mut tmp)?;
-            let mut entry = arc.by_index(0)?;
-            copy(&mut entry, &mut out)?;
-        } else {
-            copy(&mut tmp, &mut out)?;
+        match self.decompress_mode {
+            DecompressMode::None => {
+                copy(&mut tmp, &mut out)?;
+            }
+            DecompressMode::UnzipSingle => {
+                let mut arc = zip::ZipArchive::new(&mut tmp)?;
+                let mut entry = arc.by_index(0)?;
+                copy(&mut entry, &mut out)?;
+            }
+            DecompressMode::Bunzip2 => {
+                let mut bz2_reader = bzip2::read::BzDecoder::new(tmp);
+                copy(&mut bz2_reader, &mut out)?;
+            }
         }
 
         Ok(())

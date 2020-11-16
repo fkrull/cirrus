@@ -37,6 +37,7 @@ fn main() -> eyre::Result<()> {
     )?;
     buildah_run(&ctr, qemu.as_ref(), "mkdir -p /cache /config/cirrus")?;
 
+    cmd!("chmod 0755 target/restic target/{target}/release/cirrus").run()?;
     cmd!("buildah copy {ctr} target/restic target/{target}/release/cirrus /usr/bin/").run()?;
     cmd!("buildah config --env XDG_CONFIG_HOME=/config {ctr}").run()?;
     cmd!("buildah config --env XDG_CACHE_HOME=/cache {ctr}").run()?;

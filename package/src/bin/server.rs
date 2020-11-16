@@ -56,7 +56,7 @@ fn main() -> eyre::Result<()> {
     cmd!("buildah config --env XDG_CACHE_HOME=/cache {ctr}").run()?;
     cmd!("buildah config --entrypoint /usr/bin/cirrus {ctr}").run()?;
     cmd!("buildah config --volume /cache {ctr}").run()?;
-    cmd!("buildah commit {ctr} cirrus-container-image").run()?;
+    cmd!("buildah commit {ctr} cirrus-server-image").run()?;
 
     Ok(())
 }

@@ -11,5 +11,5 @@ hex = "0.4.2"
 sha2 = "0.9.2"
 tempfile = "3.1.0"
 ureq = { version = "1.5.2", default-features = false, features = ["native-tls"] }
-xshell = "0.1.6"
+xshell = { git = "https://github.com/matklad/xshell.git", rev = "c4d641c0a028bd733e823ce0b358f267aa7d9456" }
 zip = "0.5.8"

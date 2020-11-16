@@ -11,5 +11,5 @@ try {
     $thumbprint = Import-PfxCertificate -CertStoreLocation $certStore $certFile -Password $securePassword
     return $thumbprint.Thumbprint
 } finally {
-    Delete-Item $certFile
+    Remove-Item $certFile
 }

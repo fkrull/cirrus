@@ -52,17 +52,14 @@ fn main() -> eyre::Result<()> {
 
     // copy files
     for path in read_dir("package/appx")? {
-        cp(
-            &path,
-            Path::new("target/appx/DEST").with_file_name(path.file_name().unwrap()),
-        )?;
+        cp(&path, "target/appx/")?;
     }
 
     // expand manifest
     let appx_arch = match args.target.as_str() {
         "x86_64-pc-windows-msvc" => "x64",
         "i686-pc-windows-msvc" => "x86",
-        _ => eyre::bail!("unknown architecture"),
+        _ => eyre::bail!("unknown target"),
     };
     let manifest = read_file("target/appx/AppxManifest.xml")?
         .replace("$APPX_VERSION", &args.version)

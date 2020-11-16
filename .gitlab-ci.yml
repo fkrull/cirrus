@@ -1,15 +1,11 @@
-variables:
-  IMAGE_REGISTRY: registry.gitlab.com/fkrull/cirrus
-  CI_TOOLS_IMAGE: ${IMAGE_REGISTRY}/ci-tools:latest
-  SERVER_IMAGE: ${IMAGE_REGISTRY}/server
+image: registry.gitlab.com/fkrull/cirrus/ci-tools:latest
 
+variables:
   STORAGE_DRIVER: vfs
   BUILDAH_ISOLATION: chroot
   CARGO_HOME: ${CI_PROJECT_DIR}/cargo
   SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
   RUSTC_WRAPPER: sccache
-
-image: ${CI_TOOLS_IMAGE}
 
 cache:
   paths:
@@ -25,6 +21,8 @@ stages:
   - package
   - publish
 
+
+# ----
 tools:ci-tools-image:
   stage: tools
   image: fedora:33
@@ -33,10 +31,10 @@ tools:ci-tools-image:
     - dnf install -y buildah
   script:
     - buildah build-using-dockerfile
-        -f .ci/tools.Containerfile
-        --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-        -t docker://${CI_TOOLS_IMAGE}
-        .ci
+      -f .ci/tools.Containerfile
+      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      -t docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
+      .ci
 
 test:
   stage: test
@@ -47,54 +45,9 @@ test:
     - cargo test --workspace --all-features
     - sccache --show-stats
 
-
-# release binary steps
-#release:linux:x86_64:
-#  extends: .release:linux
-#  rules:
-#    - if: $CI_COMMIT_TAG
-#      when: always
-#    - when: manual
-#  stage: build
-#  variables:
-#    TARGET: x86_64-unknown-linux-musl
-#
-#release:linux:armv7:
-#  extends: .release:linux
-#  rules:
-#    - if: $CI_COMMIT_TAG
-#      when: always
-#    - when: manual
-#  stage: build
-#  variables:
-#    TARGET: armv7-unknown-linux-musleabihf
-#
-#restic:linux:x86_64:
-#  extends: .restic:linux
-#  rules:
-#    - if: $CI_COMMIT_TAG
-#      when: always
-#    - when: manual
-#  stage: build
-#  variables:
-#    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_amd64.bz2
-#    RESTIC_SHA256: f559e774c91f1201ffddba74d5758dec8342ad2b50a3bcd735ccb0c88839045c
-#
-#restic:linux:armv7:
-#  extends: .restic:linux
-#  rules:
-#    - if: $CI_COMMIT_TAG
-#      when: always
-#    - when: manual
-#  stage: build
-#  variables:
-#    RESTIC: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_linux_arm.bz2
-#    RESTIC_SHA256: bcefbd70874b8198be4635b5c64b15359a7c28287d274e02d5177c4933ad3f71
-
-
 # package steps
-container-image:linux:x86_64:
-  extends: .container-image
+server:linux:x86_64:
+  extends: .server
   stage: package
   rules:
     - if: $CI_COMMIT_TAG
@@ -107,8 +60,8 @@ container-image:linux:x86_64:
     BASE_IMAGE: amd64/alpine:3.12
     TAG: ${CI_COMMIT_REF_NAME}-linux-amd64
 
-container-image:linux:armv7:
-  extends: .container-image
+server:linux:armv7:
+  extends: .server
   stage: package
   rules:
     - if: $CI_COMMIT_TAG
@@ -122,6 +75,21 @@ container-image:linux:armv7:
     QEMU_BINARY: /usr/bin/qemu-arm-static
     TAG: ${CI_COMMIT_REF_NAME}-linux-arm32v7
 
+server:manifest-list:
+  stage: package
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
+  script:
+    - buildah manifest create cirrus-manifest-list
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-amd64
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-arm32v7
+    - buildah manifest push
+      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      cirrus-manifest-list
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
+
 appx:x86_64:
   extends: .appx
   stage: package
@@ -130,134 +98,32 @@ appx:x86_64:
       when: always
     - when: manual
   variables:
-    APPX_VERSION: ${CI_COMMIT_REF_NAME}
     TARGET: x86_64-pc-windows-msvc
     RESTIC_URL: https://github.com/restic/restic/releases/download/v0.11.0/restic_0.11.0_windows_amd64.zip
     RESTIC_SHA256: 4d9ec99ceec71df88f47c5ebae5fdd15474f7d36e9685a655830c2fc89ad9153
-
-#server:linux:x86_64:
-#  extends: .buildah
-#  rules:
-#    - if: $CI_COMMIT_TAG
-#      when: always
-#    - when: manual
-#  stage: package
-#  needs: [ "release:linux:x86_64", "restic:linux:x86_64" ]
-#  script:
-#    - sh package/container-image.sh amd64/alpine:3.12
-#    - buildah push
-#        --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-#        cirrus-container-build
-#        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}-linux-amd64
-#
-#server:linux:armv7:
-#  extends: .buildah
-#  rules:
-#    - if: $CI_COMMIT_TAG
-#      when: always
-#    - when: manual
-#  stage: package
-#  needs: [ "release:linux:armv7", "restic:linux:armv7" ]
-#  variables:
-#    BALENA_QEMU: https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-arm.tar.gz
-#    BALENA_QEMU_SHA256: ae0144b8b803ddb8620b7e6d5fd68e699a97e0e9c523d283ad54fcabc0e615f8
-#  script:
-#    - curl -L -o qemu.tar.gz "$BALENA_QEMU"
-#    - echo $BALENA_QEMU_SHA256  qemu.tar.gz | sha256sum -c
-#    - tar xaf qemu.tar.gz
-#    - cp qemu-*/qemu-*-static qemu-user-static
-#    - chmod +x qemu-user-static
-#
-#    - sh package/container-image.sh arm32v7/alpine:3.12 qemu-user-static
-#    - buildah push
-#        --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-#        cirrus-container-build
-#        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}-linux-arm32v7
-#
-#server:manifest-list:
-#  extends: .buildah
-#  rules:
-#    - if: $CI_COMMIT_TAG
-#      when: always
-#    - when: manual
-#  stage: package
-#  script:
-#    - buildah manifest create cirrus
-#        docker://${SERVER_IMAGE}-linux-arm32v7
-#        docker://${SERVER_IMAGE}-linux-amd64
-#    - buildah manifest push
-#        --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-#        cirrus
-#        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_SLUG}
-
+    APPX_VERSION: ${CI_COMMIT_REF_NAME}
 
 # publish
 publish:server:
-  extends: .buildah
+  stage: publish
   rules:
     - if: $CI_COMMIT_TAG
       when: always
-  stage: publish
   script:
     - skopeo copy
-        --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-        docker://${SERVER_IMAGE}:${CI_COMMIT_REF_NAME}
-        docker://${SERVER_IMAGE}:latest
+      --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
+      docker://registry.gitlab.com/fkrull/cirrus/server:latest
 
 
 # ----
-
-# sccache settings
-.sccache:
-  image: ${CI_TOOLS_IMAGE}
-  variables:
-    CARGO_HOME: ${CI_PROJECT_DIR}/cargo
-    SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
-    RUSTC_WRAPPER: sccache
-  cache:
-    paths:
-      - cargo/
-      - sccache/
-
-# Rust with sccache
-.rust:
-  extends: .sccache
-  image: rust:1
-  variables:
-    SCCACHE_URL: https://github.com/mozilla/sccache/releases/download/0.2.13/sccache-0.2.13-x86_64-unknown-linux-musl.tar.gz
-    SCCACHE_SHA256: 28a5499e340865b08b632306b435913beb590fbd7b49a3f887a623b459fabdeb
-  before_script:
-    - apt-get update
-    - apt-get install -y libdbus-1-dev
-    - curl -L "${SCCACHE_URL}" -o sccache.tar.gz
-    - echo $SCCACHE_SHA256  sccache.tar.gz | sha256sum -c
-    - tar -C /usr/bin/ -xz -f sccache.tar.gz --wildcards --strip-components=1 '*/sccache'
-
-# build Linux release binary
-.release:linux:
-  extends: .rust
-  variables:
-    RUSTFLAGS: -Clinker=rust-lld
-    FEATURES: ""
-  script:
-    - sccache --start-server
-    - rustup target add ${TARGET}
-    - cargo build --release --target ${TARGET} --features "${FEATURES}"
-    - cp target/${TARGET}/release/cirrus ./
-    - sccache --show-stats
-    - ls -lh cirrus
-  artifacts:
-    paths:
-      - cirrus
-    expire_in: 1 day
-
 # build Linux container image
-.container-image:
+.server:
   before_script:
     - rustup target add ${TARGET}
   script:
     - sccache --start-server
-    - cargo run -p package --bin container-image --
+    - cargo run -p package --bin server --
       --target ${TARGET}
       --restic-url ${RESTIC_URL}
       --restic-sha256 ${RESTIC_SHA256}
@@ -266,8 +132,8 @@ publish:server:
     - sccache --show-stats
     - buildah push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-      cirrus-container-image
-      docker://${IMAGE_REGISTRY}/server:${TAG}
+      cirrus-server-image
+      docker://registry.gitlab.com/fkrull/cirrus/server:${TAG}
 
 # build Windows appx package
 .appx:
@@ -285,10 +151,10 @@ publish:server:
 
     - $sdkPath = (Get-ItemProperty "HKLM:\Software\Microsoft\Windows Kits\Installed Roots").KitsRoot10
     - $latest = Get-ChildItem "$sdkPath\bin"
-        | Foreach-Object {$_.Name}
-        | Select-String "10.0"
-        | Sort-Object
-        | Select-Object -Last 1
+      | Foreach-Object {$_.Name}
+      | Select-String "10.0"
+      | Sort-Object
+      | Select-Object -Last 1
     - $env:PATH += ";$sdkPath\bin\$latest\x64"
   script:
     - $thumbprint = package\import-base64-certificate.ps1 Cert:\LocalMachine\My
@@ -304,24 +170,4 @@ publish:server:
   artifacts:
     paths:
       - target/Cirrus.appx
-    expire_in: 1 week
-
-# download restic
-.restic:linux:
-  image: ${CI_TOOLS_IMAGE}
-  script:
-    - curl -L -o restic.bz2 "$RESTIC"
-    - echo "$RESTIC_SHA256 *restic.bz2" | sha256sum -c
-    - bunzip2 restic.bz2
-    - chmod +x restic
-  artifacts:
-    paths:
-      - restic
     expire_in: 1 day
-
-# buildah
-.buildah:
-  image: ${CI_TOOLS_IMAGE}
-  variables:
-    STORAGE_DRIVER: vfs
-    BUILDAH_ISOLATION: chroot

@@ -1,3 +1,4 @@
+use build_scripts::export_merged_png;
 use xshell::*;
 
 struct IconConfig {
@@ -31,7 +32,7 @@ fn main() -> eyre::Result<()> {
         let mut pngs = Vec::new();
         for &size in SIZES {
             let png = format!("cirrus-desktop-ui/src/resources/{}/{}.png", size, icon.name);
-            build_scripts::export_merged_png("icons/status-icon.svg", &png, size, &icon.objects)?;
+            export_merged_png("icons/symbolic-icon.svg", &png, size, &icon.objects)?;
             pngs.push(png);
         }
         let name = icon.name;

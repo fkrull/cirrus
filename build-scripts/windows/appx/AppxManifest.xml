@@ -38,7 +38,7 @@
                                 Description="A configuration-driven backup program"
                                 Square44x44Logo="Square44x44Logo.png"
                                 Square150x150Logo="Square150x150Logo.png"
-                                BackgroundColor="#ce008c"/>
+                                BackgroundColor="transparent"/>
 
             <Extensions>
                 <uap3:Extension Category="windows.appExecutionAlias"

@@ -12,7 +12,6 @@
     <Properties>
         <DisplayName>Cirrus</DisplayName>
         <PublisherDisplayName>Felix Krull</PublisherDisplayName>
-        <!-- TODO: logo -->
         <Description>A configuration-driven backup program</Description>
         <Logo>Square150x150Logo.png</Logo>
     </Properties>
@@ -33,7 +32,6 @@
         <Application Id="cirrus"
                      Executable="cirrus-windows-wrapper.exe"
                      EntryPoint="Windows.FullTrustApplication">
-            <!-- TODO: logos and background color -->
             <uap:VisualElements DisplayName="Cirrus"
                                 Description="A configuration-driven backup program"
                                 Square44x44Logo="Square44x44Logo.png"

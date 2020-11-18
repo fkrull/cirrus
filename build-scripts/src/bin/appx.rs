@@ -15,6 +15,9 @@ struct Args {
     /// use system certificate store
     #[argh(switch)]
     use_system_cert_store: bool,
+    /// directly install the package
+    #[argh(switch)]
+    register: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -51,13 +54,41 @@ fn main() -> eyre::Result<()> {
         .replace("$APPX_ARCH", appx_arch);
     write_file("target/appx/AppxManifest.xml", manifest)?;
 
+    // create package resource index
+    // see https://docs.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion#optional-add-target-based-unplated-assets
+    {
+        let _d = pushd("target/appx")?;
+        cmd!("makepri createconfig /cf priconfig.xml /dq en-US").run()?;
+        cmd!("makepri new /pr . /cf priconfig.xml").run()?;
+    }
+
+    // build package or register it directly
+    if args.register {
+        let ps_script = "Add-AppxPackage -Register target/appx/AppxManifest.xml";
+        cmd!("powershell -Command {ps_script}").run()?;
+    } else {
+        build_package(&args, appx_arch)?;
+    }
+
+    Ok(())
+}
+
+fn appx_arch(target: &str) -> eyre::Result<&str> {
+    Ok(match target {
+        "x86_64-pc-windows-msvc" => "x64",
+        "i686-pc-windows-msvc" => "x86",
+        _ => eyre::bail!("unknown target {}", target),
+    })
+}
+
+fn build_package(args: &Args, appx_arch: &str) -> eyre::Result<()> {
     // build appx
     mkdir_p("public")?;
     let appx_filename = format!("Cirrus_{}_{}.appx", args.version, appx_arch);
     cmd!("makeappx pack /h SHA256 /o /d target/appx /p public/{appx_filename}").run()?;
 
     // sign
-    let cert_thumbprint = args.cert_thumbprint;
+    let cert_thumbprint = &args.cert_thumbprint;
     let cert_store_flags = if args.use_system_cert_store {
         Some("/sm")
     } else {
@@ -76,12 +107,4 @@ fn main() -> eyre::Result<()> {
     write_file(format!("public/{}", appinstaller), appinstaller_xml)?;
 
     Ok(())
-}
-
-fn appx_arch(target: &str) -> eyre::Result<&str> {
-    Ok(match target {
-        "x86_64-pc-windows-msvc" => "x64",
-        "i686-pc-windows-msvc" => "x86",
-        _ => eyre::bail!("unknown target {}", target),
-    })
 }

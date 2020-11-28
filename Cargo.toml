@@ -7,6 +7,7 @@ edition = "2018"
 [workspace]
 members = [
     "cirrus-actor",
+    "cirrus-messages",
     "cirrus-core",
     "cirrus-daemon",
     "cirrus-desktop-ui",

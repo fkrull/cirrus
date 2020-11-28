@@ -485,6 +485,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cirrus-messages"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "thiserror",
+]
+
+[[package]]
 name = "cirrus-windows-wrapper"
 version = "0.1.0"
 dependencies = [

@@ -1,7 +1,37 @@
-use build_scripts::export_merged_png;
+use build_scripts::*;
+use xshell::*;
 
 fn main() -> eyre::Result<()> {
-    // APPX 44x44 logo
+    status_icons()?;
+    appx_44x44()?;
+    appx_150x150()?;
+
+    Ok(())
+}
+
+fn status_icons() -> eyre::Result<()> {
+    let icons = [
+        ("cirrus-idle.light", vec!["light"]),
+        ("cirrus-idle.dark", vec!["dark"]),
+        ("cirrus-running.light", vec!["light", "running"]),
+        ("cirrus-running.dark", vec!["dark", "running"]),
+    ];
+    let sizes = [16, 24, 32, 48];
+
+    for (name, objects) in &icons {
+        let mut pngs = Vec::new();
+        for &size in &sizes {
+            let png = format!("cirrus-desktop-ui/src/resources/{}/{}.png", size, name);
+            export_merged_png("icons/symbolic-icon.svg", &png, size, &objects)?;
+            pngs.push(png);
+        }
+        cmd!("convert {pngs...} cirrus-desktop-ui/src/resources/{name}.ico").run()?;
+    }
+
+    Ok(())
+}
+
+fn appx_44x44() -> eyre::Result<()> {
     for &size in &[16, 24, 32, 48, 256] {
         // plated
         let png = format!(
@@ -25,7 +55,10 @@ fn main() -> eyre::Result<()> {
         export_merged_png("icons/symbolic-icon.svg", png, size, &["dark"])?;
     }
 
-    // APPX 150x150 tile
+    Ok(())
+}
+
+fn appx_150x150() -> eyre::Result<()> {
     for &scale in &[100, 200, 300, 400] {
         let px = 150 * (scale / 100);
         let png = format!(

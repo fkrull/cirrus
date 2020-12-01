@@ -41,5 +41,12 @@ fn main() -> eyre::Result<()> {
         export_merged_png("icons/app-icon.svg", png, size, &["icon"])?;
     }
 
+    // install desktop file
+    mkdir_p(format!("{}/share/applications", args.prefix))?;
+    cp(
+        format!("build-scripts/linux/{}.desktop", APP_ID),
+        format!("{}/share/applications/{}.desktop", args.prefix, APP_ID),
+    )?;
+
     Ok(())
 }

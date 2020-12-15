@@ -30,12 +30,12 @@ fn main() -> eyre::Result<()> {
 
     // install icons
     mkdir_p(format!("{}/share/icons/hicolor", destdir))?;
-    cmd!("cp -r build-scripts/linux/icons/hicolor {destdir}/share/icons/").run()?;
+    cmd!("cp -r build-scripts/unix/icons/hicolor {destdir}/share/icons/").run()?;
 
     // install desktop file
     mkdir_p(format!("{}/share/applications", destdir))?;
     cp(
-        format!("build-scripts/linux/{}.desktop", APP_ID),
+        format!("build-scripts/unix/{}.desktop", APP_ID),
         format!("{}/share/applications/{}.desktop", destdir, APP_ID),
     )?;
 

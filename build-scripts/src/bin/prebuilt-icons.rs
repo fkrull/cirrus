@@ -77,7 +77,7 @@ fn xdg_icons() -> eyre::Result<()> {
 
     for &size in &[16, 24, 32, 48, 64, 128, 256] {
         let png = format!(
-            "build-scripts/linux/icons/hicolor/{}x{}/apps/{}.png",
+            "build-scripts/unix/icons/hicolor/{}x{}/apps/{}.png",
             size, size, app_id
         );
         export_merged_png("icons/app-icon.svg", png, size, &["icon"])?;

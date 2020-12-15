@@ -5,42 +5,38 @@ use xshell::*;
 struct Args {
     /// rust compile target
     #[argh(option)]
-    target: String,
-    /// cargo build features
-    #[argh(option, default = r#"String::from("desktop")"#)]
-    features: String,
+    target: Option<String>,
     /// install prefix
     #[argh(option, default = r#"String::from("/usr/local")"#)]
-    prefix: String,
+    destdir: String,
 }
 
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
-    let target = args.target;
-    let prefix = args.prefix;
+    let destdir = args.destdir;
 
-    rm_rf("target/install-unix")?;
-    mkdir_p(format!("{}/bin", prefix))?;
-
-    // compile cirrus
-    let features = args.features;
-    cmd!("cargo build --release --features={features} --target={target}").run()?;
-    cp(
-        format!("target/{}/release/cirrus", target),
-        format!("{}/bin/cirrus", prefix),
-    )?;
+    // install cirrus
+    mkdir_p(format!("{}/bin", destdir))?;
+    if let Some(target) = args.target {
+        cp(
+            format!("target/{}/release/cirrus", target),
+            format!("{}/bin/cirrus", destdir),
+        )?;
+    } else {
+        cp("target/release/cirrus", format!("{}/bin/cirrus", destdir))?;
+    }
 
     // install icons
-    mkdir_p(format!("{}/share/icons/hicolor", prefix))?;
-    cmd!("cp -r build-scripts/linux/icons/hicolor {prefix}/share/icons/").run()?;
+    mkdir_p(format!("{}/share/icons/hicolor", destdir))?;
+    cmd!("cp -r build-scripts/linux/icons/hicolor {destdir}/share/icons/").run()?;
 
     // install desktop file
-    mkdir_p(format!("{}/share/applications", prefix))?;
+    mkdir_p(format!("{}/share/applications", destdir))?;
     cp(
         format!("build-scripts/linux/{}.desktop", APP_ID),
-        format!("{}/share/applications/{}.desktop", prefix, APP_ID),
+        format!("{}/share/applications/{}.desktop", destdir, APP_ID),
     )?;
 
     Ok(())

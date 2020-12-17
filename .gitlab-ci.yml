@@ -100,6 +100,7 @@ publish:server:
       when: always
   script:
     - skopeo copy
+      --all
       --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
       docker://registry.gitlab.com/fkrull/cirrus/server:latest

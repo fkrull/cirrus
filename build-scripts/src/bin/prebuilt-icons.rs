@@ -5,6 +5,7 @@ fn main() -> eyre::Result<()> {
     status_icons()?;
     appx_44x44()?;
     appx_150x150()?;
+    xdg_icons()?;
 
     Ok(())
 }
@@ -66,6 +67,20 @@ fn appx_150x150() -> eyre::Result<()> {
             scale
         );
         export_merged_png("icons/windows-tile-square.svg", png, px, &["icon"])?;
+    }
+
+    Ok(())
+}
+
+fn xdg_icons() -> eyre::Result<()> {
+    let app_id = "io.gitlab.fkrull.cirrus.Cirrus";
+
+    for &size in &[16, 24, 32, 48, 64, 128, 256] {
+        let png = format!(
+            "build-scripts/unix/icons/hicolor/{}x{}/apps/{}.png",
+            size, size, app_id
+        );
+        export_merged_png("icons/app-icon.svg", png, size, &["icon"])?;
     }
 
     Ok(())

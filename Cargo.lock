@@ -2978,16 +2978,18 @@ checksum = "b07db065a5cf61a7e4ba64f29e67db906fb1787316516c4e6e5ff0fea1efcd8a"
 
 [[package]]
 name = "xshell"
-version = "0.1.6"
-source = "git+https://github.com/matklad/xshell.git?rev=c4d641c0a028bd733e823ce0b358f267aa7d9456#c4d641c0a028bd733e823ce0b358f267aa7d9456"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed373ede30cea03e8c0af22f48ee1ba80efbf06fec8b4746977e6ee703878de0"
 dependencies = [
  "xshell-macros",
 ]
 
 [[package]]
 name = "xshell-macros"
-version = "0.1.6"
-source = "git+https://github.com/matklad/xshell.git?rev=c4d641c0a028bd733e823ce0b358f267aa7d9456#c4d641c0a028bd733e823ce0b358f267aa7d9456"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f6af9f8119104697b0105989a73c578ce33f922d9d6f3dae0e8ae3d538db321"
 
 [[package]]
 name = "zip"

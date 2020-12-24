@@ -61,7 +61,7 @@ async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, AppC
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
-    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
     // exit on thread panic
     let panic_hook = std::panic::take_hook();

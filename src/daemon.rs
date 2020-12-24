@@ -1,3 +1,4 @@
+use cirrus_actor::Messages;
 use cirrus_core::appconfig::AppConfig;
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
@@ -18,38 +19,31 @@ pub async fn run(
     #[allow(unused_variables)]
     let appconfig = Arc::new(appconfig);
 
-    let (jobqueues_actor, jobqueues) = cirrus_actor::new_actor();
-    let (retryhandler_actor, retryhandler) = cirrus_actor::new_actor();
-    let (multiplexer_actor, multiplexer) = cirrus_actor::new_actor();
+    let (jobqueues_actor, jobqueues_ref) = cirrus_actor::new_actor();
     #[cfg(feature = "cirrus-desktop-ui")]
-    let (desktop_ui_actor, desktop_ui) = cirrus_actor::new_actor();
-    let (jobhistory_actor, jobhistory) = cirrus_actor::new_actor();
+    let (desktop_ui_actor, desktop_ui_ref) = cirrus_actor::new_actor();
+
+    let jobstatus_messages = Messages::new_discarding();
+    #[cfg(feature = "cirrus-desktop-ui")]
+    let jobstatus_messages = jobstatus_messages.also_to(desktop_ui_ref);
 
     let mut jobqueues_actor =
-        jobqueues_actor.into_instance(job_queues::JobQueues::new(retryhandler));
-    let mut retryhandler_actor =
-        retryhandler_actor.into_instance(retry::RetryHandler::new(jobqueues.clone(), multiplexer));
-    let mut multiplexer_actor =
-        multiplexer_actor.into_instance(cirrus_actor::util::MultiplexActor::new_with([
-            #[cfg(feature = "cirrus-desktop-ui")]
-            desktop_ui,
-            jobhistory,
-        ]));
+        jobqueues_actor.into_instance(job_queues::JobQueues::new(jobstatus_messages));
+
     #[cfg(feature = "cirrus-desktop-ui")]
     let mut desktop_ui_actor = desktop_ui_actor.into_instance(cirrus_desktop_ui::DesktopUi::new(
         appconfig.clone(),
         config.clone(),
         restic.clone(),
         secrets.clone(),
-        jobqueues.clone(),
+        jobqueues_ref.clone(),
     )?);
-    let mut jobhistory_actor = jobhistory_actor.into_instance(cirrus_actor::util::NullSink::new());
 
     let mut scheduler = scheduler::Scheduler::new(
         config.clone(),
         restic.clone(),
         secrets.clone(),
-        jobqueues.clone(),
+        jobqueues_ref.clone(),
     );
 
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
@@ -57,11 +51,8 @@ pub async fn run(
 
     tokio::spawn(async move { scheduler.run().await.unwrap() });
     tokio::spawn(async move { jobqueues_actor.run().await.unwrap() });
-    tokio::spawn(async move { retryhandler_actor.run().await.unwrap() });
-    tokio::spawn(async move { multiplexer_actor.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
     tokio::spawn(async move { desktop_ui_actor.run().await.unwrap() });
-    tokio::spawn(async move { jobhistory_actor.run().await.unwrap() });
 
     info!("running forever...");
     tokio::signal::ctrl_c().await?;

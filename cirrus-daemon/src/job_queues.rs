@@ -1,5 +1,5 @@
 use crate::job;
-use cirrus_actor::ActorRef;
+use cirrus_actor::Messages;
 use cirrus_core::model;
 use log::{error, info};
 use std::{
@@ -35,15 +35,15 @@ impl std::fmt::Debug for RunningJob {
 
 #[derive(Debug)]
 struct RunQueue {
-    statuschange_sink: ActorRef<job::StatusChange>,
+    jobstatus_messages: Messages<job::StatusChange>,
     running: Option<RunningJob>,
     queue: VecDeque<job::Job>,
 }
 
 impl RunQueue {
-    fn new(statuschange_sink: ActorRef<job::StatusChange>) -> Self {
+    fn new(jobstatus_messages: Messages<job::StatusChange>) -> Self {
         RunQueue {
-            statuschange_sink,
+            jobstatus_messages,
             running: None,
             queue: VecDeque::new(),
         }
@@ -69,7 +69,7 @@ impl RunQueue {
                     job: job.clone(),
                     fut,
                 });
-                self.statuschange_sink
+                self.jobstatus_messages
                     .send(job::StatusChange::new(job, job::Status::Started))?;
             }
         }
@@ -90,7 +90,7 @@ impl RunQueue {
                     job::Status::FinishedWithError
                 }
             };
-            self.statuschange_sink
+            self.jobstatus_messages
                 .send(job::StatusChange::new(job, new_status))?;
         } else {
             futures::future::pending::<()>().await;
@@ -101,27 +101,27 @@ impl RunQueue {
 
 #[derive(Debug)]
 struct PerRepositoryQueue {
-    statuschange_sink: ActorRef<job::StatusChange>,
+    jobstatus_messages: Messages<job::StatusChange>,
     repo_queue: RunQueue,
     per_backup_queues: HashMap<model::backup::Name, RunQueue>,
 }
 
 impl PerRepositoryQueue {
-    fn new(statuschange_sink: ActorRef<job::StatusChange>) -> Self {
+    fn new(jobstatus_messages: Messages<job::StatusChange>) -> Self {
         PerRepositoryQueue {
-            repo_queue: RunQueue::new(statuschange_sink.clone()),
-            statuschange_sink,
+            repo_queue: RunQueue::new(jobstatus_messages.clone()),
+            jobstatus_messages,
             per_backup_queues: HashMap::new(),
         }
     }
 
     fn push(&mut self, job: job::Job) {
-        let sink = &self.statuschange_sink;
+        let messages = &self.jobstatus_messages;
         match job.spec.queue_id().backup {
             Some(backup) => self
                 .per_backup_queues
                 .entry(backup.clone())
-                .or_insert_with(|| RunQueue::new(sink.clone()))
+                .or_insert_with(|| RunQueue::new(messages.clone()))
                 .push(job),
             None => self.repo_queue.push(job),
         }
@@ -170,23 +170,23 @@ impl PerRepositoryQueue {
 
 #[derive(Debug)]
 pub struct JobQueues {
-    statuschange_sink: ActorRef<job::StatusChange>,
+    jobstatus_messages: Messages<job::StatusChange>,
     per_repo_queues: HashMap<model::repo::Name, PerRepositoryQueue>,
 }
 
 impl JobQueues {
-    pub fn new(statuschange_sink: ActorRef<job::StatusChange>) -> Self {
+    pub fn new(jobstatus_messages: Messages<job::StatusChange>) -> Self {
         JobQueues {
-            statuschange_sink,
+            jobstatus_messages,
             per_repo_queues: HashMap::new(),
         }
     }
 
     fn push(&mut self, job: job::Job) {
-        let sink = &self.statuschange_sink;
+        let messages = &self.jobstatus_messages;
         self.per_repo_queues
             .entry(job.spec.queue_id().repo.clone())
-            .or_insert_with(|| PerRepositoryQueue::new(sink.clone()))
+            .or_insert_with(|| PerRepositoryQueue::new(messages.clone()))
             .push(job);
     }
 

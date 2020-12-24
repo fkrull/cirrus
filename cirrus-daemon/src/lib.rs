@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 pub mod job;
 pub mod job_queues;
-pub mod retry;
 pub mod scheduler;
 
 #[derive(Debug, Clone)]

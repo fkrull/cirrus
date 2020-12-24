@@ -69,10 +69,6 @@ impl Spec {
         }
     }
 
-    pub(crate) fn max_attempts(&self) -> u32 {
-        3
-    }
-
     pub fn name(&self) -> &str {
         match self {
             Spec::Backup(spec) => spec.name(),

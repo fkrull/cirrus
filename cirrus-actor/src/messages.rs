@@ -51,7 +51,11 @@ impl<M: Clone + Send + 'static> Messages<M> {
         }
     }
 
-    pub fn also_to(mut self, other: Messages<M>) -> Messages<M> {
+    pub fn also_to(self, other: impl Into<Messages<M>>) -> Messages<M> {
+        self._also_to(other.into())
+    }
+
+    fn _also_to(mut self, other: Messages<M>) -> Messages<M> {
         match &mut self.0 {
             Inner::Discarding => other,
             Inner::Multicast(inner) => {

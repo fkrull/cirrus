@@ -16,7 +16,7 @@ fn default_app_config_path() -> eyre::Result<PathBuf> {
         .ok_or_else(|| eyre!("can't find application config file"))
 }
 
-async fn load_config(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, Config)> {
+async fn load_config(matches: &ArgMatches<'_>) -> eyre::Result<Config> {
     let config_path = matches
         .value_of_os("config")
         .map(PathBuf::from)
@@ -26,9 +26,10 @@ async fn load_config(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, Config)
     let config_string = tokio::fs::read_to_string(&config_path)
         .await
         .wrap_err_with(|| format!("failed to read config file '{}'", config_path.display()))?;
-    let config: Config = toml::from_str(&config_string)
+    let mut config: Config = toml::from_str(&config_string)
         .wrap_err_with(|| format!("failed to parse config file '{}'", config_path.display()))?;
-    Ok((config_path, config))
+    config.source = Some(config_path);
+    Ok(config)
 }
 
 async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, AppConfig)> {
@@ -72,11 +73,19 @@ async fn main() -> eyre::Result<()> {
 
     let cli = App::new("cirrus")
         .arg(
-            Arg::with_name("config")
+            Arg::with_name("config_file")
                 .short("c")
-                .long("config")
+                .long("config-file")
                 .value_name("FILE")
                 .help("Set a custom config file")
+                .env("CIRRUS_CONFIG_FILE")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("config")
+                .long("config")
+                .value_name("CONFIG")
+                .help("Set the configuration as a string")
                 .env("CIRRUS_CONFIG")
                 .takes_value(true),
         )
@@ -161,7 +170,7 @@ async fn main() -> eyre::Result<()> {
 
     let matches = cli.get_matches();
     #[allow(unused_variables)]
-    let (config_path, config) = load_config(&matches).await?;
+    let config = load_config(&matches).await?;
     #[allow(unused_variables)]
     let (appconfig_path, appconfig) = load_appconfig(&matches).await?;
     let restic = Restic::new(&appconfig.restic_binary);
@@ -178,7 +187,9 @@ async fn main() -> eyre::Result<()> {
         },
         #[cfg(feature = "desktop-commands")]
         ("desktop", Some(matches)) => match matches.subcommand() {
-            ("open-config-file", Some(_)) => commands::desktop::open_config_file(&config_path),
+            ("open-config-file", Some(_)) => {
+                commands::desktop::open_config_file(config.source.as_ref().map(|o| o.as_path()))
+            }
             ("open-appconfig-file", Some(_)) => {
                 commands::desktop::open_appconfig_file(&appconfig_path).await
             }

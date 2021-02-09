@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error;
 
 pub mod backup;
@@ -39,6 +39,10 @@ impl Backups {
 pub struct Config {
     pub repositories: Repositories,
     pub backups: Backups,
+
+    /// path of the configuration file, if the configuration was loaded from a file
+    #[serde(skip)]
+    pub source: Option<PathBuf>,
 }
 
 #[derive(Debug, Error)]

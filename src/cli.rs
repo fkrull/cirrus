@@ -12,13 +12,9 @@ pub struct Cli {
     #[clap(long, env = "CIRRUS_CONFIG")]
     pub config_string: Option<String>,
 
-    /// Sets a custom app configuration file path
-    #[clap(long, env = "CIRRUS_APPCONFIG")]
-    pub appconfig_file: Option<PathBuf>,
-
     /// Sets the restic binary to use
-    #[clap(long)]
-    pub restic_binary: Option<String>,
+    #[clap(long, default_value = "restic")]
+    pub restic_binary: PathBuf,
 
     #[clap(subcommand)]
     pub subcommand: Option<Cmd>,
@@ -122,8 +118,5 @@ pub mod desktop {
     pub enum Cmd {
         /// Opens the config file in the default editor
         OpenConfigFile,
-
-        /// Opens the app config file in the default editor
-        OpenAppconfigFile,
     }
 }

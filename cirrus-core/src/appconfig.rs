@@ -1,18 +1,8 @@
-#[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 #[serde(rename_all = "kebab-case")]
 pub struct AppConfig {
-    pub restic_binary: String,
     pub daemon: Daemon,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        AppConfig {
-            restic_binary: "restic".to_owned(),
-            daemon: Default::default(),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
@@ -69,7 +59,6 @@ mod tests {
         assert_eq!(
             app_config,
             AppConfig {
-                restic_binary: "restic".to_owned(),
                 daemon: Daemon {
                     desktop: Desktop {
                         status_icon: true,
@@ -89,8 +78,6 @@ mod tests {
         let app_config: AppConfig = toml::from_str(
             //language=TOML
             r#"
-            restic-binary = "/opt/restic"
-
             [daemon.desktop]
             status-icon = false
 
@@ -103,7 +90,6 @@ mod tests {
         assert_eq!(
             app_config,
             AppConfig {
-                restic_binary: "/opt/restic".to_owned(),
                 daemon: Daemon {
                     desktop: Desktop {
                         status_icon: false,

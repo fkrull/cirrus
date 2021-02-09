@@ -1,5 +1,5 @@
 use cirrus_actor::Messages;
-use cirrus_core::{appconfig::AppConfig, model::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
 use log::info;
 use std::sync::Arc;
@@ -9,7 +9,7 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     let secrets = Arc::new(secrets);
     let config = Arc::new(config);
     #[allow(unused_variables)]
-    let appconfig = Arc::new(AppConfig::default());
+    let daemon_config = Arc::new(daemon_config::DaemonConfig::default());
 
     let (jobqueues_actor, jobqueues_ref) = cirrus_actor::new_actor();
     #[cfg(feature = "cirrus-desktop-ui")]
@@ -24,7 +24,7 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
 
     #[cfg(feature = "cirrus-desktop-ui")]
     let mut desktop_ui_actor = desktop_ui_actor.into_instance(cirrus_desktop_ui::DesktopUi::new(
-        appconfig.clone(),
+        daemon_config.clone(),
         config.clone(),
         restic.clone(),
         secrets.clone(),

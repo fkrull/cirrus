@@ -1,4 +1,5 @@
-use cirrus_core::{appconfig::AppConfig, model::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
+use cirrus_daemon::daemon_config::DaemonConfig;
 use cirrus_daemon::job;
 use std::sync::Arc;
 
@@ -7,7 +8,7 @@ mod status_icon;
 
 #[derive(Debug, Clone)]
 struct Deps {
-    appconfig: Arc<AppConfig>,
+    daemon_config: Arc<DaemonConfig>,
     config: Arc<Config>,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
@@ -23,20 +24,20 @@ pub struct DesktopUi {
 
 impl DesktopUi {
     pub fn new(
-        appconfig: Arc<AppConfig>,
+        daemon_config: Arc<DaemonConfig>,
         config: Arc<Config>,
         restic: Arc<Restic>,
         secrets: Arc<Secrets>,
         job_sink: cirrus_actor::ActorRef<job::Job>,
     ) -> eyre::Result<Self> {
         let deps = Deps {
-            appconfig,
+            daemon_config,
             config,
             restic,
             secrets,
             job_sink,
         };
-        let status_icon = if deps.appconfig.daemon.desktop.status_icon {
+        let status_icon = if deps.daemon_config.desktop.status_icon {
             Some(status_icon::StatusIcon::new(deps.clone())?)
         } else {
             None
@@ -57,7 +58,7 @@ impl cirrus_actor::Actor for DesktopUi {
     async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
         match message.new_status {
             job::Status::Started => {
-                if self.deps.appconfig.daemon.desktop.notifications.started {
+                if self.deps.daemon_config.desktop.notifications.started {
                     self.notifications.job_started(&message.job)?;
                 }
                 if let Some(status_icon) = &mut self.status_icon {
@@ -65,7 +66,7 @@ impl cirrus_actor::Actor for DesktopUi {
                 }
             }
             job::Status::FinishedSuccessfully => {
-                if self.deps.appconfig.daemon.desktop.notifications.success {
+                if self.deps.daemon_config.desktop.notifications.success {
                     self.notifications.job_succeeded(&message.job)?;
                 }
                 if let Some(status_icon) = &mut self.status_icon {
@@ -73,7 +74,7 @@ impl cirrus_actor::Actor for DesktopUi {
                 }
             }
             job::Status::FinishedWithError => {
-                if self.deps.appconfig.daemon.desktop.notifications.failure {
+                if self.deps.daemon_config.desktop.notifications.failure {
                     self.notifications.job_failed(&message.job)?;
                 }
                 if let Some(status_icon) = &mut self.status_icon {

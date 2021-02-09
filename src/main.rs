@@ -17,19 +17,25 @@ fn default_app_config_path() -> eyre::Result<PathBuf> {
 }
 
 async fn load_config(matches: &ArgMatches<'_>) -> eyre::Result<Config> {
-    let config_path = matches
-        .value_of_os("config")
-        .map(PathBuf::from)
-        .map(Ok)
-        .unwrap_or_else(default_config_path)
-        .wrap_err("failed to get default path for the config file")?;
-    let config_string = tokio::fs::read_to_string(&config_path)
-        .await
-        .wrap_err_with(|| format!("failed to read config file '{}'", config_path.display()))?;
-    let mut config: Config = toml::from_str(&config_string)
-        .wrap_err_with(|| format!("failed to parse config file '{}'", config_path.display()))?;
-    config.source = Some(config_path);
-    Ok(config)
+    if let Some(config_string) = matches.value_of("config") {
+        let config: Config = toml::from_str(config_string)
+            .wrap_err_with(|| format!("failed to parse config string"))?;
+        Ok(config)
+    } else {
+        let config_path = matches
+            .value_of_os("config_file")
+            .map(PathBuf::from)
+            .map(Ok)
+            .unwrap_or_else(default_config_path)
+            .wrap_err("failed to get default path for the config file")?;
+        let config_string = tokio::fs::read_to_string(&config_path)
+            .await
+            .wrap_err_with(|| format!("failed to read config file '{}'", config_path.display()))?;
+        let mut config: Config = toml::from_str(&config_string)
+            .wrap_err_with(|| format!("failed to parse config file '{}'", config_path.display()))?;
+        config.source = Some(config_path);
+        Ok(config)
+    }
 }
 
 async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, AppConfig)> {

@@ -172,6 +172,7 @@ mod tests {
                         triggers: vec![]
                     },
                 }),
+                source: None,
             }
         );
         Ok(())

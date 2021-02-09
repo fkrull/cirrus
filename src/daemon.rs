@@ -4,17 +4,12 @@ use cirrus_daemon::*;
 use log::info;
 use std::sync::Arc;
 
-pub async fn run(
-    restic: Restic,
-    secrets: Secrets,
-    config: Config,
-    appconfig: AppConfig,
-) -> eyre::Result<()> {
+pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Result<()> {
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
     let config = Arc::new(config);
     #[allow(unused_variables)]
-    let appconfig = Arc::new(appconfig);
+    let appconfig = Arc::new(AppConfig::default());
 
     let (jobqueues_actor, jobqueues_ref) = cirrus_actor::new_actor();
     #[cfg(feature = "cirrus-desktop-ui")]

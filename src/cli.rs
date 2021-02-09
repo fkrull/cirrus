@@ -1,12 +1,55 @@
 use clap::Clap;
-use std::path::PathBuf;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
+
+#[derive(Debug)]
+pub struct ConfigFile(Option<PathBuf>);
+
+impl ConfigFile {
+    pub fn path(&self) -> eyre::Result<&Path> {
+        self.0
+            .as_ref()
+            .map(|p| p.as_path())
+            .ok_or_else(|| eyre::eyre!("failed to get default config file path"))
+    }
+}
+
+impl Default for ConfigFile {
+    fn default() -> Self {
+        let default_path = dirs::config_dir().map(|dir| dir.join("cirrus").join("backups.toml"));
+        ConfigFile(default_path)
+    }
+}
+
+impl From<&OsStr> for ConfigFile {
+    fn from(s: &OsStr) -> Self {
+        ConfigFile(Some(PathBuf::from(s)))
+    }
+}
+
+impl std::fmt::Display for ConfigFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            Some(path) => write!(f, "{}", path.display()),
+            None => write!(f, "<none>"),
+        }
+    }
+}
 
 /// A configuration-driven backup program based on restic.
 #[derive(Clap)]
 pub struct Cli {
     /// Sets a custom configuration file path
-    #[clap(short, long, env = "CIRRUS_CONFIG_FILE")]
-    pub config_file: Option<PathBuf>,
+    #[clap(
+        short,
+        long,
+        env = "CIRRUS_CONFIG_FILE",
+        default_value,
+        parse(from_os_str)
+    )]
+    pub config_file: ConfigFile,
 
     /// Sets the configuration from a string
     #[clap(long, env = "CIRRUS_CONFIG")]

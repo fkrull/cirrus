@@ -1,8 +1,6 @@
 use cirrus_actor::Messages;
-use cirrus_core::appconfig::AppConfig;
-use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{appconfig::AppConfig, model::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
-use clap::ArgMatches;
 use log::info;
 use std::sync::Arc;
 
@@ -11,7 +9,6 @@ pub async fn run(
     secrets: Secrets,
     config: Config,
     appconfig: AppConfig,
-    _matches: &ArgMatches<'_>,
 ) -> eyre::Result<()> {
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);

@@ -1,6 +1,5 @@
-use cirrus::{commands, daemon};
+use cirrus::{cli, commands, daemon};
 use cirrus_core::{appconfig::AppConfig, model::Config, restic::Restic, secrets::Secrets};
-use clap::{App, AppSettings, Arg, ArgMatches, ArgSettings};
 use eyre::{eyre, WrapErr};
 use std::path::PathBuf;
 
@@ -16,15 +15,15 @@ fn default_app_config_path() -> eyre::Result<PathBuf> {
         .ok_or_else(|| eyre!("can't find application config file"))
 }
 
-async fn load_config(matches: &ArgMatches<'_>) -> eyre::Result<Config> {
-    if let Some(config_string) = matches.value_of("config") {
+async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
+    if let Some(config_string) = &args.config_string {
         let config: Config = toml::from_str(config_string)
             .wrap_err_with(|| format!("failed to parse config string"))?;
         Ok(config)
     } else {
-        let config_path = matches
-            .value_of_os("config_file")
-            .map(PathBuf::from)
+        let config_path = args
+            .config_file
+            .clone()
             .map(Ok)
             .unwrap_or_else(default_config_path)
             .wrap_err("failed to get default path for the config file")?;
@@ -38,10 +37,10 @@ async fn load_config(matches: &ArgMatches<'_>) -> eyre::Result<Config> {
     }
 }
 
-async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, AppConfig)> {
-    let appconfig_path = matches
-        .value_of_os("app-config")
-        .map(PathBuf::from)
+async fn load_appconfig(args: &cli::Cli) -> eyre::Result<(PathBuf, AppConfig)> {
+    let appconfig_path = args
+        .appconfig_file
+        .clone()
         .map(Ok)
         .unwrap_or_else(default_app_config_path)
         .wrap_err("failed to get default path for the application config file")?;
@@ -58,8 +57,8 @@ async fn load_appconfig(matches: &ArgMatches<'_>) -> eyre::Result<(PathBuf, AppC
         })?
         .unwrap_or_default();
 
-    if let Some(restic_binary) = matches.value_of("restic-binary") {
-        appconfig.restic_binary = restic_binary.to_owned();
+    if let Some(restic_binary) = &args.restic_binary {
+        appconfig.restic_binary = restic_binary.clone();
     }
 
     Ok((appconfig_path, appconfig))
@@ -77,130 +76,32 @@ async fn main() -> eyre::Result<()> {
         std::process::exit(1);
     }));
 
-    let cli = App::new("cirrus")
-        .arg(
-            Arg::with_name("config_file")
-                .short("c")
-                .long("config-file")
-                .value_name("FILE")
-                .help("Set a custom config file")
-                .env("CIRRUS_CONFIG_FILE")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("config")
-                .long("config")
-                .value_name("CONFIG")
-                .help("Set the configuration as a string")
-                .env("CIRRUS_CONFIG")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("app-config")
-                .long("app-config")
-                .value_name("FILE")
-                .help("Set a custom application config file")
-                .env("CIRRUS_APP_CONFIG")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("restic-binary")
-                .long("restic-binary")
-                .help("Set the restic binary to use")
-                .takes_value(true),
-        )
-        .subcommand(
-            App::new("backup").arg(
-                Arg::with_name("backup")
-                    .help("the backup to run")
-                    .required(true)
-                    .takes_value(true),
-            ),
-        )
-        .subcommand(App::new("config").help("print the active configuration"))
-        .subcommand(
-            App::new("secret")
-                .alias("secrets")
-                .setting(AppSettings::SubcommandRequiredElseHelp)
-                .subcommand(
-                    App::new("set")
-                        .arg(
-                            Arg::with_name("secret-set-repo")
-                                .help("the repository of the secret")
-                                .value_name("REPOSITORY")
-                                .required(true)
-                                .takes_value(true),
-                        )
-                        .arg(
-                            Arg::with_name("secret-set-secret")
-                                .help("the name of the secret")
-                                .value_name("SECRET")
-                                .takes_value(true),
-                        ),
-                )
-                .subcommand(
-                    App::new("list").arg(
-                        Arg::with_name("secret-list-show-passwords")
-                            .long("show-passwords")
-                            .help("show passwords in clear text"),
-                    ),
-                ),
-        )
-        .subcommand(
-            App::new("restic")
-                .arg(
-                    Arg::with_name("repo")
-                        .short("r")
-                        .long("repo")
-                        .value_name("REPOSITORY")
-                        .help("Set the cirrus repository to use")
-                        .env("CIRRUS_REPOSITORY")
-                        .takes_value(true),
-                )
-                .setting(AppSettings::TrailingVarArg)
-                .arg(
-                    Arg::with_name("cmd")
-                        .help("command-line arguments to pass to restic")
-                        .required(true)
-                        .set(ArgSettings::AllowLeadingHyphen)
-                        .multiple(true),
-                ),
-        );
-    #[cfg(feature = "desktop-commands")]
-    let cli = cli.subcommand(
-        App::new("desktop")
-            .setting(AppSettings::SubcommandRequiredElseHelp)
-            .subcommand(App::new("open-config-file"))
-            .subcommand(App::new("open-appconfig-file")),
-    );
+    use clap::Clap as _;
+    let args: cli::Cli = cli::Cli::parse();
 
-    let matches = cli.get_matches();
+    let config = load_config(&args).await?;
     #[allow(unused_variables)]
-    let config = load_config(&matches).await?;
-    #[allow(unused_variables)]
-    let (appconfig_path, appconfig) = load_appconfig(&matches).await?;
+    let (appconfig_path, appconfig) = load_appconfig(&args).await?;
     let restic = Restic::new(&appconfig.restic_binary);
     let secrets = Secrets;
 
-    match matches.subcommand() {
-        ("restic", Some(matches)) => commands::restic(&restic, &secrets, &config, matches).await,
-        ("backup", Some(matches)) => commands::backup(&restic, &secrets, &config, matches).await,
-        ("config", Some(matches)) => commands::config(&config, matches),
-        ("secret", Some(matches)) => match matches.subcommand() {
-            ("list", Some(matches)) => commands::secret::list(&secrets, &config, matches).await,
-            ("set", Some(matches)) => commands::secret::set(&secrets, &config, matches).await,
-            _ => unreachable!("unexpected subcommand for secret"),
+    match args.subcommand {
+        Some(cli::Cmd::Backup(args)) => commands::backup(&restic, &secrets, &config, args).await,
+        Some(cli::Cmd::Config) => commands::config(&config),
+        Some(cli::Cmd::Secret(args)) => match args.subcommand {
+            cli::secret::Cmd::Set(args) => commands::secret::set(&secrets, &config, args),
+            cli::secret::Cmd::List(args) => commands::secret::list(&secrets, &config, args),
         },
+        Some(cli::Cmd::Restic(args)) => commands::restic(&restic, &secrets, &config, args).await,
         #[cfg(feature = "desktop-commands")]
-        ("desktop", Some(matches)) => match matches.subcommand() {
-            ("open-config-file", Some(_)) => {
+        Some(cli::Cmd::Desktop(args)) => match args.subcommand {
+            cli::desktop::Cmd::OpenConfigFile => {
                 commands::desktop::open_config_file(config.source.as_ref().map(|o| o.as_path()))
             }
-            ("open-appconfig-file", Some(_)) => {
+            cli::desktop::Cmd::OpenAppconfigFile => {
                 commands::desktop::open_appconfig_file(&appconfig_path).await
             }
-            _ => unreachable!("unexpected subcommand for desktop"),
         },
-        _ => daemon::run(restic, secrets, config, appconfig, &matches).await,
+        None => daemon::run(restic, secrets, config, appconfig).await,
     }
 }

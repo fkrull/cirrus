@@ -1,6 +1,7 @@
 use crate::{model::backup, secrets::RepoWithSecrets};
 use eyre::{eyre, Context};
 use futures::future::pending;
+use std::ffi::OsStr;
 use std::{
     path::PathBuf,
     process::{ExitStatus, Stdio},
@@ -31,7 +32,7 @@ impl Restic {
         Restic { bin }
     }
 
-    pub fn run<S: AsRef<str>>(
+    pub fn run<S: AsRef<OsStr>>(
         &self,
         repo_with_secrets: Option<RepoWithSecrets>,
         extra_args: impl IntoIterator<Item = S>,

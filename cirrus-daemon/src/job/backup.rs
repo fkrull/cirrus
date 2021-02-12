@@ -4,12 +4,9 @@ use cirrus_core::{
     restic::Restic,
     secrets::Secrets,
 };
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct BackupSpec {
-    pub restic: Arc<Restic>,
-    pub secrets: Arc<Secrets>,
     pub repo_name: repo::Name,
     pub backup_name: backup::Name,
     pub repo: repo::Definition,
@@ -24,11 +21,11 @@ impl BackupSpec {
         }
     }
 
-    pub(super) async fn run_job(self) -> eyre::Result<()> {
+    pub(super) async fn run_job(self, restic: &Restic, secrets: &Secrets) -> eyre::Result<()> {
         use cirrus_core::restic::Options;
 
-        let repo_with_secrets = self.secrets.get_secrets(&self.repo)?;
-        let process = self.restic.backup(
+        let repo_with_secrets = secrets.get_secrets(&self.repo)?;
+        let process = restic.backup(
             repo_with_secrets,
             &self.backup_name,
             &self.backup,

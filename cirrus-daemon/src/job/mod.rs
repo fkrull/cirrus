@@ -1,4 +1,5 @@
-use cirrus_core::model;
+use cirrus_core::{model, restic::Restic, secrets::Secrets};
+use std::sync::Arc;
 
 mod backup;
 pub use backup::*;
@@ -63,9 +64,13 @@ impl Spec {
         }
     }
 
-    pub(crate) async fn run_job(self) -> eyre::Result<()> {
+    pub(crate) async fn run_job(
+        self,
+        restic: Arc<Restic>,
+        secrets: Arc<Secrets>,
+    ) -> eyre::Result<()> {
         match self {
-            Spec::Backup(spec) => spec.run_job().await,
+            Spec::Backup(spec) => spec.run_job(&restic, &secrets).await,
         }
     }
 

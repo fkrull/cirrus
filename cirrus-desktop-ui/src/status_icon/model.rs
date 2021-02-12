@@ -79,8 +79,6 @@ impl Model {
             })?;
         let job = job::Job::new(
             job::BackupSpec {
-                restic: self.deps.restic.clone(),
-                secrets: self.deps.secrets.clone(),
                 repo_name: backup.repository.clone(),
                 backup_name: name,
                 repo: repo.clone(),

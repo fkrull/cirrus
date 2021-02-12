@@ -19,24 +19,20 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     #[cfg(feature = "cirrus-desktop-ui")]
     let jobstatus_messages = jobstatus_messages.also_to(desktop_ui_ref);
 
-    let mut jobqueues_actor =
-        jobqueues_actor.into_instance(job_queues::JobQueues::new(jobstatus_messages));
+    let mut jobqueues_actor = jobqueues_actor.into_instance(job_queues::JobQueues::new(
+        jobstatus_messages,
+        restic.clone(),
+        secrets.clone(),
+    ));
 
     #[cfg(feature = "cirrus-desktop-ui")]
     let mut desktop_ui_actor = desktop_ui_actor.into_instance(cirrus_desktop_ui::DesktopUi::new(
         daemon_config.clone(),
         config.clone(),
-        restic.clone(),
-        secrets.clone(),
         jobqueues_ref.clone(),
     )?);
 
-    let mut scheduler = scheduler::Scheduler::new(
-        config.clone(),
-        restic.clone(),
-        secrets.clone(),
-        jobqueues_ref.clone(),
-    );
+    let mut scheduler = scheduler::Scheduler::new(config.clone(), jobqueues_ref.clone());
 
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
     info!("instance name: {}", instance_name);

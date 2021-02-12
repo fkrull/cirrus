@@ -1,6 +1,5 @@
-use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
-use cirrus_daemon::daemon_config::DaemonConfig;
-use cirrus_daemon::job;
+use cirrus_core::model::Config;
+use cirrus_daemon::{daemon_config::DaemonConfig, job};
 use std::sync::Arc;
 
 mod notifications;
@@ -8,10 +7,8 @@ mod status_icon;
 
 #[derive(Debug, Clone)]
 struct Deps {
-    daemon_config: Arc<DaemonConfig>,
     config: Arc<Config>,
-    restic: Arc<Restic>,
-    secrets: Arc<Secrets>,
+    daemon_config: Arc<DaemonConfig>,
     job_sink: cirrus_actor::ActorRef<job::Job>,
 }
 
@@ -26,15 +23,11 @@ impl DesktopUi {
     pub fn new(
         daemon_config: Arc<DaemonConfig>,
         config: Arc<Config>,
-        restic: Arc<Restic>,
-        secrets: Arc<Secrets>,
         job_sink: cirrus_actor::ActorRef<job::Job>,
     ) -> eyre::Result<Self> {
         let deps = Deps {
             daemon_config,
             config,
-            restic,
-            secrets,
             job_sink,
         };
         let status_icon = if deps.daemon_config.desktop.status_icon {

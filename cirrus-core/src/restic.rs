@@ -138,8 +138,13 @@ impl ResticProcess {
     ) -> std::io::Result<String> {
         if let Some(reader) = maybe_reader {
             let mut buf = String::new();
-            reader.read_line(&mut buf).await?;
-            Ok(buf)
+            loop {
+                reader.read_line(&mut buf).await?;
+                if !buf.is_empty() {
+                    buf.truncate(buf.trim_end().len());
+                    break Ok(buf);
+                }
+            }
         } else {
             pending::<std::io::Result<String>>().await
         }

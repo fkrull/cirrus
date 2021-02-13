@@ -1,9 +1,11 @@
 use super::QueueId;
+use cirrus_core::restic::Event;
 use cirrus_core::{
     model::{backup, repo},
     restic::Restic,
     secrets::Secrets,
 };
+use log::{info, warn};
 
 #[derive(Debug, Clone)]
 pub struct BackupSpec {
@@ -25,16 +27,37 @@ impl BackupSpec {
         use cirrus_core::restic::Options;
 
         let repo_with_secrets = secrets.get_secrets(&self.repo)?;
-        let process = restic.backup(
+        let mut process = restic.backup(
             repo_with_secrets,
             &self.backup_name,
             &self.backup,
             &Options {
-                capture_output: false,
+                capture_output: true,
             },
         )?;
-        process.wait().await?;
-        Ok(())
+
+        loop {
+            match process.next_event().await? {
+                Event::ProcessExit(status) => {
+                    return if status.success() {
+                        Ok(())
+                    } else if let Some(code) = status.code() {
+                        Err(eyre::eyre!("restic exited with status {}", code))
+                    } else {
+                        Err(eyre::eyre!("restic exited with unknown status"))
+                    }
+                }
+                Event::StdoutLine(line) => {
+                    info!("{}", line);
+                }
+                Event::StderrLine(line) => {
+                    warn!("{}", line);
+                }
+            }
+        }
+
+        //process.wait().await?;
+        //Ok(())
     }
 
     pub(super) fn name(&self) -> &str {

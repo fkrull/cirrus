@@ -1,4 +1,3 @@
-use super::model;
 use cirrus_core::model::Config;
 use cirrus_daemon::job;
 use std::sync::Arc;
@@ -6,7 +5,7 @@ use std::sync::Arc;
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
 pub(crate) struct StatusIcon {
-    handle: Option<ksni::Handle<model::Model>>,
+    handle: Option<ksni::Handle<super::Model>>,
 }
 
 impl std::fmt::Debug for StatusIcon {
@@ -22,7 +21,7 @@ impl StatusIcon {
         Ok(StatusIcon { handle: None })
     }
 
-    pub(crate) fn start(&mut self, model: model::Model) -> eyre::Result<()> {
+    pub(crate) fn start(&mut self, model: super::Model) -> eyre::Result<()> {
         let service = ksni::TrayService::new(model);
         self.handle = Some(service.handle());
         service.spawn();
@@ -32,7 +31,7 @@ impl StatusIcon {
     pub(crate) fn job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
             model
-                .handle_event(model::Event::JobStarted(job.clone()))
+                .handle_event(super::Event::JobStarted(job.clone()))
                 .unwrap();
         });
         Ok(())
@@ -41,7 +40,7 @@ impl StatusIcon {
     pub(crate) fn job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
             model
-                .handle_event(model::Event::JobSucceeded(job.clone()))
+                .handle_event(super::Event::JobSucceeded(job.clone()))
                 .unwrap();
         });
         Ok(())
@@ -50,7 +49,7 @@ impl StatusIcon {
     pub(crate) fn job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
             model
-                .handle_event(model::Event::JobFailed(job.clone()))
+                .handle_event(super::Event::JobFailed(job.clone()))
                 .unwrap();
         });
         Ok(())
@@ -59,14 +58,14 @@ impl StatusIcon {
     pub(crate) fn config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
             model
-                .handle_event(model::Event::UpdateConfig(new_config.clone()))
+                .handle_event(super::Event::UpdateConfig(new_config.clone()))
                 .unwrap();
         });
         Ok(())
     }
 }
 
-impl ksni::Tray for model::Model {
+impl ksni::Tray for super::Model {
     fn id(&self) -> String {
         APP_ID.to_owned()
     }
@@ -77,8 +76,8 @@ impl ksni::Tray for model::Model {
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
         match self.status() {
-            model::Status::Idle => icons::idle().clone(),
-            model::Status::Running => icons::running().clone(),
+            super::Status::Idle => icons::idle().clone(),
+            super::Status::Running => icons::running().clone(),
         }
     }
 
@@ -98,8 +97,8 @@ impl ksni::Tray for model::Model {
                 let name = name.clone();
                 StandardItem {
                     label: name.0.clone(),
-                    activate: Box::new(move |this: &mut model::Model| {
-                        this.handle_event(model::Event::RunBackup(name.clone()))
+                    activate: Box::new(move |this: &mut super::Model| {
+                        this.handle_event(super::Event::RunBackup(name.clone()))
                             .unwrap();
                     }),
                     ..Default::default()
@@ -124,8 +123,8 @@ impl ksni::Tray for model::Model {
             MenuItem::Sepatator,
             StandardItem {
                 label: "Exit".to_owned(),
-                activate: Box::new(|this: &mut model::Model| {
-                    this.handle_event(model::Event::Exit).unwrap();
+                activate: Box::new(|this: &mut super::Model| {
+                    this.handle_event(super::Event::Exit).unwrap();
                 }),
                 ..Default::default()
             }

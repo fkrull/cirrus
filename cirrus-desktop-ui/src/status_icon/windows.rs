@@ -1,4 +1,3 @@
-use super::model;
 use cirrus_core::model::Config;
 use cirrus_daemon::job;
 use std::sync::Arc;
@@ -9,7 +8,7 @@ use winit::{
 
 #[derive(Debug)]
 pub(crate) struct StatusIcon {
-    evloop_proxy: Option<EventLoopProxy<model::Event>>,
+    evloop_proxy: Option<EventLoopProxy<super::Event>>,
 }
 
 impl StatusIcon {
@@ -17,7 +16,7 @@ impl StatusIcon {
         Ok(StatusIcon { evloop_proxy: None })
     }
 
-    pub(crate) fn start(&mut self, mut model: model::Model) -> eyre::Result<()> {
+    pub(crate) fn start(&mut self, mut model: super::Model) -> eyre::Result<()> {
         use winit::platform::windows::EventLoopExtWindows;
 
         let (send, recv) = std::sync::mpsc::channel();
@@ -29,7 +28,7 @@ impl StatusIcon {
                 *control_flow = ControlFlow::Wait;
                 if let Event::UserEvent(event) = event {
                     let outcome = model.handle_event(event).unwrap();
-                    if let model::HandleEventOutcome::UpdateView = outcome {
+                    if let super::HandleEventOutcome::UpdateView = outcome {
                         view.update(&model).unwrap()
                     }
                 }
@@ -45,7 +44,7 @@ impl StatusIcon {
         self.evloop_proxy
             .as_ref()
             .unwrap()
-            .send_event(model::Event::JobStarted(job.clone()))?;
+            .send_event(super::Event::JobStarted(job.clone()))?;
         Ok(())
     }
 
@@ -53,7 +52,7 @@ impl StatusIcon {
         self.evloop_proxy
             .as_ref()
             .unwrap()
-            .send_event(model::Event::JobSucceeded(job.clone()))?;
+            .send_event(super::Event::JobSucceeded(job.clone()))?;
         Ok(())
     }
 
@@ -61,7 +60,7 @@ impl StatusIcon {
         self.evloop_proxy
             .as_ref()
             .unwrap()
-            .send_event(model::Event::JobFailed(job.clone()))?;
+            .send_event(super::Event::JobFailed(job.clone()))?;
         Ok(())
     }
 
@@ -69,17 +68,17 @@ impl StatusIcon {
         self.evloop_proxy
             .as_ref()
             .unwrap()
-            .send_event(model::Event::UpdateConfig(new_config))?;
+            .send_event(super::Event::UpdateConfig(new_config))?;
         Ok(())
     }
 }
 
 struct View {
-    tray_icon: trayicon::TrayIcon<model::Event>,
+    tray_icon: trayicon::TrayIcon<super::Event>,
 }
 
 impl View {
-    fn new(evloop: &EventLoop<model::Event>, model: &model::Model) -> eyre::Result<Self> {
+    fn new(evloop: &EventLoop<super::Event>, model: &super::Model) -> eyre::Result<Self> {
         let tray_icon = trayicon::TrayIconBuilder::new()
             .sender_winit(evloop.create_proxy())
             .tooltip(&model.tooltip())
@@ -90,7 +89,7 @@ impl View {
         Ok(View { tray_icon })
     }
 
-    fn update(&mut self, model: &model::Model) -> eyre::Result<()> {
+    fn update(&mut self, model: &super::Model) -> eyre::Result<()> {
         self.tray_icon
             .set_tooltip(&model.tooltip())
             .map_err(|e| eyre::eyre!("failed to set tooltip: {:?}", e))?;
@@ -104,22 +103,22 @@ impl View {
     }
 }
 
-fn menu(model: &model::Model) -> trayicon::MenuBuilder<model::Event> {
+fn menu(model: &super::Model) -> trayicon::MenuBuilder<super::Event> {
     let backups_menu = model
         .backups()
         .fold(trayicon::MenuBuilder::new(), |menu, name| {
-            menu.item(&name.0, model::Event::RunBackup(name.clone()))
+            menu.item(&name.0, super::Event::RunBackup(name.clone()))
         });
     trayicon::MenuBuilder::new()
         .submenu("Run Backup", backups_menu)
         .separator()
-        .item("Exit", model::Event::Exit)
+        .item("Exit", super::Event::Exit)
 }
 
-fn icon_for_status(model: &model::Model) -> eyre::Result<&'static trayicon::Icon> {
+fn icon_for_status(model: &super::Model) -> eyre::Result<&'static trayicon::Icon> {
     match model.status() {
-        model::Status::Idle => icons::idle(),
-        model::Status::Running => icons::running(),
+        super::Status::Idle => icons::idle(),
+        super::Status::Running => icons::running(),
     }
 }
 

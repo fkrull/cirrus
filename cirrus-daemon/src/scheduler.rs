@@ -1,5 +1,6 @@
 use crate::job;
 use chrono::DateTime;
+use cirrus_actor::Actor;
 use cirrus_core::model;
 use log::info;
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -25,49 +26,76 @@ impl Scheduler {
         }
     }
 
-    pub async fn run(&mut self) -> eyre::Result<()> {
+    fn run_schedules(&mut self) -> eyre::Result<()> {
         use crate::job::BackupSpec;
-        use tokio::time::sleep;
 
-        loop {
-            let now = chrono::Utc::now();
-            let backups_to_schedule = self
+        let now = chrono::Utc::now();
+        let backups_to_schedule = self
+            .config
+            .backups
+            .iter()
+            .map(|(name, definition)| -> eyre::Result<_> {
+                let prev = self.previous_schedules.get(name).copied();
+                let next = definition.next_schedule(prev.unwrap_or(self.start_time))?;
+                Ok((name, definition, next))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .filter_map(|(name, definition, next)| next.map(|next| (name, definition, next)))
+            .filter(|(_, _, next)| next <= &now);
+
+        for (name, backup, _) in backups_to_schedule {
+            let repo = self
                 .config
-                .backups
-                .iter()
-                .map(|(name, definition)| -> eyre::Result<_> {
-                    let prev = self.previous_schedules.get(name).copied();
-                    let next = definition.next_schedule(prev.unwrap_or(self.start_time))?;
-                    Ok((name, definition, next))
-                })
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter()
-                .filter_map(|(name, definition, next)| next.map(|next| (name, definition, next)))
-                .filter(|(_, _, next)| next <= &now);
-
-            for (name, backup, _) in backups_to_schedule {
-                let repo = self
-                    .config
-                    .repositories
-                    .get(&backup.repository)
-                    .ok_or_else(|| {
-                        eyre::eyre!("missing repository definition '{}'", backup.repository.0)
-                    })?;
-                let backup_job = job::Job::new(
-                    BackupSpec {
-                        repo_name: backup.repository.clone(),
-                        backup_name: name.clone(),
-                        repo: repo.clone(),
-                        backup: backup.clone(),
-                    }
-                    .into(),
-                );
-                info!("scheduling backup '{}'", backup_job.spec.name());
-                self.job_queues.send(backup_job)?;
-                self.previous_schedules.insert(name.clone(), now);
-            }
-
-            sleep(SCHEDULE_INTERVAL).await;
+                .repositories
+                .get(&backup.repository)
+                .ok_or_else(|| {
+                    eyre::eyre!("missing repository definition '{}'", backup.repository.0)
+                })?;
+            let backup_job = job::Job::new(
+                BackupSpec {
+                    repo_name: backup.repository.clone(),
+                    backup_name: name.clone(),
+                    repo: repo.clone(),
+                    backup: backup.clone(),
+                }
+                .into(),
+            );
+            info!("scheduling backup '{}'", backup_job.spec.name());
+            self.job_queues.send(backup_job)?;
+            self.previous_schedules.insert(name.clone(), now);
         }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum SchedulerMessage {
+    ConfigReloaded(Arc<model::Config>),
+}
+
+impl From<crate::configreload::ConfigReloaded> for SchedulerMessage {
+    fn from(ev: crate::configreload::ConfigReloaded) -> Self {
+        SchedulerMessage::ConfigReloaded(ev.new_config)
+    }
+}
+
+#[async_trait::async_trait]
+impl Actor for Scheduler {
+    type Message = SchedulerMessage;
+    type Error = eyre::Report;
+
+    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
+        match message {
+            SchedulerMessage::ConfigReloaded(new_config) => self.config = new_config,
+        }
+        Ok(())
+    }
+
+    async fn on_idle(&mut self) -> Result<(), Self::Error> {
+        self.run_schedules()?;
+        tokio::time::sleep(SCHEDULE_INTERVAL).await;
+        Ok(())
     }
 }

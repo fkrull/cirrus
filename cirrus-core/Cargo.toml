@@ -17,7 +17,7 @@ toml = "0.5.6"
 
 [dependencies.tokio]
 version = "1.0.0"
-features = ["process", "io-util", "macros"]
+features = ["fs", "process", "io-util", "macros"]
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winbase"] }

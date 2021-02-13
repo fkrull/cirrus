@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 pub mod backup;
@@ -46,6 +49,16 @@ pub struct Config {
 }
 
 #[derive(Debug, Error)]
+pub enum ConfigLoadError {
+    #[error("invalid configuration string")]
+    InvalidConfigString(String, #[source] eyre::Report),
+    #[error("invalid configuration file {}", .0.display())]
+    InvalidConfigFile(PathBuf, #[source] eyre::Report),
+    #[error("i/o error reading configuration file {}", .0.display())]
+    IoError(PathBuf, std::io::Error),
+}
+
+#[derive(Debug, Error)]
 #[error("unknown repository '{}'", (self.0).0)]
 pub struct UnknownRepository(repo::Name);
 
@@ -54,6 +67,20 @@ pub struct UnknownRepository(repo::Name);
 pub struct UnknownBackup(backup::Name);
 
 impl Config {
+    pub fn from_str(s: &str) -> Result<Config, ConfigLoadError> {
+        toml::from_str(s).map_err(|e| ConfigLoadError::InvalidConfigString(s.to_owned(), e.into()))
+    }
+
+    pub async fn from_file(p: &Path) -> Result<Config, ConfigLoadError> {
+        let config_string = tokio::fs::read_to_string(p)
+            .await
+            .map_err(|e| ConfigLoadError::IoError(p.to_owned(), e))?;
+        let mut config: Config = toml::from_str(&config_string)
+            .map_err(|e| ConfigLoadError::InvalidConfigFile(p.to_owned(), e.into()))?;
+        config.source = Some(p.to_owned());
+        Ok(config)
+    }
+
     pub fn repository(&self, name: &repo::Name) -> Result<&repo::Definition, UnknownRepository> {
         self.repositories
             .0

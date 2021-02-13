@@ -1,22 +1,13 @@
 use cirrus::{cli, commands, daemon};
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
-use eyre::WrapErr;
 
 async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
-    if let Some(config_string) = &args.config_string {
-        let config: Config = toml::from_str(config_string)
-            .wrap_err_with(|| format!("failed to parse config string"))?;
-        Ok(config)
+    let config = if let Some(config_string) = &args.config_string {
+        Config::from_str(config_string)?
     } else {
-        let config_path = args.config_file.path()?;
-        let config_string = tokio::fs::read_to_string(&config_path)
-            .await
-            .wrap_err_with(|| format!("failed to read config file '{}'", config_path.display()))?;
-        let mut config: Config = toml::from_str(&config_string)
-            .wrap_err_with(|| format!("failed to parse config file '{}'", config_path.display()))?;
-        config.source = Some(config_path.to_owned());
-        Ok(config)
-    }
+        Config::from_file(args.config_file.path()?).await?
+    };
+    Ok(config)
 }
 
 #[tokio::main]

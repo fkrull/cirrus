@@ -33,7 +33,7 @@ color-eyre = "0.5.6"
 
 [dependencies.tokio]
 version = "1.0.0"
-features = ["fs", "macros", "signal", "rt-multi-thread"]
+features = ["macros", "signal", "rt-multi-thread"]
 
 [features]
 default = []

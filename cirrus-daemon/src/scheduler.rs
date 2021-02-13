@@ -60,7 +60,7 @@ impl Scheduler {
                 }
                 .into(),
             );
-            info!("scheduling backup '{}'", backup_job.spec.name());
+            info!("scheduling '{}'", backup_job.spec.label());
             self.job_sink.send(backup_job)?;
             self.previous_schedules.insert(name.clone(), now);
         }

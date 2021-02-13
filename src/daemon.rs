@@ -40,10 +40,12 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
         jobqueues_ref.clone(),
     ));
 
+    let configreloader_ref = configreloader.actor_ref();
     let mut configreloader = configreloader.into_instance(configreload::ConfigReloader::new(
         config.clone(),
+        configreloader_ref,
         configreload_sink,
-    ));
+    )?);
 
     #[cfg(feature = "cirrus-desktop-ui")]
     let mut desktop_ui = desktop_ui.into_instance(cirrus_desktop_ui::DesktopUi::new(
@@ -52,17 +54,17 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
         jobqueues_ref.clone(),
     )?);
 
-    // run actor instances
+    // run everything
+    let instance_name = hostname::get()?.to_string_lossy().into_owned();
+    info!("instance name: {}", instance_name);
+    info!("running forever...");
+
     tokio::spawn(async move { jobqueues.run().await.unwrap() });
     tokio::spawn(async move { scheduler.run().await.unwrap() });
     tokio::spawn(async move { configreloader.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
     tokio::spawn(async move { desktop_ui.run().await.unwrap() });
 
-    let instance_name = hostname::get()?.to_string_lossy().into_owned();
-    info!("instance name: {}", instance_name);
-
-    info!("running forever...");
     tokio::signal::ctrl_c().await?;
 
     Ok(())

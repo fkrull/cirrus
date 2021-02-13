@@ -10,17 +10,16 @@ const SCHEDULE_INTERVAL: Duration = Duration::from_secs(30);
 #[derive(Debug)]
 pub struct Scheduler {
     config: Arc<model::Config>,
-    job_queues: cirrus_actor::ActorRef<job::Job>,
-
+    job_sink: cirrus_actor::ActorRef<job::Job>,
     start_time: DateTime<chrono::Utc>,
     previous_schedules: HashMap<model::backup::Name, DateTime<chrono::Utc>>,
 }
 
 impl Scheduler {
-    pub fn new(config: Arc<model::Config>, job_queues: cirrus_actor::ActorRef<job::Job>) -> Self {
+    pub fn new(config: Arc<model::Config>, job_sink: cirrus_actor::ActorRef<job::Job>) -> Self {
         Scheduler {
             config,
-            job_queues,
+            job_sink,
             start_time: chrono::Utc::now(),
             previous_schedules: HashMap::new(),
         }
@@ -62,7 +61,7 @@ impl Scheduler {
                 .into(),
             );
             info!("scheduling backup '{}'", backup_job.spec.name());
-            self.job_queues.send(backup_job)?;
+            self.job_sink.send(backup_job)?;
             self.previous_schedules.insert(name.clone(), now);
         }
 

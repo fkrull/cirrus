@@ -12,50 +12,52 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     let daemon_config = Arc::new(daemon_config::DaemonConfig::default());
 
     // declare actors
-    let (jobqueues_actor, jobqueues_ref) = cirrus_actor::new_actor();
-    let (scheduler_actor, scheduler_ref) = cirrus_actor::new_actor();
-    let (configreload_actor, _) = cirrus_actor::new_actor();
+    let jobqueues = cirrus_actor::new();
+    let scheduler = cirrus_actor::new();
+    let configreloader = cirrus_actor::new();
     #[cfg(feature = "cirrus-desktop-ui")]
-    let (desktop_ui_actor, desktop_ui_ref) = cirrus_actor::new_actor();
+    let desktop_ui = cirrus_actor::new();
 
     // connect multicast
-    let jobstatus_messages = Messages::default();
+    let jobstatus_sink = Messages::default();
     #[cfg(feature = "cirrus-desktop-ui")]
-    let jobstatus_messages = jobstatus_messages.also_to(desktop_ui_ref.clone());
+    let jobstatus_sink = jobstatus_sink.also_to(desktop_ui.actor_ref());
 
-    let configreload_messages = Messages::default().also_to(scheduler_ref);
+    let configreload_sink = Messages::default().also_to(scheduler.actor_ref());
     #[cfg(feature = "cirrus-desktop-ui")]
-    let configreload_messages = configreload_messages.also_to(desktop_ui_ref);
+    let configreload_sink = configreload_sink.also_to(desktop_ui.actor_ref());
 
     // create actor instances
-    let mut jobqueues_actor = jobqueues_actor.into_instance(job_queues::JobQueues::new(
-        jobstatus_messages,
+    let jobqueues_ref = jobqueues.actor_ref();
+    let mut jobqueues = jobqueues.into_instance(job_queues::JobQueues::new(
+        jobstatus_sink,
         restic.clone(),
         secrets.clone(),
     ));
 
-    let mut scheduler_actor = scheduler_actor.into_instance(scheduler::Scheduler::new(
+    let mut scheduler = scheduler.into_instance(scheduler::Scheduler::new(
         config.clone(),
         jobqueues_ref.clone(),
     ));
 
-    let mut configreload_actor = configreload_actor.into_instance(
-        configreload::ConfigReloader::new(config.clone(), configreload_messages),
-    );
+    let mut configreloader = configreloader.into_instance(configreload::ConfigReloader::new(
+        config.clone(),
+        configreload_sink,
+    ));
 
     #[cfg(feature = "cirrus-desktop-ui")]
-    let mut desktop_ui_actor = desktop_ui_actor.into_instance(cirrus_desktop_ui::DesktopUi::new(
+    let mut desktop_ui = desktop_ui.into_instance(cirrus_desktop_ui::DesktopUi::new(
         daemon_config.clone(),
         config.clone(),
         jobqueues_ref.clone(),
     )?);
 
     // run actor instances
-    tokio::spawn(async move { jobqueues_actor.run().await.unwrap() });
-    tokio::spawn(async move { scheduler_actor.run().await.unwrap() });
-    tokio::spawn(async move { configreload_actor.run().await.unwrap() });
+    tokio::spawn(async move { jobqueues.run().await.unwrap() });
+    tokio::spawn(async move { scheduler.run().await.unwrap() });
+    tokio::spawn(async move { configreloader.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
-    tokio::spawn(async move { desktop_ui_actor.run().await.unwrap() });
+    tokio::spawn(async move { desktop_ui.run().await.unwrap() });
 
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
     info!("instance name: {}", instance_name);

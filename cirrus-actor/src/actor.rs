@@ -93,10 +93,15 @@ impl<M> ActorRef<M> {
 
 #[derive(Debug)]
 pub struct ActorBuilder<M> {
+    actor_ref: ActorRef<M>,
     recv: mpsc::UnboundedReceiver<M>,
 }
 
 impl<M> ActorBuilder<M> {
+    pub fn actor_ref(&self) -> ActorRef<M> {
+        self.actor_ref.clone()
+    }
+
     pub fn into_instance<A: Actor<Message = M>>(self, actor_impl: A) -> ActorInstance<A> {
         ActorInstance {
             recv: self.recv,
@@ -105,9 +110,8 @@ impl<M> ActorBuilder<M> {
     }
 }
 
-pub fn new_actor<M>() -> (ActorBuilder<M>, ActorRef<M>) {
+pub fn new<M>() -> ActorBuilder<M> {
     let (send, recv) = futures::channel::mpsc::unbounded();
-    let actor_builder = ActorBuilder { recv };
     let actor_ref = ActorRef { send };
-    (actor_builder, actor_ref)
+    ActorBuilder { actor_ref, recv }
 }

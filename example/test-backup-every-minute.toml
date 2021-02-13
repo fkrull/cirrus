@@ -12,3 +12,12 @@ excludes = ["target"]
 
 [[backups.test.triggers]]
 cron = "* * * * *"
+
+[backups.target]
+repository = "test"
+path = "target"
+exclude_caches = true
+excludes = ["test-repo"]
+
+[[backups.target.triggers]]
+cron = "5 * * * *"

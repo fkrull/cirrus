@@ -1,5 +1,7 @@
 use super::model;
+use cirrus_core::model::Config;
 use cirrus_daemon::job;
+use std::sync::Arc;
 
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
@@ -51,6 +53,15 @@ impl StatusIcon {
         self.handle.as_ref().unwrap().update(|model| {
             model
                 .handle_event(model::Event::JobFailed(job.clone()))
+                .unwrap();
+        });
+        Ok(())
+    }
+
+    pub(crate) fn config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
+        self.handle.as_ref().unwrap().update(|model| {
+            model
+                .handle_event(model::Event::UpdateConfig(new_config))
                 .unwrap();
         });
         Ok(())

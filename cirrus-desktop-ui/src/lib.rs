@@ -75,7 +75,9 @@ impl DesktopUi {
 
     fn handle_config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
         self.deps.config = new_config;
-        // TODO: notify bits
+        if let Some(status_icon) = &mut self.status_icon {
+            status_icon.config_reloaded(self.deps.config.clone())?;
+        }
         Ok(())
     }
 }

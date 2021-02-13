@@ -1,5 +1,6 @@
 use cirrus_core::model;
 use cirrus_daemon::job;
+use std::sync::Arc;
 use std::{borrow::Cow, collections::HashMap};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -9,6 +10,7 @@ pub(super) enum Event {
     JobFailed(job::Job),
 
     Exit,
+    UpdateConfig(Arc<model::Config>),
     RunBackup(model::backup::Name),
 }
 
@@ -54,6 +56,10 @@ impl Model {
             }
             Event::Exit => {
                 std::process::exit(0);
+            }
+            Event::UpdateConfig(new_config) => {
+                self.deps.config = new_config;
+                Ok(HandleEventOutcome::UpdateView)
             }
             Event::RunBackup(name) => {
                 self.run_backup(name)?;

@@ -1,5 +1,7 @@
 use super::model;
+use cirrus_core::model::Config;
 use cirrus_daemon::job;
+use std::sync::Arc;
 use winit::{
     event::Event,
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
@@ -67,6 +69,14 @@ impl StatusIcon {
             .send_event(model::Event::JobFailed(job.clone()))?;
         Ok(())
     }
+
+    pub(crate) fn config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
+        self.evloop_proxy
+            .as_ref()
+            .unwrap()
+            .send_event(model::Event::UpdateConfig(new_config))?;
+        Ok(())
+    }
 }
 
 struct View {
@@ -92,6 +102,9 @@ impl View {
         self.tray_icon
             .set_icon(icon_for_status(model)?)
             .map_err(|e| eyre::eyre!("failed to set icon: {:?}", e))?;
+        self.tray_icon
+            .set_menu(&menu(model))
+            .map_err(|e| eyre::eyre!("failed to set menu: {:?}", e))?;
         Ok(())
     }
 }

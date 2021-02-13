@@ -74,19 +74,19 @@ impl Notifications {
 
     fn started_message(&self, job: &job::Job) -> String {
         match &job.spec {
-            job::Spec::Backup(..) => format!("Backing up '{}'", job.spec.name()),
+            job::Spec::Backup(b) => format!("Backing up '{}'", b.name()),
         }
     }
 
     fn success_message(&self, job: &job::Job) -> String {
         match &job.spec {
-            job::Spec::Backup(..) => format!("Backup '{}' finished successfully", job.spec.name()),
+            job::Spec::Backup(b) => format!("Backup '{}' finished successfully", b.name()),
         }
     }
 
     fn failure_message(&self, job: &job::Job) -> String {
         match &job.spec {
-            job::Spec::Backup(..) => format!("Backup '{}' failed", job.spec.name()),
+            job::Spec::Backup(b) => format!("Backup '{}' failed", b.name()),
         }
     }
 }

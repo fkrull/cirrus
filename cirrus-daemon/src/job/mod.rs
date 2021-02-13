@@ -74,13 +74,6 @@ impl Spec {
         }
     }
 
-    // TODO: replace name?
-    pub fn name(&self) -> &str {
-        match self {
-            Spec::Backup(spec) => spec.name(),
-        }
-    }
-
     pub fn label(&self) -> String {
         match self {
             Spec::Backup(spec) => format!("backup.{}", spec.name()),

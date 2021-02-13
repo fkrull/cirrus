@@ -73,7 +73,7 @@ impl RunQueue {
     fn maybe_start_next_job(&mut self) -> eyre::Result<()> {
         if !self.has_running_job() {
             if let Some(job) = self.queue.pop_front() {
-                info!("running job '{}'", job.spec.label());
+                info!("running '{}'", job.spec.label());
                 let fut = Box::pin(
                     job.spec
                         .clone()
@@ -96,11 +96,11 @@ impl RunQueue {
             let job = self.running.take().unwrap().job;
             let new_status = match result {
                 Ok(_) => {
-                    info!("job '{}' finished successfully", job.spec.label());
+                    info!("'{}' finished successfully", job.spec.label());
                     job::Status::FinishedSuccessfully
                 }
                 Err(error) => {
-                    error!("job '{}' failed: {}", job.spec.label(), error);
+                    error!("'{}' failed: {}", job.spec.label(), error);
                     job::Status::FinishedWithError
                 }
             };

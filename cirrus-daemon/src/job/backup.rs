@@ -60,7 +60,7 @@ impl BackupSpec {
         //Ok(())
     }
 
-    pub(super) fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.backup_name.0
     }
 }

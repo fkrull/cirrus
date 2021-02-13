@@ -101,7 +101,7 @@ impl Model {
         } else if self.running_jobs.len() == 1 {
             let job = self.running_jobs.values().next().unwrap();
             match &job.spec {
-                job::Spec::Backup(_) => format!("Backing up '{}'", &job.spec.name()).into(),
+                job::Spec::Backup(b) => format!("Backing up '{}'", b.name()).into(),
             }
         } else {
             format!("Running {} jobs", self.running_jobs.len()).into()

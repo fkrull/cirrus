@@ -51,7 +51,7 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     let mut desktop_ui = desktop_ui.into_instance(cirrus_desktop_ui::DesktopUi::new(
         daemon_config.clone(),
         config.clone(),
-        jobqueues_ref.clone(),
+        jobqueues_ref.clone().into(),
     )?);
 
     // run everything

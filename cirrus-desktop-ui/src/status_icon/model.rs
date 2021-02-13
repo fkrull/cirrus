@@ -1,3 +1,4 @@
+use cirrus_actor::Messages;
 use cirrus_core::model;
 use cirrus_daemon::job;
 use std::sync::Arc;
@@ -27,15 +28,17 @@ pub(super) enum Status {
 }
 
 #[derive(Debug)]
-pub(super) struct Model {
-    deps: crate::Deps,
+pub(crate) struct Model {
+    config: Arc<model::Config>,
+    job_sink: Messages<job::Job>,
     running_jobs: HashMap<job::Id, job::Job>,
 }
 
 impl Model {
-    pub(super) fn new(deps: crate::Deps) -> Self {
+    pub(crate) fn new(config: Arc<model::Config>, job_sink: Messages<job::Job>) -> Self {
         Model {
-            deps,
+            config,
+            job_sink,
             running_jobs: HashMap::new(),
         }
     }
@@ -58,7 +61,7 @@ impl Model {
                 std::process::exit(0);
             }
             Event::UpdateConfig(new_config) => {
-                self.deps.config = new_config;
+                self.config = new_config;
                 Ok(HandleEventOutcome::UpdateView)
             }
             Event::RunBackup(name) => {
@@ -70,13 +73,11 @@ impl Model {
 
     fn run_backup(&mut self, name: model::backup::Name) -> eyre::Result<()> {
         let backup = self
-            .deps
             .config
             .backups
             .get(&name)
             .ok_or_else(|| eyre::eyre!("missing backup definition '{}'", name.0))?;
         let repo = self
-            .deps
             .config
             .repositories
             .get(&backup.repository)
@@ -92,7 +93,7 @@ impl Model {
             }
             .into(),
         );
-        self.deps.job_sink.send(job)?;
+        self.job_sink.send(job)?;
         Ok(())
     }
 
@@ -126,6 +127,6 @@ impl Model {
     }
 
     pub(super) fn backups(&self) -> impl Iterator<Item = &model::backup::Name> + '_ {
-        self.deps.config.backups.iter().map(|(name, _)| name)
+        self.config.backups.iter().map(|(name, _)| name)
     }
 }

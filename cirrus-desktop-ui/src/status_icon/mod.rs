@@ -1,4 +1,4 @@
-mod model;
+pub(crate) mod model;
 
 #[cfg(windows)]
 mod windows;

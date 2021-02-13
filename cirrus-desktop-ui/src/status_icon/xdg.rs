@@ -6,7 +6,6 @@ use std::sync::Arc;
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
 pub(crate) struct StatusIcon {
-    deps: crate::Deps,
     handle: Option<ksni::Handle<model::Model>>,
 }
 
@@ -19,12 +18,11 @@ impl std::fmt::Debug for StatusIcon {
 }
 
 impl StatusIcon {
-    pub(crate) fn new(deps: crate::Deps) -> eyre::Result<Self> {
-        Ok(StatusIcon { deps, handle: None })
+    pub(crate) fn new() -> eyre::Result<Self> {
+        Ok(StatusIcon { handle: None })
     }
 
-    pub(crate) fn start(&mut self) -> eyre::Result<()> {
-        let model = model::Model::new(self.deps.clone());
+    pub(crate) fn start(&mut self, model: model::Model) -> eyre::Result<()> {
         let service = ksni::TrayService::new(model);
         self.handle = Some(service.handle());
         service.spawn();
@@ -61,7 +59,7 @@ impl StatusIcon {
     pub(crate) fn config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
             model
-                .handle_event(model::Event::UpdateConfig(new_config))
+                .handle_event(model::Event::UpdateConfig(new_config.clone()))
                 .unwrap();
         });
         Ok(())

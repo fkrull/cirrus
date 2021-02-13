@@ -9,23 +9,18 @@ use winit::{
 
 #[derive(Debug)]
 pub(crate) struct StatusIcon {
-    deps: crate::Deps,
     evloop_proxy: Option<EventLoopProxy<model::Event>>,
 }
 
 impl StatusIcon {
-    pub(crate) fn new(deps: crate::Deps) -> eyre::Result<Self> {
-        Ok(StatusIcon {
-            deps,
-            evloop_proxy: None,
-        })
+    pub(crate) fn new() -> eyre::Result<Self> {
+        Ok(StatusIcon { evloop_proxy: None })
     }
 
-    pub(crate) fn start(&mut self) -> eyre::Result<()> {
+    pub(crate) fn start(&mut self, mut model: model::Model) -> eyre::Result<()> {
         use winit::platform::windows::EventLoopExtWindows;
 
         let (send, recv) = std::sync::mpsc::channel();
-        let mut model = model::Model::new(self.deps.clone());
         std::thread::spawn(move || {
             let evloop = EventLoop::new_any_thread();
             let mut view = View::new(&evloop, &model).unwrap();

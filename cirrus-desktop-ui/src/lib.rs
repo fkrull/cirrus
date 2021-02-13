@@ -1,3 +1,4 @@
+use cirrus_actor::Messages;
 use cirrus_core::model::Config;
 use cirrus_daemon::{configreload::ConfigReload, daemon_config::DaemonConfig, job};
 use std::sync::Arc;
@@ -9,12 +10,15 @@ mod status_icon;
 struct Deps {
     config: Arc<Config>,
     daemon_config: Arc<DaemonConfig>,
-    job_sink: cirrus_actor::ActorRef<job::Job>,
+    job_sink: Messages<job::Job>,
 }
 
 #[derive(Debug)]
 pub struct DesktopUi {
     deps: Deps,
+    config: Arc<Config>,
+    daemon_config: Arc<DaemonConfig>,
+    job_sink: Messages<job::Job>,
     notifications: notifications::Notifications,
     status_icon: Option<status_icon::StatusIcon>,
 }
@@ -23,20 +27,23 @@ impl DesktopUi {
     pub fn new(
         daemon_config: Arc<DaemonConfig>,
         config: Arc<Config>,
-        job_sink: cirrus_actor::ActorRef<job::Job>,
+        job_sink: Messages<job::Job>,
     ) -> eyre::Result<Self> {
         let deps = Deps {
-            daemon_config,
-            config,
-            job_sink,
+            daemon_config: daemon_config.clone(),
+            config: config.clone(),
+            job_sink: job_sink.clone(),
         };
         let status_icon = if deps.daemon_config.desktop.status_icon {
-            Some(status_icon::StatusIcon::new(deps.clone())?)
+            Some(status_icon::StatusIcon::new()?)
         } else {
             None
         };
         Ok(Self {
             deps,
+            config,
+            daemon_config,
+            job_sink,
             notifications: notifications::Notifications::new()?,
             status_icon,
         })
@@ -115,7 +122,8 @@ impl cirrus_actor::Actor for DesktopUi {
 
     async fn on_start(&mut self) -> Result<(), Self::Error> {
         if let Some(status_icon) = &mut self.status_icon {
-            status_icon.start()?;
+            let model = status_icon::model::Model::new(self.config.clone(), self.job_sink.clone());
+            status_icon.start(model)?;
         }
         Ok(())
     }

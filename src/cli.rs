@@ -1,4 +1,5 @@
 use clap::Clap;
+use dirs_next as dirs;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},

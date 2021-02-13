@@ -51,9 +51,17 @@ impl<M: Clone + Send + 'static> Messages<M> {
         }
     }
 
-    pub fn also_to(self, other: impl Into<Messages<M>>) -> Messages<M> {
-        self._also_to(other.into())
+    pub fn also_to<Super, I>(self, other: I) -> Messages<M>
+    where
+        Super: Clone + Send + From<M> + 'static,
+        I: Into<Messages<Super>>,
+    {
+        self._also_to(other.into().upcast())
     }
+
+    /*pub fn also_to(self, other: impl Into<Messages<M>>) -> Messages<M> {
+        self._also_to(other.into())
+    }*/
 
     fn _also_to(mut self, other: Messages<M>) -> Messages<M> {
         match &mut self.0 {

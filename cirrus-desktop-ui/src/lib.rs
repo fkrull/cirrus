@@ -1,5 +1,5 @@
 use cirrus_core::model::Config;
-use cirrus_daemon::{configreload::ConfigReloaded, daemon_config::DaemonConfig, job};
+use cirrus_daemon::{configreload::ConfigReload, daemon_config::DaemonConfig, job};
 use std::sync::Arc;
 
 mod notifications;
@@ -92,8 +92,8 @@ impl From<job::StatusChange> for Message {
     }
 }
 
-impl From<ConfigReloaded> for Message {
-    fn from(ev: ConfigReloaded) -> Self {
+impl From<ConfigReload> for Message {
+    fn from(ev: ConfigReload) -> Self {
         Message::ConfigReloaded(ev.new_config)
     }
 }

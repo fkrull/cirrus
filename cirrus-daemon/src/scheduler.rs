@@ -75,8 +75,8 @@ pub enum Message {
     ConfigReloaded(Arc<model::Config>),
 }
 
-impl From<crate::configreload::ConfigReloaded> for Message {
-    fn from(ev: crate::configreload::ConfigReloaded) -> Self {
+impl From<crate::configreload::ConfigReload> for Message {
+    fn from(ev: crate::configreload::ConfigReload) -> Self {
         Message::ConfigReloaded(ev.new_config)
     }
 }

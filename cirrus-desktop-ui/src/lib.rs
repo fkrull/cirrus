@@ -1,5 +1,5 @@
 use cirrus_core::model::Config;
-use cirrus_daemon::{daemon_config::DaemonConfig, job};
+use cirrus_daemon::{configreload::ConfigReloaded, daemon_config::DaemonConfig, job};
 use std::sync::Arc;
 
 mod notifications;
@@ -41,40 +41,72 @@ impl DesktopUi {
             status_icon,
         })
     }
-}
 
-#[async_trait::async_trait]
-impl cirrus_actor::Actor for DesktopUi {
-    type Message = job::StatusChange;
-    type Error = eyre::Report;
-
-    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
-        match message.new_status {
+    fn handle_job_status_change(&mut self, ev: job::StatusChange) -> eyre::Result<()> {
+        match ev.new_status {
             job::Status::Started => {
                 if self.deps.daemon_config.desktop.notifications.started {
-                    self.notifications.job_started(&message.job)?;
+                    self.notifications.job_started(&ev.job)?;
                 }
                 if let Some(status_icon) = &mut self.status_icon {
-                    status_icon.job_started(&message.job)?;
+                    status_icon.job_started(&ev.job)?;
                 }
             }
             job::Status::FinishedSuccessfully => {
                 if self.deps.daemon_config.desktop.notifications.success {
-                    self.notifications.job_succeeded(&message.job)?;
+                    self.notifications.job_succeeded(&ev.job)?;
                 }
                 if let Some(status_icon) = &mut self.status_icon {
-                    status_icon.job_succeeded(&message.job)?;
+                    status_icon.job_succeeded(&ev.job)?;
                 }
             }
             job::Status::FinishedWithError => {
                 if self.deps.daemon_config.desktop.notifications.failure {
-                    self.notifications.job_failed(&message.job)?;
+                    self.notifications.job_failed(&ev.job)?;
                 }
                 if let Some(status_icon) = &mut self.status_icon {
-                    status_icon.job_failed(&message.job)?;
+                    status_icon.job_failed(&ev.job)?;
                 }
             }
             _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
+        self.deps.config = new_config;
+        // TODO: notify bits
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    StatusChange(job::StatusChange),
+    ConfigReloaded(Arc<Config>),
+}
+
+impl From<job::StatusChange> for Message {
+    fn from(ev: job::StatusChange) -> Self {
+        Message::StatusChange(ev)
+    }
+}
+
+impl From<ConfigReloaded> for Message {
+    fn from(ev: ConfigReloaded) -> Self {
+        Message::ConfigReloaded(ev.new_config)
+    }
+}
+
+#[async_trait::async_trait]
+impl cirrus_actor::Actor for DesktopUi {
+    type Message = Message;
+    type Error = eyre::Report;
+
+    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
+        match message {
+            Message::StatusChange(ev) => self.handle_job_status_change(ev)?,
+            Message::ConfigReloaded(new_config) => self.handle_config_reloaded(new_config)?,
         }
         Ok(())
     }

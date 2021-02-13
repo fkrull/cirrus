@@ -16,11 +16,16 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     #[cfg(feature = "cirrus-desktop-ui")]
     let (desktop_ui_actor, desktop_ui_ref) = cirrus_actor::new_actor();
 
-    let jobstatus_messages = Messages::default();
+    let jobstatus_messages: Messages<job::StatusChange> = Messages::default();
     #[cfg(feature = "cirrus-desktop-ui")]
-    let jobstatus_messages = jobstatus_messages.also_to(desktop_ui_ref);
+    let jobstatus_messages =
+        jobstatus_messages.also_to(Messages::from(desktop_ui_ref.clone()).upcast());
 
-    let _configreload_messages = Messages::default().also_to(scheduler_ref);
+    let configreload_messages: Messages<configreload::ConfigReloaded> =
+        Messages::default().also_to(Messages::from(scheduler_ref).upcast());
+    #[cfg(feature = "cirrus-desktop-ui")]
+    let _configreload_messages =
+        configreload_messages.also_to(Messages::from(desktop_ui_ref).upcast());
 
     let mut jobqueues_actor = jobqueues_actor.into_instance(job_queues::JobQueues::new(
         jobstatus_messages,

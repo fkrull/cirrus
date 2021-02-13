@@ -71,24 +71,24 @@ impl Scheduler {
 }
 
 #[derive(Debug, Clone)]
-pub enum SchedulerMessage {
+pub enum Message {
     ConfigReloaded(Arc<model::Config>),
 }
 
-impl From<crate::configreload::ConfigReloaded> for SchedulerMessage {
+impl From<crate::configreload::ConfigReloaded> for Message {
     fn from(ev: crate::configreload::ConfigReloaded) -> Self {
-        SchedulerMessage::ConfigReloaded(ev.new_config)
+        Message::ConfigReloaded(ev.new_config)
     }
 }
 
 #[async_trait::async_trait]
 impl Actor for Scheduler {
-    type Message = SchedulerMessage;
+    type Message = Message;
     type Error = eyre::Report;
 
     async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
         match message {
-            SchedulerMessage::ConfigReloaded(new_config) => self.config = new_config,
+            Message::ConfigReloaded(new_config) => self.config = new_config,
         }
         Ok(())
     }

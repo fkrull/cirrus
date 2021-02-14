@@ -33,6 +33,7 @@ impl BackupSpec {
             &self.backup,
             &Options {
                 capture_output: true,
+                ..Default::default()
             },
         )?;
 

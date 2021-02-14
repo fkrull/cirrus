@@ -40,9 +40,10 @@ fn main() -> eyre::Result<()> {
     cmd!("chmod 0755 target/restic target/{target}/release/cirrus").run()?;
     cmd!("buildah copy {ctr} target/restic target/{target}/release/cirrus /usr/bin/").run()?;
     cmd!("buildah config --env XDG_CONFIG_HOME=/config {ctr}").run()?;
-    cmd!("buildah config --env XDG_CACHE_HOME=/cache {ctr}").run()?;
+    cmd!("buildah config --env XDG_DATA_HOME=/data/data {ctr}").run()?;
+    cmd!("buildah config --env XDG_CACHE_HOME=/data/cache {ctr}").run()?;
     cmd!("buildah config --entrypoint /usr/bin/cirrus {ctr}").run()?;
-    cmd!("buildah config --volume /cache {ctr}").run()?;
+    cmd!("buildah config --volume /data {ctr}").run()?;
     cmd!("buildah commit {ctr} cirrus-server-image").run()?;
 
     Ok(())

@@ -19,6 +19,7 @@ pub struct Restic {
 #[derive(Debug, Default, Copy, Clone)]
 pub struct Options {
     pub capture_output: bool,
+    pub json: bool,
 }
 
 impl Restic {
@@ -55,6 +56,9 @@ impl Restic {
 
         if options.capture_output {
             cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+        }
+        if options.json {
+            cmd.arg("--json");
         }
 
         #[cfg(windows)]

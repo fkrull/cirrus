@@ -33,7 +33,7 @@ dirs-next = "2.0.0"
 [dependencies.log4rs]
 version = "1.0.0"
 default-features = false
-features = ["console_appender"]
+features = ["console_appender", "rolling_file_appender", "compound_policy", "size_trigger", "delete_roller"]
 
 [dependencies.tokio]
 version = "1.0.0"

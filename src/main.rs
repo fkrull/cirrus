@@ -1,24 +1,49 @@
 use cirrus::{cli, commands, daemon};
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
+use dirs_next as dirs;
+use std::path::PathBuf;
 
-fn setup_logger() -> eyre::Result<()> {
+async fn data_dir() -> eyre::Result<PathBuf> {
+    let data_dir = dirs::data_dir()
+        .ok_or_else(|| eyre::eyre!("failed to get data dir path"))?
+        .join("cirrus");
+    tokio::fs::create_dir_all(&data_dir).await?;
+    Ok(data_dir)
+}
+
+async fn setup_logger() -> eyre::Result<()> {
     use log4rs::{
         append::console::ConsoleAppender,
-        config::{Appender, Root},
-        encode::pattern::PatternEncoder,
-        Config,
+        append::rolling_file::policy::compound::roll::delete::DeleteRoller,
+        append::rolling_file::policy::compound::trigger::size::SizeTrigger,
+        append::rolling_file::policy::compound::CompoundPolicy,
+        append::rolling_file::RollingFileAppender, config::Appender, config::Root,
+        encode::pattern::PatternEncoder, Config,
     };
 
-    let encoder = PatternEncoder::new("[{d(%Y-%m-%d %H:%M:%S %Z)} {h({l}):>5}] {m}\n");
+    let log_file = data_dir().await?.join("cirrus.log");
+
+    let stdout_encoder = PatternEncoder::new("[{d(%Y-%m-%d %H:%M:%S%Z)} {h({l}):>5}] {m}{n}");
     let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(encoder))
+        .encoder(Box::new(stdout_encoder))
         .build();
+
+    let file_encoder = PatternEncoder::new("[{d(%Y-%m-%d %H:%M:%S%Z)} {l} - {M}] {m}{n}");
+    let policy = CompoundPolicy::new(
+        Box::new(SizeTrigger::new(20 * 1024 * 1024)),
+        Box::new(DeleteRoller::new()),
+    );
+    let file = RollingFileAppender::builder()
+        .encoder(Box::new(file_encoder))
+        .build(&log_file, Box::new(policy))?;
 
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
+        .appender(Appender::builder().build("file", Box::new(file)))
         .build(
             Root::builder()
                 .appender("stdout")
+                .appender("file")
                 .build(log::LevelFilter::Info),
         )?;
 
@@ -39,7 +64,7 @@ async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
-    setup_logger()?;
+    setup_logger().await?;
 
     // exit on thread panic
     let panic_hook = std::panic::take_hook();

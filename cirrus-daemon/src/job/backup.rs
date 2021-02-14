@@ -1,5 +1,5 @@
 use super::QueueId;
-use cirrus_core::restic::Event;
+use cirrus_core::restic::{Event, Verbosity};
 use cirrus_core::{
     model::{backup, repo},
     restic::Restic,
@@ -33,6 +33,7 @@ impl BackupSpec {
             &self.backup,
             &Options {
                 capture_output: true,
+                verbose: Verbosity::V,
                 ..Default::default()
             },
         )?;

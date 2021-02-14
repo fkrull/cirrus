@@ -16,10 +16,36 @@ pub struct Restic {
     bin: PathBuf,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum Verbosity {
+    None,
+    V,
+    VV,
+    VVV,
+}
+
+impl Default for Verbosity {
+    fn default() -> Self {
+        Verbosity::None
+    }
+}
+
+impl Verbosity {
+    fn arg(&self) -> Option<&str> {
+        match self {
+            Verbosity::None => None,
+            Verbosity::V => Some("--verbose=1"),
+            Verbosity::VV => Some("--verbose=2"),
+            Verbosity::VVV => Some("--verbose=3"),
+        }
+    }
+}
+
 #[derive(Debug, Default, Copy, Clone)]
 pub struct Options {
     pub capture_output: bool,
     pub json: bool,
+    pub verbose: Verbosity,
 }
 
 impl Restic {
@@ -59,6 +85,9 @@ impl Restic {
         }
         if options.json {
             cmd.arg("--json");
+        }
+        if let Some(arg) = options.verbose.arg() {
+            cmd.arg(arg);
         }
 
         #[cfg(windows)]

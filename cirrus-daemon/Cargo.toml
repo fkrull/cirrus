@@ -8,12 +8,13 @@ edition = "2018"
 cirrus-actor = { path = "../cirrus-actor" }
 cirrus-core = { path = "../cirrus-core" }
 async-trait = "0.1.41"
-log = "0.4.8"
 futures = "0.3.6"
 eyre = "0.6.1"
 chrono = "0.4.19"
 uuid = { version = "0.8.1", features = ["v4"] }
 notify = "5.0.0-pre.5"
+tracing = "0.1.23"
+tracing-futures = "0.2.4"
 
 [dependencies.tokio]
 version = "1.0.0"

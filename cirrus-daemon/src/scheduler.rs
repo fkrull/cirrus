@@ -2,8 +2,8 @@ use crate::job;
 use chrono::DateTime;
 use cirrus_actor::Actor;
 use cirrus_core::model;
-use log::info;
 use std::{collections::HashMap, sync::Arc, time::Duration};
+use tracing::info;
 
 const SCHEDULE_INTERVAL: Duration = Duration::from_secs(30);
 

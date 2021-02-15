@@ -1,8 +1,8 @@
 use cirrus_actor::{Actor, ActorRef, Messages};
 use cirrus_core::model::Config;
-use log::{error, info, warn};
 use notify::Watcher;
 use std::{cell::RefCell, sync::Arc};
+use tracing::{error, info, warn};
 
 #[derive(Debug, Clone)]
 pub struct ConfigReload {

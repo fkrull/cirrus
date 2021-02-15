@@ -1,13 +1,14 @@
 use crate::job;
 use cirrus_actor::Messages;
 use cirrus_core::{model, restic::Restic, secrets::Secrets};
-use log::{error, info};
-use std::sync::Arc;
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,
     pin::Pin,
+    sync::Arc,
 };
+use tracing::{error, info, info_span};
+use tracing_futures::Instrument;
 
 async fn select_all_or_pending<F: Future + Unpin>(
     it: impl ExactSizeIterator<Item = F>,
@@ -77,7 +78,12 @@ impl RunQueue {
                 let fut = Box::pin(
                     job.spec
                         .clone()
-                        .run_job(self.restic.clone(), self.secrets.clone()),
+                        .run_job(self.restic.clone(), self.secrets.clone())
+                        .instrument(info_span!(
+                            "job",
+                            id = %job.id,
+                            label = %job.spec.label()
+                        )),
                 );
                 self.running = Some(RunningJob {
                     job: job.clone(),

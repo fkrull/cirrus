@@ -5,7 +5,7 @@ use cirrus_core::{
     restic::Restic,
     secrets::Secrets,
 };
-use log::{info, warn};
+use tracing::{info, warn};
 
 #[derive(Debug, Clone)]
 pub struct BackupSpec {

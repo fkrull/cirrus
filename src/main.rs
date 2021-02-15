@@ -12,42 +12,34 @@ async fn data_dir() -> eyre::Result<PathBuf> {
 }
 
 async fn setup_logger() -> eyre::Result<()> {
-    use log4rs::{
-        append::console::ConsoleAppender,
-        append::rolling_file::policy::compound::roll::delete::DeleteRoller,
-        append::rolling_file::policy::compound::trigger::size::SizeTrigger,
-        append::rolling_file::policy::compound::CompoundPolicy,
-        append::rolling_file::RollingFileAppender, config::Appender, config::Root,
-        encode::pattern::PatternEncoder, Config,
+    use tracing::Level;
+    use tracing_subscriber::{
+        filter::LevelFilter,
+        fmt::{format::FmtSpan, layer, time::ChronoLocal},
+        layer::SubscriberExt,
+        util::SubscriberInitExt,
+        Registry,
     };
 
-    let log_file = data_dir().await?.join("cirrus.log");
+    const TIME_FORMAT: &str = "%Y-%m-%d %H:%M:%S%Z";
 
-    let stdout_encoder = PatternEncoder::new("[{d(%Y-%m-%d %H:%M:%S%Z)} {h({l}):>5}] {m}{n}");
-    let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(stdout_encoder))
-        .build();
+    let stdout_layer = layer()
+        .with_ansi(true)
+        .with_target(false)
+        .with_timer(ChronoLocal::with_format(String::from(TIME_FORMAT)));
 
-    let file_encoder = PatternEncoder::new("[{d(%Y-%m-%d %H:%M:%S%Z)} {l} - {M}] {m}{n}");
-    let policy = CompoundPolicy::new(
-        Box::new(SizeTrigger::new(20 * 1024 * 1024)),
-        Box::new(DeleteRoller::new()),
-    );
-    let file = RollingFileAppender::builder()
-        .encoder(Box::new(file_encoder))
-        .build(&log_file, Box::new(policy))?;
+    let data_dir = data_dir().await?;
+    let file_layer = layer()
+        .with_ansi(false)
+        .with_span_events(FmtSpan::CLOSE)
+        .with_timer(ChronoLocal::with_format(String::from(TIME_FORMAT)))
+        .with_writer(move || tracing_appender::rolling::daily(&data_dir, "cirrus.log"));
 
-    let config = Config::builder()
-        .appender(Appender::builder().build("stdout", Box::new(stdout)))
-        .appender(Appender::builder().build("file", Box::new(file)))
-        .build(
-            Root::builder()
-                .appender("stdout")
-                .appender("file")
-                .build(log::LevelFilter::Info),
-        )?;
-
-    let _ = log4rs::init_config(config)?;
+    Registry::default()
+        .with(LevelFilter::from(Level::INFO))
+        .with(stdout_layer)
+        .with(file_layer)
+        .try_init()?;
 
     Ok(())
 }

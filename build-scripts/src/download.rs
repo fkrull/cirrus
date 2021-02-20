@@ -46,7 +46,7 @@ impl Download {
     }
 
     pub fn run(self) -> eyre::Result<()> {
-        let response = get(&self.url)?;
+        let response = ureq::get(&self.url).call()?;
         let mut tmp = tempfile::tempfile()?;
         copy(&mut response.into_reader(), &mut tmp)?;
 
@@ -76,13 +76,6 @@ impl Download {
     }
 }
 
-fn get(url: &str) -> eyre::Result<ureq::Response> {
-    let response = ureq::get(url).call();
-    if response.error() {
-        eyre::bail!("HTTP request failed ({})", response.status_line());
-    }
-    Ok(response)
-}
 fn verify_sha256(file: &mut File, sha256: &str) -> eyre::Result<()> {
     let mut digest = sha2::Sha256::new();
     copy(file, &mut digest)?;

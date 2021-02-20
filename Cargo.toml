@@ -12,6 +12,8 @@ members = [
     "cirrus-desktop-ui",
     "cirrus-windows-wrapper",
     "build-scripts",
+    "restic-bin",
+    "restic-bin/restic-bin-build",
 ]
 
 [dependencies]

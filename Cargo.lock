@@ -2019,6 +2019,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "restic-bin"
+version = "0.1.0"
+dependencies = [
+ "restic-bin-build",
+]
+
+[[package]]
+name = "restic-bin-build"
+version = "0.1.0"
+dependencies = [
+ "bzip2 0.4.2",
+ "eyre",
+ "hex",
+ "sha2",
+ "tempfile",
+ "ureq",
+ "zip",
+]
+
+[[package]]
 name = "ring"
 version = "0.16.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"

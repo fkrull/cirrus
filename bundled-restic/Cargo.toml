@@ -1,0 +1,13 @@
+[package]
+name = "bundled-restic"
+version = "0.1.0"
+authors = ["Felix Krull <f_krull@gmx.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bundled-exe = { path = "../bundled-exe" }
+
+[build-dependencies]
+restic-bin = { path = "../restic-bin", features = ["download"] }

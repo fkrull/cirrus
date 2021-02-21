@@ -13,6 +13,8 @@ members = [
     "cirrus-windows-wrapper",
     "build-scripts",
     "restic-bin",
+    "bundled-exe",
+    "bundled-restic",
 ]
 
 [dependencies]

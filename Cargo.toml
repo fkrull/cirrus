@@ -38,9 +38,6 @@ tracing-appender = "0.1.2"
 version = "1.0.0"
 features = ["macros", "signal", "rt-multi-thread"]
 
-[build-dependencies]
-restic-bin = { path = "restic-bin", features = ["download"] }
-
 [features]
 default = []
 

@@ -68,14 +68,6 @@ impl Downloader {
         self
     }
 
-    pub fn unzip_single(self) -> Self {
-        self.decompress_mode(DecompressMode::UnzipSingle)
-    }
-
-    pub fn bunzip2(self) -> Self {
-        self.decompress_mode(DecompressMode::Bunzip2)
-    }
-
     pub fn run(self) -> Result<(), Error> {
         let response = ureq::get(&self.url).call().map_err(HttpError)?;
         let mut tmp = tempfile::tempfile()?;

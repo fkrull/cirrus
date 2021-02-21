@@ -13,11 +13,15 @@ pub enum DownloadError {
 }
 
 pub fn download(target: &TargetConfig, dest: impl AsRef<Path>) -> Result<(), DownloadError> {
+    _download(target, dest.as_ref())
+}
+
+fn _download(target: &TargetConfig, dest: &Path) -> Result<(), DownloadError> {
     let urls = urls::Urls::default();
     let url_and_checksum = urls
         .url_and_checksum(target)
         .ok_or_else(|| DownloadError::NoDownloadForTarget(target.clone()))?;
-    downloader::downloader(&url_and_checksum.url, dest.as_ref())
+    downloader::downloader(&url_and_checksum.url, dest)
         .decompress_mode(url_and_checksum.decompress_mode())
         .expected_sha256(url_and_checksum.checksum)
         .run()?;

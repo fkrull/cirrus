@@ -1,28 +1,50 @@
 #[derive(Debug, thiserror::Error)]
-#[error("failed to read target config from build.rs environment")]
-pub struct TargetEnvError(#[from] std::env::VarError);
+#[error("invalid target triple '{0}': {1}")]
+pub struct TargetParseError(String, target_lexicon::ParseError);
+
+#[derive(Debug, thiserror::Error)]
+pub enum TargetEnvError {
+    #[error("error getting '{0}' env var")]
+    VarError(String, #[source] std::env::VarError),
+    #[error("error parsing target triple")]
+    InvalidTargetTriple(#[from] TargetParseError),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TargetConfig {
-    pub os: String,
-    pub arch: String,
-    pub endian: String,
+    triple: target_lexicon::Triple,
+}
+
+impl std::fmt::Display for TargetConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.triple)
+    }
 }
 
 impl TargetConfig {
-    pub fn from_env() -> Result<TargetConfig, TargetEnvError> {
-        use std::env::var;
+    pub fn from_triple(triple: impl AsRef<str>) -> Result<TargetConfig, TargetParseError> {
+        Self::_from_triple(triple.as_ref())
+    }
 
-        let os = var("CARGO_CFG_TARGET_OS")?;
-        let arch = var("CARGO_CFG_TARGET_ARCH")?;
-        let endian = var("CARGO_CFG_TARGET_ENDIAN")?;
-        Ok(TargetConfig { os, arch, endian })
+    fn _from_triple(triple: &str) -> Result<TargetConfig, TargetParseError> {
+        use std::str::FromStr;
+        let triple = target_lexicon::Triple::from_str(triple)
+            .map_err(|e| TargetParseError(triple.to_string(), e))?;
+        Ok(TargetConfig { triple })
+    }
+
+    pub fn from_env() -> Result<TargetConfig, TargetEnvError> {
+        const VAR: &str = "TARGET";
+        let target =
+            std::env::var(VAR).map_err(|e| TargetEnvError::VarError(VAR.to_string(), e))?;
+        Ok(TargetConfig::from_triple(&target)?)
     }
 }
 
 pub fn restic_filename(target: &TargetConfig) -> &'static str {
-    match target.os.as_str() {
-        "windows" => "restic.exe",
+    use target_lexicon::OperatingSystem;
+    match target.triple.operating_system {
+        OperatingSystem::Windows => "restic.exe",
         _ => "restic",
     }
 }

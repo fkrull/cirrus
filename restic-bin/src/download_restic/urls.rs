@@ -27,46 +27,42 @@ a4239ce6da7f2934b3d732865bbfe7a866efbdcda80258bc4a247d3def967f9c  restic_0.12.0_
 const BASE_URL: &str = "https://github.com/restic/restic/releases/download";
 
 #[derive(Debug, thiserror::Error)]
-enum ParseError {
-    #[error("invalid input line {0}")]
-    InvalidLine(String),
-    #[error("no OS mapping for {0}")]
-    UnknownOs(String),
-    #[error("no arch mapping for {0}")]
-    UnknownArch(String),
-}
+#[error("invalid input line '{0}'")]
+struct InvalidLine(String);
 
-fn to_os(restic_os: &str) -> Result<&str, ParseError> {
-    match restic_os {
-        "freebsd" => Ok("freebsd"),
-        "linux" => Ok("linux"),
-        "darwin" => Ok("macos"),
-        "netbsd" => Ok("netbsd"),
-        "openbsd" => Ok("openbsd"),
-        "windows" => Ok("windows"),
-        _ => Err(ParseError::UnknownOs(restic_os.to_string())),
+fn matches_os(os: &target_lexicon::OperatingSystem, restic_os: &str) -> bool {
+    use target_lexicon::OperatingSystem;
+
+    match os {
+        OperatingSystem::Darwin | OperatingSystem::MacOSX { .. } => restic_os == "darwin",
+        OperatingSystem::Freebsd => restic_os == "freebsd",
+        OperatingSystem::Linux => restic_os == "linux",
+        OperatingSystem::Netbsd => restic_os == "netbsd",
+        OperatingSystem::Openbsd => restic_os == "openbsd",
+        OperatingSystem::Solaris => restic_os == "solaris",
+        OperatingSystem::Windows => restic_os == "windows",
+        _ => false,
     }
 }
 
-fn to_arch(restic_arch: &str) -> Result<&str, ParseError> {
-    match restic_arch {
-        "arm64" => Ok("aarch64"),
-        "arm" => Ok("arm"),
-        "mips" => Ok("mips"),
-        "mipsle" => Ok("mips"),
-        "ppc64le" => Ok("powerpc64"),
-        "386" => Ok("x86"),
-        "amd64" => Ok("x86_64"),
-        _ => Err(ParseError::UnknownArch(restic_arch.to_string())),
-    }
-}
+fn matches_arch(arch: &target_lexicon::Architecture, restic_arch: &str) -> bool {
+    use target_lexicon::{
+        Aarch64Architecture, Architecture, Mips32Architecture, Mips64Architecture,
+    };
 
-fn to_endianness(restic_arch: &str) -> Option<&str> {
-    match restic_arch {
-        "mips" => Some("big"),
-        "mipsle" => Some("little"),
-        "ppc64le" => Some("little"),
-        _ => None,
+    match arch {
+        // TODO: should this be narrower rather than "all arm"?
+        Architecture::Arm(_) => restic_arch == "arm",
+        Architecture::Aarch64(Aarch64Architecture::Aarch64) => restic_arch == "arm64",
+        Architecture::X86_32(_) => restic_arch == "386",
+        Architecture::Mips32(Mips32Architecture::Mips) => restic_arch == "mips",
+        Architecture::Mips32(Mips32Architecture::Mipsel) => restic_arch == "mipsle",
+        Architecture::Mips64(Mips64Architecture::Mips64) => restic_arch == "mips64",
+        Architecture::Mips64(Mips64Architecture::Mips64el) => restic_arch == "mips64le",
+        Architecture::Powerpc64 => restic_arch == "ppc64",
+        Architecture::Powerpc64le => restic_arch == "ppc64le",
+        Architecture::X86_64 => restic_arch == "amd64",
+        _ => false,
     }
 }
 
@@ -77,24 +73,19 @@ struct FileItem<'a> {
     version: &'a str,
     os: &'a str,
     arch: &'a str,
-    endianness: Option<&'a str>,
 }
 
 impl FileItem<'_> {
-    fn parse(line: &str) -> Result<FileItem<'_>, ParseError> {
-        let (checksum, filename, version, os, restic_arch) =
-            Self::parts(line).ok_or_else(|| ParseError::InvalidLine(line.to_string()))?;
+    fn parse(line: &str) -> Result<FileItem<'_>, InvalidLine> {
+        let (checksum, filename, version, os, arch) =
+            Self::parts(line).ok_or_else(|| InvalidLine(line.to_string()))?;
 
-        let os = to_os(os)?;
-        let arch = to_arch(restic_arch)?;
-        let endianness = to_endianness(restic_arch);
         Ok(FileItem {
             checksum,
             filename,
             version,
             os,
             arch,
-            endianness,
         })
     }
 
@@ -114,8 +105,8 @@ impl FileItem<'_> {
     }
 
     fn matches_target(&self, target: &TargetConfig) -> bool {
-        let matches_endian = self.endianness.is_none() || self.endianness == Some(&target.endian);
-        self.os == &target.os && self.arch == &target.arch && matches_endian
+        matches_arch(&target.triple.architecture, self.arch)
+            && matches_os(&target.triple.operating_system, self.os)
     }
 
     fn url_and_checksum(&self) -> UrlAndChecksum {
@@ -153,17 +144,8 @@ impl Default for Urls<'static> {
             .lines()
             .filter(|&s| !s.is_empty())
             .map(str::trim)
-            .filter_map(|o| match FileItem::parse(o) {
-                Ok(item) => Some(item),
-                Err(ParseError::InvalidLine(line)) => {
-                    log::error!("unparseable line '{}'", line);
-                    None
-                }
-                Err(e) => {
-                    log::info!("unmapped OS or arch: {:?}", e);
-                    None
-                }
-            })
+            // unwrap because we're parsing from embedded string
+            .map(|o| FileItem::parse(o).unwrap())
             .collect();
         Self { items }
     }

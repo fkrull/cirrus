@@ -253,14 +253,10 @@ name = "build-scripts"
 version = "0.1.0"
 dependencies = [
  "argh",
- "bzip2 0.4.2",
  "eyre",
- "hex",
- "sha2",
+ "restic-bin",
  "tempfile",
- "ureq",
  "xshell",
- "zip",
 ]
 
 [[package]]
@@ -384,7 +380,6 @@ dependencies = [
  "hostname",
  "log",
  "opener",
- "restic-bin",
  "rpassword",
  "termcolor",
  "tokio",
@@ -2025,8 +2020,8 @@ version = "0.1.0"
 dependencies = [
  "bzip2 0.4.2",
  "hex",
- "log",
  "sha2",
+ "target-lexicon",
  "tempfile",
  "thiserror",
  "ureq",
@@ -2395,6 +2390,12 @@ checksum = "a393066ed9010ebaed60b9eafa373d4b1baac186dd7e008555b0f702b51945b6"
 dependencies = [
  "unicode-xid 0.0.4",
 ]
+
+[[package]]
+name = "target-lexicon"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "422045212ea98508ae3d28025bc5aaa2bd4a9cdaecd442a08da2ee620ee9ea95"
 
 [[package]]
 name = "tempfile"

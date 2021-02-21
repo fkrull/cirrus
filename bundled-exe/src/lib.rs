@@ -1,5 +1,4 @@
 use std::{ffi::OsStr, path::Path};
-use tempfile::NamedTempFile;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -8,7 +7,7 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct BundledExe(NamedTempFile);
+pub struct BundledExe(tempfile::TempPath);
 
 impl BundledExe {
     pub fn new(bytes: impl AsRef<[u8]>, filename: impl AsRef<OsStr>) -> Result<BundledExe, Error> {
@@ -18,10 +17,11 @@ impl BundledExe {
     fn _new(mut bytes: &[u8], filename: &OsStr) -> Result<BundledExe, Error> {
         let mut tmp = tempfile::Builder::new().suffix(filename).tempfile()?;
         std::io::copy(&mut bytes, &mut tmp)?;
+        let tmp = tmp.into_temp_path();
         Ok(BundledExe(tmp))
     }
 
     pub fn path(&self) -> &Path {
-        self.0.path()
+        &self.0
     }
 }

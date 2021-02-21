@@ -385,6 +385,7 @@ dependencies = [
 name = "cirrus"
 version = "0.1.0"
 dependencies = [
+ "bundled-restic",
  "cirrus-actor",
  "cirrus-core",
  "cirrus-daemon",

@@ -57,8 +57,8 @@ pub struct Cli {
     pub config_string: Option<String>,
 
     /// Sets the restic binary to use
-    #[clap(long, default_value = "restic")]
-    pub restic_binary: PathBuf,
+    #[clap(long)]
+    pub restic_binary: Option<PathBuf>,
 
     #[clap(subcommand)]
     pub subcommand: Option<Cmd>,

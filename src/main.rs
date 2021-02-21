@@ -69,7 +69,21 @@ async fn main() -> eyre::Result<()> {
     let args: cli::Cli = cli::Cli::parse();
 
     let config = load_config(&args).await?;
-    let restic = Restic::new(&args.restic_binary.clone());
+
+    #[cfg(feature = "bundled-restic")]
+    let (restic_binary, _bundled_restic) = if let Some(restic_binary) = args.restic_binary {
+        (restic_binary, None)
+    } else {
+        let bundled_restic = bundled_restic::bundled_restic()?;
+        (bundled_restic.path().to_owned(), Some(bundled_restic))
+    };
+
+    #[cfg(not(feature = "bundled-restic"))]
+    let restic_binary = args
+        .restic_binary
+        .unwrap_or_else(|| PathBuf::from("restic"));
+
+    let restic = Restic::new(restic_binary);
     let secrets = Secrets;
 
     match args.subcommand {

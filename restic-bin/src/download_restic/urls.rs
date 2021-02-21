@@ -1,3 +1,5 @@
+use crate::TargetConfig;
+
 const SHA256SUMS: &str = "
 26c4c55363fc2a15122a97384a44c73fedf14b832721a0b4a86dc361468e7547  restic_0.12.0_aix_ppc64.bz2
 c816973d0005248a7c6112026d9fa942e8e755748f60fd4a7b0b5ca4d578bd74  restic_0.12.0_darwin_amd64.bz2
@@ -24,28 +26,38 @@ a4239ce6da7f2934b3d732865bbfe7a866efbdcda80258bc4a247d3def967f9c  restic_0.12.0_
 
 const BASE_URL: &str = "https://github.com/restic/restic/releases/download";
 
-fn to_os(restic_os: &str) -> Option<&str> {
+#[derive(Debug, thiserror::Error)]
+enum ParseError {
+    #[error("invalid input line {0}")]
+    InvalidLine(String),
+    #[error("no OS mapping for {0}")]
+    UnknownOs(String),
+    #[error("no arch mapping for {0}")]
+    UnknownArch(String),
+}
+
+fn to_os(restic_os: &str) -> Result<&str, ParseError> {
     match restic_os {
-        "freebsd" => Some("freebsd"),
-        "linux" => Some("linux"),
-        "darwin" => Some("macos"),
-        "netbsd" => Some("netbsd"),
-        "openbsd" => Some("openbsd"),
-        "windows" => Some("windows"),
-        _ => None,
+        "freebsd" => Ok("freebsd"),
+        "linux" => Ok("linux"),
+        "darwin" => Ok("macos"),
+        "netbsd" => Ok("netbsd"),
+        "openbsd" => Ok("openbsd"),
+        "windows" => Ok("windows"),
+        _ => Err(ParseError::UnknownOs(restic_os.to_string())),
     }
 }
 
-fn to_arch(restic_arch: &str) -> Option<&str> {
+fn to_arch(restic_arch: &str) -> Result<&str, ParseError> {
     match restic_arch {
-        "arm64" => Some("aarch64"),
-        "arm" => Some("arm"),
-        "mips" => Some("mips"),
-        "mipsle" => Some("mips"),
-        "ppc64le" => Some("powerpc64"),
-        "386" => Some("x86"),
-        "amd64" => Some("x86_64"),
-        _ => None,
+        "arm64" => Ok("aarch64"),
+        "arm" => Ok("arm"),
+        "mips" => Ok("mips"),
+        "mipsle" => Ok("mips"),
+        "ppc64le" => Ok("powerpc64"),
+        "386" => Ok("x86"),
+        "amd64" => Ok("x86_64"),
+        _ => Err(ParseError::UnknownArch(restic_arch.to_string())),
     }
 }
 
@@ -69,17 +81,14 @@ struct FileItem<'a> {
 }
 
 impl FileItem<'_> {
-    fn parse(line: &str) -> Option<FileItem<'_>> {
-        let mut line_parts = line.split_ascii_whitespace();
-        let checksum = line_parts.next()?;
-        let filename = line_parts.next()?;
-        let mut name_parts = filename.rsplitn(2, '.').nth(1)?.split('_');
-        let version = name_parts.nth(1)?;
-        let os = name_parts.next().and_then(to_os)?;
-        let restic_arch = name_parts.next()?;
+    fn parse(line: &str) -> Result<FileItem<'_>, ParseError> {
+        let (checksum, filename, version, os, restic_arch) =
+            Self::parts(line).ok_or_else(|| ParseError::InvalidLine(line.to_string()))?;
+
+        let os = to_os(os)?;
         let arch = to_arch(restic_arch)?;
         let endianness = to_endianness(restic_arch);
-        Some(FileItem {
+        Ok(FileItem {
             checksum,
             filename,
             version,
@@ -89,8 +98,31 @@ impl FileItem<'_> {
         })
     }
 
+    fn parts(line: &str) -> Option<(&str, &str, &str, &str, &str)> {
+        let mut line_parts = line.split_ascii_whitespace();
+        let checksum = line_parts.next()?;
+        let filename = line_parts.next()?;
+        let mut name_parts = filename.rsplitn(2, '.').nth(1)?.split('_');
+        let version = name_parts.nth(1)?;
+        let os = name_parts.next()?;
+        let arch = name_parts.next()?;
+        Some((checksum, filename, version, os, arch))
+    }
+
     fn url(&self) -> String {
         format!("{}/v{}/{}", BASE_URL, self.version, self.filename)
+    }
+
+    fn matches_target(&self, target: &TargetConfig) -> bool {
+        let matches_endian = self.endianness.is_none() || self.endianness == Some(&target.endian);
+        self.os == &target.os && self.arch == &target.arch && matches_endian
+    }
+
+    fn url_and_checksum(&self) -> UrlAndChecksum {
+        UrlAndChecksum {
+            url: self.url(),
+            checksum: self.checksum.to_string(),
+        }
     }
 }
 
@@ -101,11 +133,11 @@ pub struct UrlAndChecksum {
 }
 
 impl UrlAndChecksum {
-    pub fn decompress_mode(&self) -> crate::download::DecompressMode {
+    pub fn decompress_mode(&self) -> crate::download_restic::downloader::DecompressMode {
         if self.url.ends_with(".zip") {
-            crate::download::DecompressMode::UnzipSingle
+            crate::download_restic::downloader::DecompressMode::UnzipSingle
         } else {
-            crate::download::DecompressMode::Bunzip2
+            crate::download_restic::downloader::DecompressMode::Bunzip2
         }
     }
 }
@@ -121,83 +153,27 @@ impl Default for Urls<'static> {
             .lines()
             .filter(|&s| !s.is_empty())
             .map(str::trim)
-            .map(|o| {
-                let item = FileItem::parse(o);
-                if item.is_none() {
-                    eprintln!("invalid line '{}'", o);
+            .filter_map(|o| match FileItem::parse(o) {
+                Ok(item) => Some(item),
+                Err(ParseError::InvalidLine(line)) => {
+                    log::error!("unparseable line '{}'", line);
+                    None
                 }
-                item
+                Err(e) => {
+                    log::info!("unmapped OS or arch: {:?}", e);
+                    None
+                }
             })
-            .filter_map(|o| o)
             .collect();
         Self { items }
     }
 }
 
 impl Urls<'_> {
-    pub fn url_and_checksum(
-        &self,
-        target_os: &str,
-        target_arch: &str,
-        target_endian: &str,
-    ) -> Option<UrlAndChecksum> {
+    pub fn url_and_checksum(&self, target: &TargetConfig) -> Option<UrlAndChecksum> {
         self.items
             .iter()
-            .find(|&o| {
-                o.os == target_os
-                    && o.arch == target_arch
-                    && (o.endianness.is_none() || o.endianness == Some(target_endian))
-            })
-            .map(|o| UrlAndChecksum {
-                url: o.url(),
-                checksum: o.checksum.to_owned(),
-            })
+            .find(|o| o.matches_target(target))
+            .map(|o| o.url_and_checksum())
     }
 }
-
-/*fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use std::fs::File;
-    use std::io::Write;
-
-    let items = SHA256SUMS
-        .lines()
-        .filter(|&s| !s.is_empty())
-        .map(str::trim)
-        .map(|o| {
-            let item = FileItem::parse(o);
-            if item.is_none() {
-                eprintln!("invalid line '{}'", o);
-            }
-            item
-        })
-        .filter_map(|o| o);
-
-    let urls_file = format!("{}/urls.rs", env!("CARGO_MANIFEST_DIR"));
-
-    {
-        let mut f = File::create(&urls_file)?;
-        writeln!(f, "pub fn url(os: &str, arch: &str, endian: &str) -> Option<(&'static str, &'static str)> {{ match (os, arch, endian) {{")?;
-        for item in items {
-            writeln!(
-                f,
-                r#"("{}", "{}", {}) => Some(("{}", "{}")),"#,
-                item.os,
-                item.arch,
-                item.endianness
-                    .map(|s| format!(r#""{}""#, s))
-                    .unwrap_or_else(|| "_".to_string()),
-                item.url(),
-                item.checksum
-            )?;
-        }
-        writeln!(f, "_ => None }} }}")?;
-    }
-
-    std::process::Command::new("rustfmt")
-        .arg(&urls_file)
-        .spawn()?
-        .wait()?;
-
-    Ok(())
-}
-*/

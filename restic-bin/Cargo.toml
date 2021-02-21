@@ -5,6 +5,14 @@ authors = ["Felix Krull <f_krull@gmx.de>"]
 edition = "2018"
 
 [dependencies]
+bzip2 = { version = "0.4.1", optional = true }
+hex = { version = "0.4.2", optional = true }
+sha2 = { version = "0.9.2", optional = true }
+tempfile = { version = "3.1.0", optional = true }
+ureq = { version = "2.0.1", optional = true }
+zip = { version = "0.5.8", optional = true }
+log = { version = "0.4.14", optional = true }
+thiserror = "1.0.24"
 
-[build-dependencies]
-restic-bin-build = { path = "restic-bin-build" }
+[features]
+download = ["bzip2", "hex", "sha2", "tempfile", "ureq", "zip", "log"]

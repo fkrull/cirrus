@@ -384,6 +384,7 @@ dependencies = [
  "hostname",
  "log",
  "opener",
+ "restic-bin",
  "rpassword",
  "termcolor",
  "tokio",
@@ -2022,18 +2023,12 @@ dependencies = [
 name = "restic-bin"
 version = "0.1.0"
 dependencies = [
- "restic-bin-build",
-]
-
-[[package]]
-name = "restic-bin-build"
-version = "0.1.0"
-dependencies = [
  "bzip2 0.4.2",
- "eyre",
  "hex",
+ "log",
  "sha2",
  "tempfile",
+ "thiserror",
  "ureq",
  "zip",
 ]

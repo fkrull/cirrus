@@ -269,6 +269,8 @@ checksum = "63396b8a4b9de3f4fdfb320ab6080762242f66a8ef174c49d8e19b674db4cdbe"
 name = "bundled-exe"
 version = "0.1.0"
 dependencies = [
+ "hex",
+ "sha2",
  "tempfile",
  "thiserror",
 ]

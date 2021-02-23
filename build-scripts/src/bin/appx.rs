@@ -26,7 +26,7 @@ fn main() -> eyre::Result<()> {
 
     // compile cirrus
     cmd!("cargo build --release --features=desktop --target={target}").run()?;
-    cmd!("cargo build --release --package=cirrus-windows-wrapper --target={target}").run()?;
+    cmd!("cargo build --release --package=cirrus-gui --target={target}").run()?;
 
     rm_rf("target/appx")?;
     mkdir_p("target/appx")?;
@@ -35,8 +35,8 @@ fn main() -> eyre::Result<()> {
         "target/appx/cirrus.exe",
     )?;
     cp(
-        format!("target/{}/release/cirrus-windows-wrapper.exe", args.target),
-        "target/appx/cirrus-windows-wrapper.exe",
+        format!("target/{}/release/cirrus-gui.exe", args.target),
+        "target/appx/cirrus-gui.exe",
     )?;
 
     // download restic

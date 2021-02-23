@@ -266,24 +266,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63396b8a4b9de3f4fdfb320ab6080762242f66a8ef174c49d8e19b674db4cdbe"
 
 [[package]]
-name = "bundled-exe"
-version = "0.1.0"
-dependencies = [
- "hex",
- "sha2",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "bundled-restic"
-version = "0.1.0"
-dependencies = [
- "bundled-exe",
- "restic-bin",
-]
-
-[[package]]
 name = "byteorder"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -387,7 +369,6 @@ dependencies = [
 name = "cirrus"
 version = "0.1.0"
 dependencies = [
- "bundled-restic",
  "cirrus-actor",
  "cirrus-core",
  "cirrus-daemon",

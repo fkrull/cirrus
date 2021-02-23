@@ -11,14 +11,6 @@ async fn data_dir() -> eyre::Result<PathBuf> {
     Ok(data_dir)
 }
 
-async fn cache_dir() -> eyre::Result<PathBuf> {
-    let cache_dir = dirs::cache_dir()
-        .ok_or_else(|| eyre::eyre!("failed to get cache dir path"))?
-        .join("cirrus");
-    tokio::fs::create_dir_all(&cache_dir).await?;
-    Ok(cache_dir)
-}
-
 async fn setup_logger() -> eyre::Result<()> {
     use tracing::Level;
     use tracing_subscriber::{
@@ -78,20 +70,10 @@ async fn main() -> eyre::Result<()> {
 
     let config = load_config(&args).await?;
 
-    #[cfg(feature = "bundled-restic")]
-    let (restic_binary, _bundled_restic) = if let Some(restic_binary) = args.restic_binary {
-        (restic_binary, None)
-    } else {
-        let bundled_restic = bundled_restic::bundled_restic(cache_dir().await?)?;
-        (bundled_restic.path().to_owned(), Some(bundled_restic))
-    };
-
-    #[cfg(not(feature = "bundled-restic"))]
-    let restic_binary = args
-        .restic_binary
-        .unwrap_or_else(|| PathBuf::from("restic"));
-
-    let restic = Restic::new(restic_binary);
+    let restic = Restic::new(
+        args.restic_binary
+            .unwrap_or_else(|| PathBuf::from("restic")),
+    );
     let secrets = Secrets;
 
     match args.subcommand {

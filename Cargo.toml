@@ -13,8 +13,6 @@ members = [
     "cirrus-windows-wrapper",
     "build-scripts",
     "restic-bin",
-    "bundled-exe",
-    "bundled-restic",
 ]
 
 [dependencies]
@@ -35,7 +33,6 @@ dirs-next = "2.0.0"
 tracing = "0.1.23"
 tracing-subscriber = { version = "0.2.15", default-features = false, features = ["fmt", "ansi", "registry", "chrono", "tracing-log"] }
 tracing-appender = "0.1.2"
-bundled-restic = { path = "bundled-restic", optional = true }
 
 [dependencies.tokio]
 version = "1.0.0"

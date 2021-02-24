@@ -18,14 +18,20 @@ pub(crate) struct Model {
     config: Arc<model::Config>,
     job_sink: Messages<job::Job>,
     running_jobs: HashMap<job::Id, job::Job>,
+    restic_version_string: String,
 }
 
 impl Model {
-    pub(crate) fn new(config: Arc<model::Config>, job_sink: Messages<job::Job>) -> Self {
+    pub(crate) fn new(
+        config: Arc<model::Config>,
+        job_sink: Messages<job::Job>,
+        restic_version_string: String,
+    ) -> Self {
         Model {
             config,
             job_sink,
             running_jobs: HashMap::new(),
+            restic_version_string,
         }
     }
 
@@ -114,6 +120,10 @@ impl Model {
 
     fn backups(&self) -> impl Iterator<Item = &model::backup::Name> + '_ {
         self.config.backups.iter().map(|(name, _)| name)
+    }
+
+    fn restic_version_string(&self) -> &str {
+        self.restic_version_string.as_str()
     }
 }
 

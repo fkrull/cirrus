@@ -121,6 +121,17 @@ impl ksni::Tray for super::Model {
             }
             .into(),
             MenuItem::Sepatator,
+            SubMenu {
+                label: "About".to_string(),
+                submenu: vec![StandardItem {
+                    label: self.restic_version_string().to_string(),
+                    enabled: false,
+                    ..Default::default()
+                }
+                .into()],
+                ..Default::default()
+            }
+            .into(),
             StandardItem {
                 label: "Exit".to_owned(),
                 activate: Box::new(|this: &mut super::Model| {

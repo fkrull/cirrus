@@ -34,11 +34,11 @@ fn main() -> eyre::Result<()> {
 
     // compile cirrus
     {
-        let _e = if args.rust_lld {
-            pushenv("RUSTFLAGS", "-Clinker=rust-lld")
-        } else {
-            pushenv("RUSTFLAGS", "")
-        };
+        let mut rustflags = std::env::var_os("RUSTFLAGS").unwrap_or_default();
+        if args.rust_lld {
+            rustflags.push(" -Clinker=rust-lld");
+        }
+        let _e = pushenv("RUSTFLAGS", rustflags);
 
         let features = args.features;
         cmd!("cargo build --release --target={target} --features={features}").run()?;

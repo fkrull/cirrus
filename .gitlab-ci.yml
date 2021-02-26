@@ -109,6 +109,19 @@ server:linux:armv7:
     QEMU_BINARY: /usr/bin/qemu-arm-static
     TAG: ${CI_COMMIT_REF_NAME}-linux-arm32v7
 
+server:linux:aarch64:
+  extends: .server
+  stage: package
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
+      allow_failure: true
+  variables:
+    TARGET: aarch64-unknown-linux-musl
+    QEMU_BINARY: /usr/bin/qemu-aarch64-static
+    TAG: ${CI_COMMIT_REF_NAME}-linux-arm64v8
+
 server:manifest-list:
   stage: manifest-list
   rules:
@@ -120,6 +133,7 @@ server:manifest-list:
     - buildah manifest create cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-amd64
       docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-arm32v7
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-arm64v8
     - buildah manifest push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list

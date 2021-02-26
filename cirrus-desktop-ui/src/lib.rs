@@ -3,7 +3,6 @@ use cirrus_core::model::Config;
 use cirrus_daemon::{configreload::ConfigReload, daemon_config::DaemonConfig, job};
 use std::sync::Arc;
 
-mod notifications;
 mod status_icon;
 
 #[derive(Debug)]
@@ -11,7 +10,6 @@ pub struct DesktopUi {
     config: Arc<Config>,
     daemon_config: Arc<DaemonConfig>,
     job_sink: Messages<job::Job>,
-    notifications: notifications::Notifications,
     status_icon: Option<status_icon::StatusIcon>,
 }
 
@@ -30,7 +28,6 @@ impl DesktopUi {
             config,
             daemon_config,
             job_sink,
-            notifications: notifications::Notifications::new()?,
             status_icon,
         })
     }
@@ -38,25 +35,16 @@ impl DesktopUi {
     fn handle_job_status_change(&mut self, ev: job::StatusChange) -> eyre::Result<()> {
         match ev.new_status {
             job::Status::Started => {
-                if self.daemon_config.desktop.notifications.started {
-                    self.notifications.job_started(&ev.job)?;
-                }
                 if let Some(status_icon) = &mut self.status_icon {
                     status_icon.job_started(&ev.job)?;
                 }
             }
             job::Status::FinishedSuccessfully => {
-                if self.daemon_config.desktop.notifications.success {
-                    self.notifications.job_succeeded(&ev.job)?;
-                }
                 if let Some(status_icon) = &mut self.status_icon {
                     status_icon.job_succeeded(&ev.job)?;
                 }
             }
             job::Status::FinishedWithError => {
-                if self.daemon_config.desktop.notifications.failure {
-                    self.notifications.job_failed(&ev.job)?;
-                }
                 if let Some(status_icon) = &mut self.status_icon {
                     status_icon.job_failed(&ev.job)?;
                 }

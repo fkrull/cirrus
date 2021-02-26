@@ -43,6 +43,7 @@ RUN mkdir sccache && \
     curl -L -o sccache.tgz $SCCACHE_URL && \
     echo "$SCCACHE_SHA256 *sccache.tgz" | sha256sum -c && \
     tar -C /usr/bin/ -xz -f sccache.tgz --wildcards --strip-components=1 '*/sccache' && \
+    chmod 0755 /usr/bin/sccache && \
     cd .. && \
     rm -rf sccache
 

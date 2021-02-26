@@ -13,9 +13,9 @@ struct Args {
     /// include cirrus-gui binary
     #[argh(switch)]
     cirrus_gui: bool,
-    /// use rust-lld instead of the system linker
-    #[argh(switch)]
-    rust_lld: bool,
+    /// linker to use
+    #[argh(option)]
+    linker: Option<String>,
 }
 
 #[cfg(windows)]
@@ -35,8 +35,9 @@ fn main() -> eyre::Result<()> {
     // compile cirrus
     {
         let mut rustflags = std::env::var_os("RUSTFLAGS").unwrap_or_default();
-        if args.rust_lld {
-            rustflags.push(" -Clinker=rust-lld");
+        if let Some(linker) = &args.linker {
+            rustflags.push(" -Clinker=");
+            rustflags.push(linker);
         }
         let _e = pushenv("RUSTFLAGS", rustflags);
 

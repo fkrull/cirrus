@@ -455,7 +455,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cirrus-windows-wrapper"
+name = "cirrus-gui"
 version = "0.1.0"
 dependencies = [
  "winapi 0.3.9",

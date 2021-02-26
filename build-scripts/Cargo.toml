@@ -6,8 +6,11 @@ edition = "2018"
 
 [dependencies]
 argh = "0.1.4"
+bzip2 = "0.4.2"
 eyre = "0.6.3"
 restic-bin = { path = "../restic-bin", features = ["download"] }
+tar = "0.4.33"
 target-lexicon = "0.11.2"
 tempfile = "3.2.0"
 xshell = "0.1.8"
+zip = "0.5.10"

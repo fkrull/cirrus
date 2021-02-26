@@ -1,5 +1,23 @@
 use restic_bin::restic_filename;
+use std::str::FromStr;
 use xshell::*;
+
+enum Package {
+    Zip,
+    TarBz2,
+}
+
+impl FromStr for Package {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "zip" => Ok(Package::Zip),
+            "tbz" | "tarbz2" => Ok(Package::TarBz2),
+            _ => eyre::bail!("invalid package type"),
+        }
+    }
+}
 
 /// Build a container image.
 #[derive(argh::FromArgs)]
@@ -16,6 +34,9 @@ struct Args {
     /// linker to use
     #[argh(option)]
     linker: Option<String>,
+    /// package type to create
+    #[argh(option)]
+    package: Option<Package>,
 }
 
 fn main() -> eyre::Result<()> {
@@ -24,7 +45,8 @@ fn main() -> eyre::Result<()> {
     let bin_ext = build_scripts::bin_ext(&target)?;
 
     // create package dir
-    let package_dir = format!("target/package-{}", target);
+    let name = format!("cirrus-{}", target);
+    let package_dir = format!("target/{}", name);
     mkdir_p(&package_dir)?;
 
     // compile cirrus
@@ -59,5 +81,70 @@ fn main() -> eyre::Result<()> {
         format!("{}/{}", package_dir, restic_filename(&target)),
     )?;
 
+    // build package
+    match args.package {
+        Some(Package::Zip) => package_zip(&package_dir, &format!("target/{}.zip", name))?,
+        Some(Package::TarBz2) => {
+            package_tar_bz2(&package_dir, &format!("target/{}.tar.bz2", name))?
+        }
+        None => {}
+    }
+
+    Ok(())
+}
+
+fn package_zip(dir: &str, dest: &str) -> eyre::Result<()> {
+    use std::{
+        fs::{read_dir, File},
+        io::copy,
+    };
+    use zip::{write::FileOptions, write::ZipWriter};
+
+    let mut zip = ZipWriter::new(File::create(dest)?);
+
+    for entry in read_dir(dir)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_file() {
+            continue;
+        }
+
+        let mut f = File::open(entry.path())?;
+        zip.start_file(
+            entry
+                .file_name()
+                .to_str()
+                .ok_or_else(|| eyre::eyre!("non-UTF8 file name"))?,
+            FileOptions::default().unix_permissions(0o755),
+        )?;
+        copy(&mut f, &mut zip)?;
+    }
+
+    zip.finish()?;
+    Ok(())
+}
+
+fn package_tar_bz2(dir: &str, dest: &str) -> eyre::Result<()> {
+    use std::fs::{read_dir, File};
+
+    let mut tar = tar::Builder::new(bzip2::write::BzEncoder::new(
+        File::create(dest)?,
+        bzip2::Compression::best(),
+    ));
+
+    for entry in read_dir(dir)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_file() {
+            continue;
+        }
+
+        let f = File::open(entry.path())?;
+        let mut header = tar::Header::new_gnu();
+        header.set_size(f.metadata()?.len());
+        header.set_mode(0o755);
+        header.set_cksum();
+        tar.append_data(&mut header, entry.file_name(), f)?;
+    }
+
+    tar.finish()?;
     Ok(())
 }

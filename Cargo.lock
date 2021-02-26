@@ -224,11 +224,14 @@ name = "build-scripts"
 version = "0.1.0"
 dependencies = [
  "argh",
+ "bzip2 0.4.2",
  "eyre",
  "restic-bin",
+ "tar",
  "target-lexicon",
  "tempfile",
  "xshell",
+ "zip",
 ]
 
 [[package]]
@@ -2230,6 +2233,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tar"
+version = "0.4.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0bcfbd6a598361fda270d82469fff3d65089dc33e175c9a131f7b4cd395f228"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
+]
+
+[[package]]
 name = "target-lexicon"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2846,6 +2860,15 @@ dependencies = [
  "libc",
  "maybe-uninit",
  "pkg-config",
+]
+
+[[package]]
+name = "xattr"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "244c3741f4240ef46274860397c7c74e50eb23624996930e484c16679633a54c"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

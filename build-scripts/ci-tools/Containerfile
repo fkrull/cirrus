@@ -1,4 +1,4 @@
-FROM centos:8
+FROM fedora:33
 RUN dnf install -y \
       # baseline tools
       curl \
@@ -12,8 +12,9 @@ RUN dnf install -y \
       buildah \
       skopeo \
 
-      # tool dependencies
-      openssl-devel \
+      # crossbuild tools
+      mingw64-gcc \
+      mingw64-winpthreads-static \
 
       # cirrus build dependencies
       dbus-devel \
@@ -34,8 +35,8 @@ RUN bash /install-qemu.sh $QEMU_AARCH64_URL $QEMU_AARCH64_SHA256 /usr/bin/qemu-a
 RUN rm /install-qemu.sh
 
 # sccache
-ENV SCCACHE_URL=https://github.com/mozilla/sccache/releases/download/0.2.13/sccache-0.2.13-x86_64-unknown-linux-musl.tar.gz
-ENV SCCACHE_SHA256=28a5499e340865b08b632306b435913beb590fbd7b49a3f887a623b459fabdeb
+ENV SCCACHE_URL=https://github.com/mozilla/sccache/releases/download/v0.2.15/sccache-v0.2.15-x86_64-unknown-linux-musl.tar.gz
+ENV SCCACHE_SHA256=e5d03a9aa3b9fac7e490391bbe22d4f42c840d31ef9eaf127a03101930cbb7ca
 
 RUN mkdir sccache && \
     cd sccache && \
@@ -46,7 +47,7 @@ RUN mkdir sccache && \
     rm -rf sccache
 
 # Rust
-ENV RUST_VERSION=1.47.0
+ENV RUST_VERSION=1.50.0
 RUN curl https://sh.rustup.rs -sSf | \
     CARGO_HOME=/usr/local/cargo sh -s -- -y --profile default --no-modify-path --default-toolchain $RUST_VERSION
 ENV PATH=/usr/local/cargo/bin:$PATH

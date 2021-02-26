@@ -1,5 +1,17 @@
-use std::path::Path;
+use std::{path::Path, str::FromStr};
+use target_lexicon::{OperatingSystem, Triple};
 use xshell::*;
+
+pub fn bin_ext(target: &str) -> eyre::Result<&'static str> {
+    let bin_ext = match Triple::from_str(target)
+        .map_err(|e| eyre::eyre!("{}", e))?
+        .operating_system
+    {
+        OperatingSystem::Windows => ".exe",
+        _ => "",
+    };
+    Ok(bin_ext)
+}
 
 pub fn restic(target: &str, dest_file: &str) -> eyre::Result<()> {
     let target = restic_bin::TargetConfig::from_triple(target)?;

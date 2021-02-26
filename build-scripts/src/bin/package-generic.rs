@@ -18,15 +18,10 @@ struct Args {
     linker: Option<String>,
 }
 
-#[cfg(windows)]
-const BIN_EXT: &str = ".exe";
-
-#[cfg(not(windows))]
-const BIN_EXT: &str = "";
-
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
     let target = args.target;
+    let bin_ext = build_scripts::bin_ext(&target)?;
 
     // create package dir
     let package_dir = format!("target/package-{}", target);
@@ -44,15 +39,15 @@ fn main() -> eyre::Result<()> {
         let features = args.features;
         cmd!("cargo build --release --target={target} --features={features}").run()?;
         cp(
-            format!("target/{}/release/cirrus{}", target, BIN_EXT),
-            format!("{}/cirrus{}", package_dir, BIN_EXT),
+            format!("target/{}/release/cirrus{}", target, bin_ext),
+            format!("{}/cirrus{}", package_dir, bin_ext),
         )?;
 
         if args.cirrus_gui {
             cmd!("cargo build --package=cirrus-gui --release --target={target}").run()?;
             cp(
-                format!("target/{}/release/cirrus-gui{}", target, BIN_EXT),
-                format!("{}/cirrus-gui{}", package_dir, BIN_EXT),
+                format!("target/{}/release/cirrus-gui{}", target, bin_ext),
+                format!("{}/cirrus-gui{}", package_dir, bin_ext),
             )?;
         }
     }

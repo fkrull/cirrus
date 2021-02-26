@@ -255,6 +255,7 @@ dependencies = [
  "argh",
  "eyre",
  "restic-bin",
+ "target-lexicon",
  "tempfile",
  "xshell",
 ]

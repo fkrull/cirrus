@@ -41,4 +41,6 @@ fn set_permissions(path: &Path) -> Result<(), std::io::Error> {
 }
 
 #[cfg(not(unix))]
-fn set_permissions(_path: &Path) {}
+fn set_permissions(_path: &Path) -> Result<(), std::io::Error> {
+    Ok(())
+}

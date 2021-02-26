@@ -2,6 +2,7 @@ use restic_bin::restic_filename;
 use std::str::FromStr;
 use xshell::*;
 
+#[derive(Debug)]
 enum Package {
     Zip,
     TarBz2,
@@ -25,6 +26,9 @@ struct Args {
     /// rust target triple
     #[argh(option)]
     target: String,
+    /// package version specifier
+    #[argh(option)]
+    version: String,
     /// cargo features for cirrus
     #[argh(option, default = "String::new()")]
     features: String,
@@ -45,7 +49,7 @@ fn main() -> eyre::Result<()> {
     let bin_ext = build_scripts::bin_ext(&target)?;
 
     // create package dir
-    let name = format!("cirrus-{}", target);
+    let name = format!("cirrus_{}_{}", args.version, target);
     let package_dir = format!("target/{}", name);
     mkdir_p(&package_dir)?;
 
@@ -82,12 +86,13 @@ fn main() -> eyre::Result<()> {
     )?;
 
     // build package
-    match args.package {
-        Some(Package::Zip) => package_zip(&package_dir, &format!("target/{}.zip", name))?,
-        Some(Package::TarBz2) => {
-            package_tar_bz2(&package_dir, &format!("target/{}.tar.bz2", name))?
+    if let Some(package) = args.package {
+        mkdir_p("public")?;
+        println!("Building package with type {:?}", package);
+        match package {
+            Package::Zip => package_zip(&package_dir, &format!("public/{}.zip", name))?,
+            Package::TarBz2 => package_tar_bz2(&package_dir, &format!("public/{}.tar.bz2", name))?,
         }
-        None => {}
     }
 
     Ok(())

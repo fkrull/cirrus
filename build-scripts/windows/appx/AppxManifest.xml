@@ -30,7 +30,7 @@
 
     <Applications>
         <Application Id="cirrus"
-                     Executable="cirrus-windows-wrapper.exe"
+                     Executable="cirrus-gui.exe"
                      EntryPoint="Windows.FullTrustApplication">
             <uap:VisualElements DisplayName="Cirrus"
                                 Description="A configuration-driven backup program"
@@ -48,7 +48,7 @@
                 </uap3:Extension>
 
                 <desktop:Extension Category="windows.startupTask"
-                                   Executable="cirrus-windows-wrapper.exe"
+                                   Executable="cirrus-gui.exe"
                                    EntryPoint="Windows.FullTrustApplication">
                     <desktop:StartupTask
                             TaskId="Cirrus"

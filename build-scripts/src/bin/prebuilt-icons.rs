@@ -3,8 +3,6 @@ use xshell::*;
 
 fn main() -> eyre::Result<()> {
     status_icons()?;
-    xdg_icons()?;
-
     Ok(())
 }
 
@@ -25,20 +23,6 @@ fn status_icons() -> eyre::Result<()> {
             pngs.push(png);
         }
         cmd!("convert {pngs...} cirrus-desktop-ui/src/resources/{name}.ico").run()?;
-    }
-
-    Ok(())
-}
-
-fn xdg_icons() -> eyre::Result<()> {
-    let app_id = "io.gitlab.fkrull.cirrus.Cirrus";
-
-    for &size in &[16, 24, 32, 48, 64, 128, 256] {
-        let png = format!(
-            "build-scripts/unix/icons/hicolor/{}x{}/apps/{}.png",
-            size, size, app_id
-        );
-        export_merged_png("icons/app-icon.svg", png, size, &["icon"])?;
     }
 
     Ok(())

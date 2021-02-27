@@ -17,8 +17,7 @@ fn main() -> eyre::Result<()> {
     let target = args.target;
 
     // compile cirrus
-    cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --version serverbuild --features '' --linker rust-lld").run()?;
-    let package_dir = format!("target/cirrus_serverbuild_{}", target);
+    cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --features '' --linker rust-lld").run()?;
 
     // build container image
     let base_image = base_image(&target)?;
@@ -32,8 +31,7 @@ fn main() -> eyre::Result<()> {
     )?;
     buildah_run(&ctr, qemu.as_ref(), "mkdir -p /cache /config/cirrus")?;
 
-    cmd!("chmod 0755 {package_dir}/restic {package_dir}/cirrus").run()?;
-    cmd!("buildah copy {ctr} {package_dir}/restic {package_dir}/cirrus /usr/bin/").run()?;
+    cmd!("buildah copy {ctr} target/package/restic target/package/cirrus /usr/bin/").run()?;
     cmd!("buildah config --env XDG_CONFIG_HOME=/config {ctr}").run()?;
     cmd!("buildah config --env XDG_DATA_HOME=/data/data {ctr}").run()?;
     cmd!("buildah config --env XDG_CACHE_HOME=/data/cache {ctr}").run()?;

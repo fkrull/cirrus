@@ -26,9 +26,9 @@ struct Args {
     /// rust target triple
     #[argh(option)]
     target: String,
-    /// package version specifier
-    #[argh(option)]
-    version: String,
+    /// package name, defaults to "package"
+    #[argh(option, default = r#"String::from("package")"#)]
+    package_name: String,
     /// cargo features for cirrus
     #[argh(option, default = "String::new()")]
     features: String,
@@ -49,8 +49,7 @@ fn main() -> eyre::Result<()> {
     let bin_ext = build_scripts::bin_ext(&target)?;
 
     // create package dir
-    let name = format!("cirrus_{}_{}", args.version, target);
-    let package_dir = format!("target/{}", name);
+    let package_dir = format!("target/{}", args.package_name);
     mkdir_p(&package_dir)?;
 
     // compile cirrus
@@ -90,8 +89,13 @@ fn main() -> eyre::Result<()> {
         mkdir_p("public")?;
         println!("Building package with type {:?}", package);
         match package {
-            Package::Zip => package_zip(&package_dir, &format!("public/{}.zip", name))?,
-            Package::TarBz2 => package_tar_bz2(&package_dir, &format!("public/{}.tar.bz2", name))?,
+            Package::Zip => {
+                package_zip(&package_dir, &format!("public/{}.zip", args.package_name))?
+            }
+            Package::TarBz2 => package_tar_bz2(
+                &package_dir,
+                &format!("public/{}.tar.bz2", args.package_name),
+            )?,
         }
     }
 

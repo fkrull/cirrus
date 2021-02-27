@@ -25,10 +25,10 @@ fn main() -> eyre::Result<()> {
     let target = args.target.as_str();
 
     // compile cirrus
-    cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --version appxbuild --features desktop --cirrus-gui").run()?;
+    cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --features desktop --cirrus-gui").run()?;
 
     // copy files
-    for path in read_dir(format!("target/cirrus_appxbuild_{}", target))? {
+    for path in read_dir(format!("target/package"))? {
         cp(&path, "target/appx/")?;
     }
 

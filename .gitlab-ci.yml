@@ -175,8 +175,8 @@ pages:
     - sccache --start-server
     - cargo run -p build-scripts --bin package-generic --
       --target ${TARGET}
-      --version ${VERSION}
       --features desktop
+      --package-name cirrus-desktop_${VERSION}_${TARGET}
       --package ${PACKAGE}
       ${ARGS}
     - sccache --show-stats

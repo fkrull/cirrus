@@ -45,8 +45,8 @@ test:
     - sccache --show-stats
 
 # package steps
-generic:linux:x86_64:
-  extends: .generic
+desktop:linux:x86_64:
+  extends: .desktop
   stage: package
   rules:
     - if: $CI_COMMIT_TAG
@@ -58,8 +58,8 @@ generic:linux:x86_64:
     PACKAGE: tarbz2
     VERSION: ${CI_COMMIT_REF_NAME}
 
-generic:windows:x86_64:
-  extends: .generic
+desktop:windows:x86_64:
+  extends: .desktop
   stage: package
   rules:
     - if: $CI_COMMIT_TAG
@@ -153,8 +153,8 @@ pages:
 
 
 # ----
-# build generic binary package
-.generic:
+# build desktop binary package
+.desktop:
   before_script:
     - rustup target add ${TARGET}
   script:

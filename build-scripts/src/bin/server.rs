@@ -7,9 +7,9 @@ struct Args {
     /// rust compile target
     #[argh(option)]
     target: String,
-    /// QEMU binary (must support --execve flag), may be empty
+    /// QEMU binary (must support --execve flag)
     #[argh(option)]
-    qemu_binary: String,
+    qemu_binary: Option<String>,
 }
 
 fn main() -> eyre::Result<()> {
@@ -22,20 +22,27 @@ fn main() -> eyre::Result<()> {
         cmd!("cargo build --release --target={target}").run()?;
     }
 
-    // download restic
-    build_scripts::restic(&target, "target/restic")?;
+    // get restic
+    let target_config = restic_bin::TargetConfig::from_triple(&target)?;
+    restic_bin::download(
+        &target_config,
+        format!("target/{}", restic_bin::restic_filename(&target_config)),
+    )?;
 
     // build container image
     let base_image = base_image(&target)?;
     let ctr = cmd!("buildah from {base_image}").read()?;
 
-    let qemu = Some(args.qemu_binary).filter(|s| !s.is_empty());
     buildah_run(
         &ctr,
-        qemu.as_ref(),
+        args.qemu_binary.as_ref(),
         "apk add --no-cache ca-certificates openssh-client",
     )?;
-    buildah_run(&ctr, qemu.as_ref(), "mkdir -p /cache /config/cirrus")?;
+    buildah_run(
+        &ctr,
+        args.qemu_binary.as_ref(),
+        "mkdir -p /cache /config/cirrus",
+    )?;
 
     cmd!("chmod 0755 target/restic target/{target}/release/cirrus").run()?;
     cmd!("buildah copy {ctr} target/restic target/{target}/release/cirrus /usr/bin/").run()?;
@@ -53,6 +60,7 @@ fn base_image(target: &str) -> eyre::Result<&str> {
     Ok(match target {
         "x86_64-unknown-linux-musl" => "amd64/alpine:3.12",
         "armv7-unknown-linux-musleabihf" => "arm32v7/alpine:3.12",
+        "aarch64-unknown-linux-musl" => "arm64v8/alpine:3.12",
         _ => eyre::bail!("unknown target {}", target),
     })
 }

@@ -9,29 +9,32 @@ struct Args {
     target: String,
     /// QEMU binary (must support --execve flag), may be empty
     #[argh(option)]
-    qemu_binary: String,
+    qemu_binary: Option<String>,
 }
 
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
     let target = args.target;
+    let qemu = args.qemu_binary.filter(|s| !s.is_empty());
 
     // compile cirrus
     cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --features '' --linker rust-lld").run()?;
 
-    // build container image
+    // initialise container image
     let base_image = base_image(&target)?;
     let ctr = cmd!("buildah from {base_image}").read()?;
 
-    let qemu = Some(args.qemu_binary).filter(|s| !s.is_empty());
+    // copy files
+    for path in read_dir("target/package")? {
+        cmd!("buildah copy --chown root:root {ctr} {path} /usr/bin/").run()?;
+    }
+
+    // setup image
     buildah_run(
         &ctr,
         qemu.as_ref(),
         "apk add --no-cache ca-certificates openssh-client",
     )?;
-    buildah_run(&ctr, qemu.as_ref(), "mkdir -p /cache /config/cirrus")?;
-
-    cmd!("buildah copy {ctr} target/package/restic target/package/cirrus /usr/bin/").run()?;
     cmd!("buildah config --env XDG_CONFIG_HOME=/config {ctr}").run()?;
     cmd!("buildah config --env XDG_DATA_HOME=/data/data {ctr}").run()?;
     cmd!("buildah config --env XDG_CACHE_HOME=/data/cache {ctr}").run()?;

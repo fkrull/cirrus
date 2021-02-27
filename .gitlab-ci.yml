@@ -72,18 +72,6 @@ desktop:windows:x86_64:
     VERSION: ${CI_COMMIT_REF_NAME}
     ARGS: --cirrus-gui
 
-appx:x86_64:
-  extends: .appx
-  stage: package
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
-  variables:
-    TARGET: x86_64-pc-windows-msvc
-    APPX_VERSION: ${CI_COMMIT_REF_NAME}
-
 server:linux:x86_64:
   extends: .server
   stage: package
@@ -214,38 +202,3 @@ server:publish:
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-server-image
       docker://registry.gitlab.com/fkrull/cirrus/server:${TAG}
-
-# build Windows appx package
-.appx:
-  tags:
-    - shared-windows
-    - windows
-    - windows-1809
-  before_script:
-    - choco install -y sccache
-    - Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
-    - $env:CARGO_HOME = "$env:USERPROFILE/.cargo"
-    - ./rustup-init.exe -y --default-host="$TARGET" --default-toolchain=stable --profile=minimal
-    - $env:CARGO_HOME = "${CI_PROJECT_DIR}/cargo"
-    - $env:PATH += ";$env:USERPROFILE/.cargo/bin"
-
-    - $sdkPath = (Get-ItemProperty "HKLM:\Software\Microsoft\Windows Kits\Installed Roots").KitsRoot10
-    - $latest = Get-ChildItem "$sdkPath\bin"
-      | Foreach-Object {$_.Name}
-      | Select-String "10.0"
-      | Sort-Object
-      | Select-Object -Last 1
-    - $env:PATH += ";$sdkPath\bin\$latest\x64"
-  script:
-    - $thumbprint = build-scripts\windows\import-base64-certificate.ps1 Cert:\LocalMachine\My
-    - sccache --start-server
-    - cargo run -p build-scripts --bin appx --
-      --target ${TARGET}
-      --version ${APPX_VERSION}
-      --cert-thumbprint $thumbprint
-      --use-system-cert-store
-    - sccache --show-stats
-  artifacts:
-    paths:
-      - public
-    expire_in: 1 day

@@ -3,8 +3,6 @@ use xshell::*;
 
 fn main() -> eyre::Result<()> {
     status_icons()?;
-    appx_44x44()?;
-    appx_150x150()?;
     xdg_icons()?;
 
     Ok(())
@@ -27,46 +25,6 @@ fn status_icons() -> eyre::Result<()> {
             pngs.push(png);
         }
         cmd!("convert {pngs...} cirrus-desktop-ui/src/resources/{name}.ico").run()?;
-    }
-
-    Ok(())
-}
-
-fn appx_44x44() -> eyre::Result<()> {
-    for &size in &[16, 24, 32, 48, 256] {
-        // plated
-        let png = format!(
-            "build-scripts/windows/appx/Square44x44Logo.targetsize-{}.png",
-            size
-        );
-        export_merged_png("icons/symbolic-icon.svg", png, size, &["light"])?;
-
-        // unplated dark
-        let png = format!(
-            "build-scripts/windows/appx/Square44x44Logo.targetsize-{}_altform-unplated.png",
-            size
-        );
-        export_merged_png("icons/symbolic-icon.svg", png, size, &["light"])?;
-
-        // unplated light
-        let png = format!(
-            "build-scripts/windows/appx/Square44x44Logo.targetsize-{}_altform-lightunplated.png",
-            size
-        );
-        export_merged_png("icons/symbolic-icon.svg", png, size, &["dark"])?;
-    }
-
-    Ok(())
-}
-
-fn appx_150x150() -> eyre::Result<()> {
-    for &scale in &[100, 200, 300, 400] {
-        let px = 150 * (scale / 100);
-        let png = format!(
-            "build-scripts/windows/appx/Square150x150Logo.scale-{}.png",
-            scale
-        );
-        export_merged_png("icons/windows-tile-square.svg", png, px, &["icon"])?;
     }
 
     Ok(())

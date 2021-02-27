@@ -46,7 +46,7 @@ struct Args {
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
     let target = args.target;
-    let bin_ext = build_scripts::bin_ext(&target)?;
+    let bin_ext = bin_ext(&target)?;
 
     // create package dir
     let package_dir = format!("target/{}", args.package_name);
@@ -101,6 +101,19 @@ fn main() -> eyre::Result<()> {
     }
 
     Ok(())
+}
+
+fn bin_ext(target: &str) -> eyre::Result<&'static str> {
+    use target_lexicon::{OperatingSystem, Triple};
+
+    let bin_ext = match Triple::from_str(target)
+        .map_err(|e| eyre::eyre!("{}", e))?
+        .operating_system
+    {
+        OperatingSystem::Windows => ".exe",
+        _ => "",
+    };
+    Ok(bin_ext)
 }
 
 fn package_zip(dir: &str, dest: &str) -> eyre::Result<()> {

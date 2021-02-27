@@ -20,7 +20,7 @@ impl FromStr for Package {
     }
 }
 
-/// Build a container image.
+/// Build a generic package.
 #[derive(argh::FromArgs)]
 struct Args {
     /// rust target triple

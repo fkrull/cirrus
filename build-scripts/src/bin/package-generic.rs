@@ -99,25 +99,17 @@ fn main() -> eyre::Result<()> {
 }
 
 fn package_zip(dir: &str, dest: &str) -> eyre::Result<()> {
-    use std::{
-        fs::{read_dir, File},
-        io::copy,
-    };
+    use std::{fs::File, io::copy};
     use zip::{write::FileOptions, write::ZipWriter};
 
     let mut zip = ZipWriter::new(File::create(dest)?);
 
     for entry in read_dir(dir)? {
-        let entry = entry?;
-        if !entry.file_type()?.is_file() {
-            continue;
-        }
-
-        let mut f = File::open(entry.path())?;
+        let mut f = File::open(&entry)?;
         zip.start_file(
             entry
                 .file_name()
-                .to_str()
+                .and_then(|f| f.to_str())
                 .ok_or_else(|| eyre::eyre!("non-UTF8 file name"))?,
             FileOptions::default().unix_permissions(0o755),
         )?;
@@ -129,7 +121,7 @@ fn package_zip(dir: &str, dest: &str) -> eyre::Result<()> {
 }
 
 fn package_tar_bz2(dir: &str, dest: &str) -> eyre::Result<()> {
-    use std::fs::{read_dir, File};
+    use std::fs::File;
 
     let mut tar = tar::Builder::new(bzip2::write::BzEncoder::new(
         File::create(dest)?,
@@ -137,17 +129,12 @@ fn package_tar_bz2(dir: &str, dest: &str) -> eyre::Result<()> {
     ));
 
     for entry in read_dir(dir)? {
-        let entry = entry?;
-        if !entry.file_type()?.is_file() {
-            continue;
-        }
-
-        let f = File::open(entry.path())?;
+        let f = File::open(&entry)?;
         let mut header = tar::Header::new_gnu();
         header.set_size(f.metadata()?.len());
         header.set_mode(0o755);
         header.set_cksum();
-        tar.append_data(&mut header, entry.file_name(), f)?;
+        tar.append_data(&mut header, entry.file_name().unwrap(), f)?;
     }
 
     tar.finish()?;

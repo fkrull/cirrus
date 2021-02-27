@@ -25,24 +25,13 @@ fn main() -> eyre::Result<()> {
     let target = args.target.as_str();
 
     // compile cirrus
-    cmd!("cargo build --release --features=desktop --target={target}").run()?;
-    cmd!("cargo build --release --package=cirrus-gui --target={target}").run()?;
-
-    rm_rf("target/appx")?;
-    mkdir_p("target/appx")?;
-    cp(
-        format!("target/{}/release/cirrus.exe", args.target),
-        "target/appx/cirrus.exe",
-    )?;
-    cp(
-        format!("target/{}/release/cirrus-gui.exe", args.target),
-        "target/appx/cirrus-gui.exe",
-    )?;
-
-    // download restic
-    build_scripts::restic(&target, "target/appx/restic.exe")?;
+    cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --version appxbuild --features desktop --cirrus-gui").run()?;
 
     // copy files
+    for path in read_dir(format!("target/cirrus_appxbuild_{}", target))? {
+        cp(&path, "target/appx/")?;
+    }
+
     for path in read_dir("build-scripts/windows/appx")? {
         cp(&path, "target/appx/")?;
     }

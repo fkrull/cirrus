@@ -13,12 +13,6 @@ pub fn bin_ext(target: &str) -> eyre::Result<&'static str> {
     Ok(bin_ext)
 }
 
-pub fn restic(target: &str, dest_file: &str) -> eyre::Result<()> {
-    let target = restic_bin::TargetConfig::from_triple(target)?;
-    restic_bin::download(&target, dest_file)?;
-    Ok(())
-}
-
 pub fn export_merged_png(
     svg: impl AsRef<Path>,
     png: impl AsRef<Path>,

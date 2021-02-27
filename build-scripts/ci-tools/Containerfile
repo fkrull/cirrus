@@ -1,4 +1,29 @@
+FROM debian:10 AS buildroots
+RUN dpkg --add-architecture armhf && \
+    dpkg --add-architecture arm64 && \
+    dpkg --add-architecture amd64 && \
+    apt-get update && \
+    apt-get install -y \
+        libc6-dev:armhf \
+        libgcc-8-dev:armhf \
+        libdbus-1-dev:armhf \
+        libc6-dev:arm64 \
+        libgcc-8-dev:arm64 \
+        libdbus-1-dev:arm64 \
+        libc6-dev:amd64 \
+        libgcc-8-dev:amd64 \
+        libdbus-1-dev:amd64 \
+        && \
+    rm -rf /var/lib/apt/lists
+
 FROM fedora:33
+COPY --from=buildroots /lib/arm-linux-gnueabihf /usr/lib/
+COPY --from=buildroots /usr/lib/arm-linux-gnueabihf /usr/lib/
+COPY --from=buildroots /lib/aarch64-linux-gnu /usr/lib/
+COPY --from=buildroots /usr/lib/aarch64-linux-gnu /usr/lib/
+COPY --from=buildroots /lib/x86_64-linux-gnu /usr/lib/
+COPY --from=buildroots /usr/lib/x86_64-linux-gnu /usr/lib/
+
 RUN dnf install -y \
       # baseline tools
       curl \
@@ -17,7 +42,7 @@ RUN dnf install -y \
       mingw64-winpthreads-static \
 
       # cirrus build dependencies
-      dbus-devel \
+      #dbus-devel \
       && \
     dnf clean all
 

@@ -19,7 +19,7 @@ stages:
   - tools
   - test
   - package
-  - manifest-list
+  - manifest
   - publish
 
 
@@ -122,8 +122,9 @@ server:linux:aarch64:
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
     TAG: ${CI_COMMIT_REF_NAME}-linux-arm64v8
 
-server:manifest-list:
-  stage: manifest-list
+# package manifests
+server:manifest:
+  stage: manifest
   rules:
     - if: $CI_COMMIT_TAG
       when: always
@@ -139,10 +140,29 @@ server:manifest-list:
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
 
+desktop:manifest:
+  stage: manifest
+  needs: [ "desktop:linux:x86_64", "desktop:windows:x86_64" ]
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: manual
+      allow_failure: true
+  script:
+    - cargo run -p build-scripts --bin package-manifest --
+      --package-dir public
+      --url-prefix https://gitlab.com/fkrull/cirrus/-/package_files/TODO/
+  variables:
+    VERSION: ${CI_COMMIT_REF_NAME}
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 day
+
 # publish
-publish:server:
+server:publish:
   stage: publish
-  needs: [ "server:manifest-list" ]
+  needs: [ "server:manifest" ]
   rules:
     - if: $CI_COMMIT_TAG
       when: always
@@ -153,17 +173,27 @@ publish:server:
       docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
 
-pages:
+desktop:publish:
   stage: publish
-  needs: [ "appx:x86_64" ]
+  needs: [ "desktop:manifest" ]
   rules:
     - if: $CI_COMMIT_TAG
       when: always
   script:
-    - cargo run -p build-scripts --bin publish-files
-  artifacts:
-    paths:
-      - public
+    - ls -lh public
+    - "false"
+
+#pages:
+#  stage: publish
+#  needs: [ "appx:x86_64" ]
+#  rules:
+#    - if: $CI_COMMIT_TAG
+#      when: always
+#  script:
+#    - cargo run -p build-scripts --bin publish-files
+#  artifacts:
+#    paths:
+#      - public
 
 
 # ----

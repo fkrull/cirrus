@@ -50,6 +50,7 @@ fn main() -> eyre::Result<()> {
 
     // create package dir
     let package_dir = format!("target/{}", args.package_name);
+    rm_rf(&package_dir)?;
     mkdir_p(&package_dir)?;
 
     // compile cirrus

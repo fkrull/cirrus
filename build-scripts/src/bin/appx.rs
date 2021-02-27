@@ -28,7 +28,10 @@ fn main() -> eyre::Result<()> {
     cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --features desktop --cirrus-gui").run()?;
 
     // copy files
-    for path in read_dir(format!("target/package"))? {
+    rm_rf("target/appx")?;
+    mkdir_p("target/appx")?;
+
+    for path in read_dir("target/package")? {
         cp(&path, "target/appx/")?;
     }
 

@@ -1,12 +1,33 @@
 #![windows_subsystem = "windows"]
 
-use std::process::Command;
+use std::{ffi::OsString, path::PathBuf, process::Command};
 
-const CIRRUS_COMMAND: &str = "cirrus.exe";
+#[cfg(windows)]
+const BIN_EXT: &str = ".exe";
+
+#[cfg(not(windows))]
+const BIN_EXT: &str = "";
 
 fn main() {
-    let mut cmd = set_process_options(Command::new(CIRRUS_COMMAND));
+    let cirrus_command = current_exe_dir()
+        .map(|p| p.join(cirrus_exe()))
+        .unwrap_or_else(|| cirrus_exe().into());
+
+    let cmd = Command::new(cirrus_command);
+    let mut cmd = set_process_options(cmd);
     cmd.args(std::env::args_os().skip(1)).spawn().unwrap();
+}
+
+fn current_exe_dir() -> Option<PathBuf> {
+    let current_exe = std::env::current_exe().ok()?;
+    let dir = current_exe.parent()?;
+    Some(dir.to_owned())
+}
+
+fn cirrus_exe() -> OsString {
+    let mut name = OsString::from("cirrus");
+    name.push(BIN_EXT);
+    name
 }
 
 #[cfg(windows)]

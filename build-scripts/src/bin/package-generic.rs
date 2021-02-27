@@ -8,18 +8,6 @@ enum Package {
     TarBz2,
 }
 
-impl FromStr for Package {
-    type Err = eyre::Report;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "zip" => Ok(Package::Zip),
-            "tbz" | "tarbz2" => Ok(Package::TarBz2),
-            _ => eyre::bail!("invalid package type"),
-        }
-    }
-}
-
 /// Build a generic package.
 #[derive(argh::FromArgs)]
 struct Args {
@@ -101,6 +89,18 @@ fn main() -> eyre::Result<()> {
     }
 
     Ok(())
+}
+
+impl FromStr for Package {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "zip" => Ok(Package::Zip),
+            "tbz" | "tarbz2" => Ok(Package::TarBz2),
+            _ => eyre::bail!("invalid package type"),
+        }
+    }
 }
 
 fn bin_ext(target: &str) -> eyre::Result<&'static str> {

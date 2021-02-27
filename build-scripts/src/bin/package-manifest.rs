@@ -12,16 +12,6 @@ struct Args {
     url_prefix: String,
 }
 
-#[derive(serde::Serialize)]
-struct ManifestEntry {
-    url: String,
-    sha256: String,
-}
-
-#[derive(serde::Serialize)]
-#[serde(transparent)]
-struct Manifest(HashMap<String, ManifestEntry>);
-
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
 
@@ -42,6 +32,16 @@ fn main() -> eyre::Result<()> {
 
     Ok(())
 }
+
+#[derive(serde::Serialize)]
+struct ManifestEntry {
+    url: String,
+    sha256: String,
+}
+
+#[derive(serde::Serialize)]
+#[serde(transparent)]
+struct Manifest(HashMap<String, ManifestEntry>);
 
 fn manifest_entry(path: &Path, url_prefix: &str) -> eyre::Result<(String, ManifestEntry)> {
     let filename = path

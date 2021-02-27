@@ -12,7 +12,7 @@ members = [
     "cirrus-desktop-ui",
     "cirrus-gui",
     "build-scripts",
-    "restic-bin",
+    "build-scripts/restic-bin",
 ]
 
 [dependencies]

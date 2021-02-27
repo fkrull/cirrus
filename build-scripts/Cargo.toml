@@ -9,7 +9,7 @@ argh = "0.1.4"
 bzip2 = "0.4.2"
 eyre = "0.6.3"
 hex = "0.4.2"
-restic-bin = { path = "../restic-bin", features = ["download"] }
+restic-bin = { path = "restic-bin", features = ["download"] }
 serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0.63"
 sha2 = "0.9.3"

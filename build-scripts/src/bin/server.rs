@@ -7,9 +7,9 @@ struct Args {
     /// rust compile target
     #[argh(option)]
     target: String,
-    /// QEMU binary (must support --execve flag)
+    /// QEMU binary (must support --execve flag), may be empty
     #[argh(option)]
-    qemu_binary: Option<String>,
+    qemu_binary: String,
 }
 
 fn main() -> eyre::Result<()> {
@@ -33,16 +33,13 @@ fn main() -> eyre::Result<()> {
     let base_image = base_image(&target)?;
     let ctr = cmd!("buildah from {base_image}").read()?;
 
+    let qemu = Some(args.qemu_binary).filter(|s| !s.is_empty());
     buildah_run(
         &ctr,
-        args.qemu_binary.as_ref(),
+        qemu.as_ref(),
         "apk add --no-cache ca-certificates openssh-client",
     )?;
-    buildah_run(
-        &ctr,
-        args.qemu_binary.as_ref(),
-        "mkdir -p /cache /config/cirrus",
-    )?;
+    buildah_run(&ctr, qemu.as_ref(), "mkdir -p /cache /config/cirrus")?;
 
     cmd!("chmod 0755 target/restic target/{target}/release/cirrus").run()?;
     cmd!("buildah copy {ctr} target/restic target/{target}/release/cirrus /usr/bin/").run()?;

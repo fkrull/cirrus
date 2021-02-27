@@ -125,6 +125,10 @@ server:linux:aarch64:
 # package manifests
 server:manifest:
   stage: manifest
+  needs:
+    - server:linux:x86_64
+    - server:linux:armv7
+    - server:linux:aarch64
   rules:
     - if: $CI_COMMIT_TAG
       when: always
@@ -142,7 +146,9 @@ server:manifest:
 
 desktop:manifest:
   stage: manifest
-  needs: [ "desktop:linux:x86_64", "desktop:windows:x86_64" ]
+  needs:
+    - desktop:linux:x86_64
+    - desktop:windows:x86_64
   rules:
     - if: $CI_COMMIT_TAG
       when: always
@@ -162,7 +168,8 @@ desktop:manifest:
 # publish
 server:publish:
   stage: publish
-  needs: [ "server:manifest" ]
+  needs:
+    - server:manifest
   rules:
     - if: $CI_COMMIT_TAG
       when: always
@@ -175,7 +182,8 @@ server:publish:
 
 desktop:publish:
   stage: publish
-  needs: [ "desktop:manifest" ]
+  needs:
+    - desktop:manifest
   rules:
     - if: $CI_COMMIT_TAG
       when: always

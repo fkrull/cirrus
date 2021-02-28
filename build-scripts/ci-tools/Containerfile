@@ -21,7 +21,11 @@ RUN echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/so
 # crosscompile environments
 COPY cross-buildroot.sh /
 RUN apt-get update && \
-    apt-get install -y gcc-mingw-w64-x86-64 && \
+    apt-get install -y \
+        gcc-aarch64-linux-gnu \
+        gcc-arm-linux-gnueabihf \
+        gcc-mingw-w64-x86-64 \
+        && \
     bash /cross-buildroot.sh arm64 aarch64-linux-gnu aarch64-unknown-linux-gnu && \
     bash /cross-buildroot.sh armhf arm-linux-gnueabihf armv7-unknown-linux-gnueabihf && \
     bash /cross-buildroot.sh amd64 x86_64-linux-gnu x86_64-unknown-linux-gnu

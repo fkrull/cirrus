@@ -60,7 +60,7 @@ desktop:linux:x86_64:
     TARGET: x86_64-unknown-linux-gnu
     PACKAGE: tarbz2
     VERSION: ${CI_COMMIT_REF_NAME}
-    ARGS: "--rustflags '-Clinker=rust-lld -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu'"
+    PACKAGE_RUSTFLAGS: -Clinker=rust-lld -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu
 
 desktop:linux:armv7:
   extends: .desktop
@@ -74,7 +74,7 @@ desktop:linux:armv7:
     TARGET: armv7-unknown-linux-gnueabihf
     PACKAGE: tarbz2
     VERSION: ${CI_COMMIT_REF_NAME}
-    ARGS: "--rustflags '-Clinker=rust-lld -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf'"
+    PACKAGE_RUSTFLAGS: -Clinker=rust-lld -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf
 
 desktop:linux:aarch64:
   extends: .desktop
@@ -88,7 +88,7 @@ desktop:linux:aarch64:
     TARGET: aarch64-unknown-linux-gnu
     PACKAGE: tarbz2
     VERSION: ${CI_COMMIT_REF_NAME}
-    ARGS: "--rustflags '-Clinker=rust-lld -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu'"
+    PACKAGE_RUSTFLAGS: -Clinker=rust-lld -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu
 
 desktop:windows:x86_64:
   extends: .desktop
@@ -215,6 +215,7 @@ server:publish:
       --features desktop
       --package-name cirrus-desktop_${VERSION}_${TARGET}
       --package ${PACKAGE}
+      --rustflags "${PACKAGE_RUSTFLAGS}"
       ${ARGS}
     - sccache --show-stats
   artifacts:

@@ -1,4 +1,4 @@
-FROM debian:10
+FROM docker.io/library/debian:10
 # baseline tools
 RUN apt-get update && \
     apt-get install -y \

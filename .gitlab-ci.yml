@@ -32,9 +32,12 @@ tools:ci-tools-image:
     - dnf install -y buildah
   script:
     - buildah build-using-dockerfile
-      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-      -t docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
+      -t ci-tools
       build-scripts/ci-tools
+    - buildah push
+      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      ci-tools \
+      docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
 
 test:
   stage: test

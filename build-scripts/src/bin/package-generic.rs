@@ -23,9 +23,9 @@ struct Args {
     /// include cirrus-gui binary
     #[argh(switch)]
     cirrus_gui: bool,
-    /// linker to use
+    /// RUSTFLAGS to set for the build
     #[argh(option)]
-    linker: Option<String>,
+    rustflags: Option<String>,
     /// package type to create
     #[argh(option)]
     package: Option<Package>,
@@ -43,12 +43,11 @@ fn main() -> eyre::Result<()> {
 
     // compile cirrus
     {
-        let mut rustflags = std::env::var_os("RUSTFLAGS").unwrap_or_default();
-        if let Some(linker) = &args.linker {
-            rustflags.push(" -Clinker=");
-            rustflags.push(linker);
-        }
-        let _e = pushenv("RUSTFLAGS", rustflags);
+        let _e = if let Some(rustflags) = &args.rustflags {
+            Some(pushenv("RUSTFLAGS", rustflags))
+        } else {
+            None
+        };
 
         let features = args.features;
         cmd!("cargo build --release --target={target} --features={features}").run()?;

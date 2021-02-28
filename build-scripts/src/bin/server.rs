@@ -18,7 +18,7 @@ fn main() -> eyre::Result<()> {
     let qemu = args.qemu_binary.filter(|s| !s.is_empty());
 
     // compile cirrus
-    cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --features '' --linker rust-lld").run()?;
+    cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --features '' --rustflags '-Clinker=rust-lld'").run()?;
 
     // initialise container image
     let base_image = base_image(&target)?;

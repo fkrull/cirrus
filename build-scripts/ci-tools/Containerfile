@@ -1,34 +1,13 @@
-FROM debian:10 AS buildroots
-RUN dpkg --add-architecture armhf && \
-    dpkg --add-architecture arm64 && \
-    dpkg --add-architecture amd64 && \
+FROM debian:10
+RUN echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list && \
+    echo 'deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_10/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list && \
+    curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_10/Release.key | sudo apt-key add - && \
     apt-get update && \
+#    apt-get -y -t buster-backports install libseccomp2 && \
     apt-get install -y \
-        libc6-dev:armhf \
-        libgcc-8-dev:armhf \
-        libdbus-1-dev:armhf \
-        libc6-dev:arm64 \
-        libgcc-8-dev:arm64 \
-        libdbus-1-dev:arm64 \
-        libc6-dev:amd64 \
-        libgcc-8-dev:amd64 \
-        libdbus-1-dev:amd64 \
-        && \
-    rm -rf /var/lib/apt/lists
-
-FROM fedora:33
-COPY --from=buildroots /lib/arm-linux-gnueabihf /usr/lib/
-COPY --from=buildroots /usr/lib/arm-linux-gnueabihf /usr/lib/
-COPY --from=buildroots /lib/aarch64-linux-gnu /usr/lib/
-COPY --from=buildroots /usr/lib/aarch64-linux-gnu /usr/lib/
-COPY --from=buildroots /lib/x86_64-linux-gnu /usr/lib/
-COPY --from=buildroots /usr/lib/x86_64-linux-gnu /usr/lib/
-
-RUN dnf install -y \
       # baseline tools
+      build-essential \
       curl \
-      gcc \
-      glibc-devel \
       gzip \
       tar \
       unzip \
@@ -37,17 +16,19 @@ RUN dnf install -y \
       buildah \
       skopeo \
 
-      # crossbuild tools
-      mingw64-gcc \
-      mingw64-winpthreads-static \
-
-      # cirrus build dependencies
-      #dbus-devel \
+      # Windows crosscompile tools
+      gcc-mingw-w64-x86-64 \
       && \
     dnf clean all
 
+# crosscompile environments
+COPY cross-buildroot.sh /
+RUN bash /cross-buildroot.sh arm64 aarch64-unknown-linux-gnu && \
+    bash /cross-buildroot.sh armhf armv7-unknown-linux-gnueabihf && \
+    bash /cross-buildroot.sh amd64 x86_64-unknown-linux-gnu
+
 # qemu-user-static
-COPY install-qemu.sh /install-qemu.sh
+COPY install-qemu.sh /
 
 ENV QEMU_ARM_URL=https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-arm.tar.gz
 ENV QEMU_ARM_SHA256=ae0144b8b803ddb8620b7e6d5fd68e699a97e0e9c523d283ad54fcabc0e615f8
@@ -56,8 +37,6 @@ RUN bash /install-qemu.sh $QEMU_ARM_URL $QEMU_ARM_SHA256 /usr/bin/qemu-arm-stati
 ENV QEMU_AARCH64_URL=https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-aarch64.tar.gz
 ENV QEMU_AARCH64_SHA256=e98eed19f680ae0b7e5937204040653c3312ae414f89eaccddeeb706934a63e4
 RUN bash /install-qemu.sh $QEMU_AARCH64_URL $QEMU_AARCH64_SHA256 /usr/bin/qemu-aarch64-static
-
-RUN rm /install-qemu.sh
 
 # sccache
 ENV SCCACHE_URL=https://github.com/mozilla/sccache/releases/download/v0.2.15/sccache-v0.2.15-x86_64-unknown-linux-musl.tar.gz

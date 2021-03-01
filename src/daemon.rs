@@ -1,14 +1,59 @@
 use cirrus_actor::Messages;
 use cirrus_core::{model::Config, restic::Restic, restic_util, secrets::Secrets};
 use cirrus_daemon::*;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use tracing::{info, warn};
 
+async fn data_dir() -> eyre::Result<PathBuf> {
+    use dirs_next as dirs;
+
+    let data_dir = dirs::data_dir()
+        .ok_or_else(|| eyre::eyre!("failed to get data dir path"))?
+        .join("cirrus");
+    tokio::fs::create_dir_all(&data_dir).await?;
+    Ok(data_dir)
+}
+
+async fn setup_daemon_logger() -> eyre::Result<()> {
+    use tracing::Level;
+    use tracing_subscriber::{
+        filter::LevelFilter,
+        fmt::{format::FmtSpan, layer, time::ChronoLocal},
+        layer::SubscriberExt,
+        util::SubscriberInitExt,
+        Registry,
+    };
+
+    const TIME_FORMAT: &str = "%Y-%m-%d %H:%M:%S%Z";
+
+    let stdout_layer = layer()
+        .with_ansi(true)
+        .with_target(false)
+        .with_timer(ChronoLocal::with_format(String::from(TIME_FORMAT)));
+
+    let data_dir = data_dir().await?;
+    let file_layer = layer()
+        .with_ansi(false)
+        .with_span_events(FmtSpan::CLOSE)
+        .with_timer(ChronoLocal::with_format(String::from(TIME_FORMAT)))
+        .with_writer(move || tracing_appender::rolling::never(&data_dir, "cirrus.log"));
+
+    Registry::default()
+        .with(LevelFilter::from(Level::INFO))
+        .with(stdout_layer)
+        .with(file_layer)
+        .try_init()?;
+
+    Ok(())
+}
+
 pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Result<()> {
+    setup_daemon_logger().await?;
+
     let restic_version = restic_util::restic_version(&restic)
         .await
         .unwrap_or_else(|e| {
-            warn!("failed to query restic version: {:?}", e);
+            warn!("failed to query restic version: {}", e);
             "<unknown restic version>".to_string()
         });
 

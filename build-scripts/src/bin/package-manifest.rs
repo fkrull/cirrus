@@ -28,7 +28,10 @@ fn main() -> eyre::Result<()> {
 
     // write manifest checksum
     let manifest_sha256 = sha256(&manifest_path)?;
-    std::fs::write(manifest_path.with_extension("json.sha256"), manifest_sha256)?;
+    std::fs::write(
+        manifest_path.with_extension("json.sha256.txt"),
+        manifest_sha256,
+    )?;
 
     Ok(())
 }

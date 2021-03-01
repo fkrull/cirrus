@@ -179,7 +179,7 @@ desktop:manifest:
   script:
     - cargo run -p build-scripts --bin package-manifest --
       --package-dir public
-      --url-pattern ${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/public/__FILENAME__
+      --url-pattern ${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/raw/public/__FILENAME__
   variables:
     VERSION: ${CI_COMMIT_REF_NAME}
   artifacts:

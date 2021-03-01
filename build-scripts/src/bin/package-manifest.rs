@@ -7,9 +7,9 @@ struct Args {
     /// package file directory
     #[argh(option)]
     package_dir: String,
-    /// file download URL prefix
+    /// file download URL pattern; __FILENAME__ will be replaced with the file name
     #[argh(option)]
-    url_prefix: String,
+    url_pattern: String,
 }
 
 fn main() -> eyre::Result<()> {
@@ -18,7 +18,7 @@ fn main() -> eyre::Result<()> {
     // create manifest
     let manifest = read_dir(&args.package_dir)?
         .iter()
-        .map(|p| manifest_entry(p, &args.url_prefix))
+        .map(|p| manifest_entry(p, &args.url_pattern))
         .collect::<Result<HashMap<_, _>, _>>()?;
 
     // write manifest file
@@ -43,13 +43,13 @@ struct ManifestEntry {
 #[serde(transparent)]
 struct Manifest(HashMap<String, ManifestEntry>);
 
-fn manifest_entry(path: &Path, url_prefix: &str) -> eyre::Result<(String, ManifestEntry)> {
+fn manifest_entry(path: &Path, url_pattern: &str) -> eyre::Result<(String, ManifestEntry)> {
     let filename = path
         .file_name()
         .ok_or_else(|| eyre::eyre!("invalid path {}", path.display()))?
         .to_str()
         .ok_or_else(|| eyre::eyre!("non-UTF8 path {}", path.display()))?;
-    let url = format!("{}{}", url_prefix, filename);
+    let url = url_pattern.replace("__FILENAME__", filename);
     let sha256 = sha256(path)?;
 
     Ok((filename.to_string(), ManifestEntry { url, sha256 }))

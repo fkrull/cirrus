@@ -179,7 +179,7 @@ desktop:manifest:
   script:
     - cargo run -p build-scripts --bin package-manifest --
       --package-dir public
-      --url-prefix https://gitlab.com/fkrull/cirrus/-/package_files/TODO/
+      --url-pattern ${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/public/__FILENAME__
   variables:
     VERSION: ${CI_COMMIT_REF_NAME}
   artifacts:

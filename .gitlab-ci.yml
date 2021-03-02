@@ -200,6 +200,21 @@ server:publish:
       docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
 
+pages:
+  stage: publish
+  needs:
+    - "desktop:manifest"
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+  script:
+    - cp public/manifest.json latest.json
+    - rm public/*
+    - cp latest.json public/latest.json
+  artifacts:
+    paths:
+      - public
+
 
 # ----
 # build desktop binary package

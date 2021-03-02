@@ -1,4 +1,3 @@
-use restic_bin::restic_filename;
 use std::str::FromStr;
 use xshell::*;
 
@@ -8,111 +7,52 @@ enum Package {
     TarBz2,
 }
 
-/// Build a generic package.
-#[derive(argh::FromArgs)]
-struct Args {
-    /// rust target triple
-    #[argh(option)]
-    target: String,
-    /// package name, defaults to "package"
-    #[argh(option, default = r#"String::from("package")"#)]
-    package_name: String,
-    /// cargo features for cirrus
-    #[argh(option, default = "String::new()")]
-    features: String,
-    /// include cirrus-gui binary
-    #[argh(switch)]
-    cirrus_gui: bool,
-    /// RUSTFLAGS to set for the build
-    #[argh(option)]
-    rustflags: Option<String>,
-    /// package type to create
-    #[argh(option)]
-    package: Option<Package>,
-}
-
-fn main() -> eyre::Result<()> {
-    let args: Args = argh::from_env();
-    let target = args.target;
-    let bin_ext = bin_ext(&target)?;
-
-    // create package dir
-    let package_dir = format!("target/{}", args.package_name);
-    rm_rf(&package_dir)?;
-    mkdir_p(&package_dir)?;
-
-    // compile cirrus
-    {
-        let _e = if let Some(rustflags) = &args.rustflags {
-            Some(pushenv("RUSTFLAGS", rustflags))
-        } else {
-            None
-        };
-
-        let features = args.features;
-        cmd!("cargo build --release --target={target} --features={features}").run()?;
-        cp(
-            format!("target/{}/release/cirrus{}", target, bin_ext),
-            format!("{}/cirrus{}", package_dir, bin_ext),
-        )?;
-
-        if args.cirrus_gui {
-            cmd!("cargo build --package=cirrus-gui --release --target={target}").run()?;
-            cp(
-                format!("target/{}/release/cirrus-gui{}", target, bin_ext),
-                format!("{}/cirrus-gui{}", package_dir, bin_ext),
-            )?;
-        }
-    }
-
-    // get restic
-    let target = restic_bin::TargetConfig::from_triple(target)?;
-    restic_bin::download(
-        &target,
-        format!("{}/{}", package_dir, restic_filename(&target)),
-    )?;
-
-    // build package
-    if let Some(package) = args.package {
-        mkdir_p("public")?;
-        println!("Building package with type {:?}", package);
-        match package {
-            Package::Zip => {
-                package_zip(&package_dir, &format!("public/{}.zip", args.package_name))?
-            }
-            Package::TarBz2 => package_tar_bz2(
-                &package_dir,
-                &format!("public/{}.tar.bz2", args.package_name),
-            )?,
-        }
-    }
-
-    Ok(())
-}
-
 impl FromStr for Package {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "zip" => Ok(Package::Zip),
-            "tbz" | "tarbz2" => Ok(Package::TarBz2),
+            "tar.bz2" => Ok(Package::TarBz2),
             _ => eyre::bail!("invalid package type"),
         }
     }
 }
 
-fn bin_ext(target: &str) -> eyre::Result<&'static str> {
-    use target_lexicon::{OperatingSystem, Triple};
+/// Build a generic package.
+#[derive(argh::FromArgs)]
+struct Args {
+    /// directory to package
+    #[argh(positional)]
+    dir: String,
 
-    let bin_ext = match Triple::from_str(target)
-        .map_err(|e| eyre::eyre!("{}", e))?
-        .operating_system
-    {
-        OperatingSystem::Windows => ".exe",
-        _ => "",
-    };
-    Ok(bin_ext)
+    /// rust target triple
+    #[argh(option)]
+    target: String,
+    /// package name
+    #[argh(option)]
+    name: String,
+    /// package version
+    #[argh(option)]
+    version: String,
+    /// package type ('zip' or 'tar.bz2')
+    #[argh(option)]
+    pkg_type: Package,
+}
+
+fn main() -> eyre::Result<()> {
+    let args: Args = argh::from_env();
+
+    mkdir_p("public")?;
+    let pkg_name = format!("{}_{}_{}", args.name, args.version, args.target);
+    println!("Building package {}, type {:?}", pkg_name, args.pkg_type);
+
+    match &args.pkg_type {
+        Package::Zip => package_zip(&args.dir, &format!("public/{}.zip", pkg_name))?,
+        Package::TarBz2 => package_tar_bz2(&args.dir, &format!("public/{}.tar.bz2", pkg_name))?,
+    }
+
+    Ok(())
 }
 
 fn package_zip(dir: &str, dest: &str) -> eyre::Result<()> {

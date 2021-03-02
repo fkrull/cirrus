@@ -4,6 +4,10 @@ use xshell::*;
 /// Build a container image.
 #[derive(argh::FromArgs)]
 struct Args {
+    /// directory to package
+    #[argh(positional)]
+    dir: String,
+
     /// rust compile target
     #[argh(option)]
     target: String,
@@ -14,18 +18,14 @@ struct Args {
 
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
-    let target = args.target;
     let qemu = args.qemu_binary.filter(|s| !s.is_empty());
 
-    // compile cirrus
-    cmd!("cargo run --package=build-scripts --bin=package-generic -- --target {target} --features '' --rustflags '-Clinker=rust-lld'").run()?;
-
     // initialise container image
-    let base_image = base_image(&target)?;
+    let base_image = base_image(&args.target)?;
     let ctr = cmd!("buildah from {base_image}").read()?;
 
     // copy files
-    for path in read_dir("target/package")? {
+    for path in read_dir(&args.dir)? {
         cmd!("buildah copy --chown root:root {ctr} {path} /usr/bin/").run()?;
     }
 

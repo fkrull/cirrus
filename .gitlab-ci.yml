@@ -177,11 +177,9 @@ desktop:manifest:
     - when: manual
       allow_failure: true
   script:
-    - cargo run -p build-scripts --bin package-manifest --
-      --package-dir public
+    - cargo run -p build-scripts --bin finalize-manifest --
       --url-pattern ${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/raw/public/__FILENAME__
-  variables:
-    VERSION: ${CI_COMMIT_REF_NAME}
+      public
   artifacts:
     paths:
       - public

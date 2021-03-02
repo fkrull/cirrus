@@ -1,3 +1,6 @@
+use build_scripts::ManifestItem;
+use nanoserde::SerJson;
+use std::path::Path;
 use std::str::FromStr;
 use xshell::*;
 
@@ -5,6 +8,15 @@ use xshell::*;
 enum Package {
     Zip,
     TarBz2,
+}
+
+impl Package {
+    fn as_str(&self) -> &str {
+        match self {
+            Package::Zip => "zip",
+            Package::TarBz2 => "tar.bz2",
+        }
+    }
 }
 
 impl FromStr for Package {
@@ -43,19 +55,41 @@ struct Args {
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
 
+    // create public dir
     mkdir_p("public")?;
-    let pkg_name = format!("{}_{}_{}", args.name, args.version, args.target);
-    println!("Building package {}, type {:?}", pkg_name, args.pkg_type);
+
+    // build package
+    let filename = format!(
+        "{}_{}_{}.{}",
+        args.name,
+        args.version,
+        args.target,
+        args.pkg_type.as_str()
+    );
+    let pkg_path = Path::new("public").join(&filename);
+    println!("Building package {}", filename);
 
     match &args.pkg_type {
-        Package::Zip => package_zip(&args.dir, &format!("public/{}.zip", pkg_name))?,
-        Package::TarBz2 => package_tar_bz2(&args.dir, &format!("public/{}.tar.bz2", pkg_name))?,
+        Package::Zip => package_zip(&args.dir, &pkg_path)?,
+        Package::TarBz2 => package_tar_bz2(&args.dir, &pkg_path)?,
     }
+
+    // create manifest snippet
+    let sha256 = sha256(&pkg_path)?;
+    let item = ManifestItem {
+        name: args.name,
+        version: args.version,
+        arch: args.target,
+        filename: filename.clone(),
+        url: "".to_string(),
+        sha256,
+    };
+    std::fs::write(format!("public/{}.json", filename), item.serialize_json())?;
 
     Ok(())
 }
 
-fn package_zip(dir: &str, dest: &str) -> eyre::Result<()> {
+fn package_zip(dir: &str, dest: &Path) -> eyre::Result<()> {
     use std::{fs::File, io::copy};
     use zip::{write::FileOptions, write::ZipWriter};
 
@@ -77,7 +111,7 @@ fn package_zip(dir: &str, dest: &str) -> eyre::Result<()> {
     Ok(())
 }
 
-fn package_tar_bz2(dir: &str, dest: &str) -> eyre::Result<()> {
+fn package_tar_bz2(dir: &str, dest: &Path) -> eyre::Result<()> {
     use std::fs::File;
 
     let mut tar = tar::Builder::new(bzip2::write::BzEncoder::new(
@@ -96,4 +130,15 @@ fn package_tar_bz2(dir: &str, dest: &str) -> eyre::Result<()> {
 
     tar.finish()?;
     Ok(())
+}
+
+fn sha256(path: &Path) -> eyre::Result<String> {
+    use sha2::Digest;
+    use std::{fs::File, io::copy};
+
+    let mut digest = sha2::Sha256::new();
+    let mut f = File::open(path)?;
+    copy(&mut f, &mut digest)?;
+    let sha256 = hex::encode(digest.finalize().as_slice());
+    Ok(sha256)
 }

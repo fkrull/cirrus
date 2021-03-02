@@ -227,9 +227,8 @@ dependencies = [
  "bzip2 0.4.2",
  "eyre",
  "hex",
+ "nanoserde",
  "restic-bin",
- "serde",
- "serde_json",
  "sha2",
  "tar",
  "target-lexicon",
@@ -1373,6 +1372,21 @@ dependencies = [
  "socket2",
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "nanoserde"
+version = "0.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cadfbf6f15cee144bb4b4a8d8885b25d9338cf05021fa6b9e40d527c812fc7c5"
+dependencies = [
+ "nanoserde-derive",
+]
+
+[[package]]
+name = "nanoserde-derive"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c89882788bb83c0eb07ee5c5e690910210f5425d9651b525d7ad9f4041dd68"
 
 [[package]]
 name = "ndk"

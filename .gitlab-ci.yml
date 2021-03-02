@@ -233,6 +233,7 @@ pages:
       --version ${VERSION}
       --target ${TARGET}
       --pkg-type ${PACKAGE_TYPE}
+      target/binaries
     - sccache --show-stats
   artifacts:
     paths:
@@ -249,7 +250,7 @@ pages:
       --target ${TARGET}
       --features ""
       --rustflags "-Clinker=rust-lld"
-    - cargo run -p build-scripts --bin server --
+    - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}
       --qemu-binary "${QEMU_BINARY}"
       target/binaries

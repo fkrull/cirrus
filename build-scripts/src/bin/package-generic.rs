@@ -1,4 +1,4 @@
-use build_scripts::ManifestItem;
+use build_scripts::ManifestPackage;
 use nanoserde::SerJson;
 use std::path::Path;
 use std::str::FromStr;
@@ -38,12 +38,15 @@ struct Args {
     #[argh(positional)]
     dir: String,
 
-    /// rust target triple
+    /// package OS
     #[argh(option)]
-    target: String,
-    /// package name
+    os: String,
+    /// package arch
     #[argh(option)]
-    name: String,
+    arch: String,
+    /// package build type
+    #[argh(option)]
+    build_type: String,
     /// package version
     #[argh(option)]
     version: String,
@@ -60,10 +63,11 @@ fn main() -> eyre::Result<()> {
 
     // build package
     let filename = format!(
-        "{}_{}_{}.{}",
-        args.name,
+        "cirrus-{}_{}_{}-{}.{}",
+        args.build_type,
         args.version,
-        args.target,
+        args.arch,
+        args.os,
         args.pkg_type.as_str()
     );
     let pkg_path = Path::new("public").join(&filename);
@@ -76,15 +80,19 @@ fn main() -> eyre::Result<()> {
 
     // create manifest snippet
     let sha256 = sha256(&pkg_path)?;
-    let item = ManifestItem {
-        name: args.name,
+    let package = ManifestPackage {
+        name: "cirrus".to_string(),
+        build: args.build_type,
+        os: args.os,
+        arch: args.arch,
         version: args.version,
-        arch: args.target,
-        filename: filename.clone(),
         url: "".to_string(),
         sha256,
     };
-    std::fs::write(format!("public/{}.json", filename), item.serialize_json())?;
+    std::fs::write(
+        format!("public/{}.json", filename),
+        package.serialize_json(),
+    )?;
 
     Ok(())
 }

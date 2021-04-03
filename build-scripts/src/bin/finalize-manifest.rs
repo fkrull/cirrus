@@ -1,4 +1,4 @@
-use build_scripts::{Manifest, ManifestItem};
+use build_scripts::{Manifest, ManifestPackage};
 use nanoserde::{DeJson, SerJson};
 use std::{ffi::OsStr, path::Path};
 use xshell::*;
@@ -18,22 +18,22 @@ fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
 
     // build manifest
-    let mut items = Vec::new();
+    let mut packages = Vec::new();
     let json_files = read_dir(&args.dir)?
         .into_iter()
         .filter(|o| o.extension() == Some(OsStr::new("json")));
     for json_file in json_files {
-        let item = ManifestItem::deserialize_json(&std::fs::read_to_string(&json_file)?)?;
-        let item = ManifestItem {
+        let item = ManifestPackage::deserialize_json(&std::fs::read_to_string(&json_file)?)?;
+        let item = ManifestPackage {
             url: args.url_pattern.replace("__FILENAME__", &item.filename),
             ..item
         };
-        items.push(item);
+        packages.push(item);
         std::fs::remove_file(json_file)?;
     }
 
     // write manifest file
-    let manifest = Manifest { items };
+    let manifest = Manifest { packages };
     std::fs::write(
         Path::new(&args.dir).join("manifest.json"),
         manifest.serialize_json(),

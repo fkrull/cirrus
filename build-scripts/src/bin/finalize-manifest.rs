@@ -23,9 +23,13 @@ fn main() -> eyre::Result<()> {
         .into_iter()
         .filter(|o| o.extension() == Some(OsStr::new("json")));
     for json_file in json_files {
+        let filename = json_file
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| eyre::eyre!("invalid filename"))?;
         let item = ManifestPackage::deserialize_json(&std::fs::read_to_string(&json_file)?)?;
         let item = ManifestPackage {
-            url: args.url_pattern.replace("__FILENAME__", &item.filename),
+            url: args.url_pattern.replace("__FILENAME__", filename),
             ..item
         };
         packages.push(item);

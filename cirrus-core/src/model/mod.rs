@@ -144,6 +144,7 @@ mod tests {
             [backups.srv]
             repository = "sftp"
             path = "/srv"
+            disable-triggers = true
             triggers = []
             "#,
         )?;
@@ -178,6 +179,7 @@ mod tests {
                             backup::Exclude("/.cache".to_string()),
                         ],
                         exclude_caches: true,
+                        disable_triggers: false,
                         extra_args: vec!["--one-file-system".to_string()],
                         triggers: vec![
                             backup::Trigger::Cron {
@@ -195,6 +197,7 @@ mod tests {
                         path: backup::Path("/srv".to_string()),
                         excludes: vec![],
                         exclude_caches: false,
+                        disable_triggers: true,
                         extra_args: vec![],
                         triggers: vec![]
                     },

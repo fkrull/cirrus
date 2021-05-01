@@ -108,6 +108,8 @@ pub struct Definition {
     #[serde(default)]
     pub extra_args: Vec<String>,
     #[serde(default)]
+    pub disable_triggers: bool,
+    #[serde(default)]
     pub triggers: Vec<Trigger>,
 }
 

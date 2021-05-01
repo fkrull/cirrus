@@ -33,6 +33,7 @@ impl Scheduler {
             .config
             .backups
             .iter()
+            .filter(|(_, definition)| !definition.disable_triggers)
             .map(|(name, definition)| -> eyre::Result<_> {
                 let prev = self.previous_schedules.get(name).copied();
                 let next = definition.next_schedule(prev.unwrap_or(self.start_time))?;

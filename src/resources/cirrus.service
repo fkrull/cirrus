@@ -1,0 +1,9 @@
+[Unit]
+Description=Cirrus Backup
+
+[Service]
+Restart=always
+ExecStart={cirrus_binary}
+
+[Install]
+WantedBy=default.target

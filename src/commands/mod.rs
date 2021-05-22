@@ -7,6 +7,7 @@ use cirrus_core::{
 
 #[cfg(feature = "desktop-commands")]
 pub mod desktop;
+pub mod generate;
 pub mod secret;
 
 pub async fn restic(

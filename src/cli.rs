@@ -79,6 +79,9 @@ pub enum Cmd {
     /// Runs custom restic commands on configured repositories
     Restic(restic::Cli),
 
+    /// Generates various support files
+    Generate(generate::Cli),
+
     /// Commands specific to the desktop build
     #[cfg(feature = "desktop-commands")]
     Desktop(desktop::Cli),
@@ -145,6 +148,22 @@ pub mod restic {
         /// Command-line arguments to pass to restic
         #[clap(setting(ArgSettings::AllowHyphenValues))]
         pub cmd: Vec<OsString>,
+    }
+}
+
+pub mod generate {
+    use clap::Clap;
+
+    #[derive(Clap)]
+    pub struct Cli {
+        #[clap(subcommand)]
+        pub subcommand: Cmd,
+    }
+
+    #[derive(Clap)]
+    pub enum Cmd {
+        /// Generate a systemd unit file
+        SystemdUnit,
     }
 }
 

@@ -43,6 +43,7 @@ async fn main() -> eyre::Result<()> {
         Some(cli::Cmd::Restic(args)) => commands::restic(&restic, &secrets, &config, args).await,
         Some(cli::Cmd::Generate(args)) => match args.subcommand {
             cli::generate::Cmd::SystemdUnit => commands::generate::systemd_unit(),
+            cli::generate::Cmd::BashCompletions => commands::generate::bash_completions(),
         },
         #[cfg(feature = "desktop-commands")]
         Some(cli::Cmd::Desktop(args)) => match args.subcommand {

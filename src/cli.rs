@@ -164,6 +164,9 @@ pub mod generate {
     pub enum Cmd {
         /// Generate a systemd unit file
         SystemdUnit,
+
+        /// Generate bash completions
+        BashCompletions,
     }
 }
 

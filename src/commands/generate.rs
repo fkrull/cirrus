@@ -1,5 +1,3 @@
-use eyre::WrapErr;
-
 const SYSTEMD_UNIT: &str = include_str!("../resources/cirrus.service");
 
 fn template(template: &str, context: &[(&str, String)]) -> String {
@@ -12,6 +10,8 @@ fn template(template: &str, context: &[(&str, String)]) -> String {
 }
 
 pub fn systemd_unit() -> eyre::Result<()> {
+    use eyre::WrapErr;
+
     let exe = std::env::current_exe()
         .wrap_err("failed to get path to cirrus executable")?
         .into_os_string()
@@ -19,6 +19,19 @@ pub fn systemd_unit() -> eyre::Result<()> {
         .map_err(|_| eyre::eyre!("cirrus executable path contains non-UTF-8 characters"))?;
     let context = [("cirrus_binary", exe)];
     print!("{}", template(SYSTEMD_UNIT, &context));
+    Ok(())
+}
+
+pub fn bash_completions() -> eyre::Result<()> {
+    use crate::cli::Cli;
+    use clap::IntoApp;
+
+    let mut app = Cli::into_app();
+    clap_generate::generate::<clap_generate::generators::Bash, _>(
+        &mut app,
+        "cirrus",
+        &mut std::io::stdout(),
+    );
     Ok(())
 }
 

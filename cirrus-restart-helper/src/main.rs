@@ -13,9 +13,15 @@ fn main() {
         .map(|p| p.join(cirrus_exe()))
         .unwrap_or_else(|| cirrus_exe().into());
 
-    let cmd = Command::new(cirrus_command);
-    let mut cmd = set_process_options(cmd);
-    cmd.args(std::env::args_os().skip(1)).spawn().unwrap();
+    loop {
+        let cmd = Command::new(&cirrus_command);
+        let mut cmd = set_process_options(cmd);
+        cmd.args(std::env::args_os().skip(1))
+            .spawn()
+            .unwrap()
+            .wait()
+            .ok();
+    }
 }
 
 fn current_exe_dir() -> Option<PathBuf> {

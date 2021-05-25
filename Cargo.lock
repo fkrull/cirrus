@@ -432,7 +432,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cirrus-gui"
+name = "cirrus-restart-helper"
 version = "0.1.0"
 dependencies = [
  "winapi 0.3.9",

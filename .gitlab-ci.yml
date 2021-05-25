@@ -110,7 +110,7 @@ desktop:windows:x86_64:
     TARGET: x86_64-pc-windows-gnu
     PACKAGE_TYPE: zip
     VERSION: ${CI_COMMIT_REF_NAME}
-    BINARIES_ARGS: --cirrus-gui
+    BINARIES_ARGS: --cirrus-restart-helper
 
 server:linux:x86_64:
   extends: .server

@@ -48,9 +48,9 @@ fn main() -> eyre::Result<()> {
 
 fn base_image(target: &str) -> eyre::Result<&str> {
     Ok(match target {
-        "x86_64-unknown-linux-musl" => "amd64/alpine:3.12",
-        "armv7-unknown-linux-musleabihf" => "arm32v7/alpine:3.12",
-        "aarch64-unknown-linux-musl" => "arm64v8/alpine:3.12",
+        "x86_64-unknown-linux-musl" => "amd64/alpine:3.13",
+        "armv7-unknown-linux-musleabihf" => "arm32v7/alpine:3.13",
+        "aarch64-unknown-linux-musl" => "arm64v8/alpine:3.13",
         _ => eyre::bail!("unknown target {}", target),
     })
 }

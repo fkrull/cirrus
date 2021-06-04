@@ -10,7 +10,7 @@ members = [
     "cirrus-core",
     "cirrus-daemon",
     "cirrus-desktop-ui",
-    "cirrus-restart-helper",
+    "cirrus-daemon-watchdog",
     "build-scripts",
     "build-scripts/restic-bin",
 ]

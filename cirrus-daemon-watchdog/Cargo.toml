@@ -1,5 +1,5 @@
 [package]
-name = "cirrus-restart-helper"
+name = "cirrus-daemon-watchdog"
 version = "0.1.0"
 authors = ["Felix Krull <f_krull@gmx.de>"]
 edition = "2018"

@@ -414,6 +414,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "cirrus-daemon-watchdog"
+version = "0.1.0"
+dependencies = [
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "cirrus-desktop-ui"
 version = "0.1.0"
 dependencies = [
@@ -429,13 +436,6 @@ dependencies = [
  "trayicon",
  "winit",
  "winreg",
-]
-
-[[package]]
-name = "cirrus-restart-helper"
-version = "0.1.0"
-dependencies = [
- "winapi 0.3.9",
 ]
 
 [[package]]

@@ -2,12 +2,6 @@
 
 use std::{ffi::OsString, path::PathBuf, process::Command};
 
-#[cfg(windows)]
-const BIN_EXT: &str = ".exe";
-
-#[cfg(not(windows))]
-const BIN_EXT: &str = "";
-
 fn main() {
     let cirrus_command = current_exe_dir()
         .map(|p| p.join(cirrus_exe()))
@@ -32,7 +26,7 @@ fn current_exe_dir() -> Option<PathBuf> {
 
 fn cirrus_exe() -> OsString {
     let mut name = OsString::from("cirrus");
-    name.push(BIN_EXT);
+    name.push(std::env::consts::EXE_SUFFIX);
     name
 }
 

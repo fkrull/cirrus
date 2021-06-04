@@ -40,10 +40,13 @@ fn main() -> eyre::Result<()> {
             format!("{}/cirrus{}", package_dir, bin_ext),
         )?;
 
-        cmd!("cargo build --package=cirrus-restart-helper --release --target={target}").run()?;
+        cmd!("cargo build --package=cirrus-daemon-watchdog --release --target={target}").run()?;
         cp(
-            format!("target/{}/release/cirrus-restart-helper{}", target, bin_ext),
-            format!("{}/cirrus-restart-helper{}", package_dir, bin_ext),
+            format!(
+                "target/{}/release/cirrus-daemon-watchdog{}",
+                target, bin_ext
+            ),
+            format!("{}/cirrus-daemon-watchdog{}", package_dir, bin_ext),
         )?;
     }
 

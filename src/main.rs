@@ -34,25 +34,24 @@ async fn main() -> eyre::Result<()> {
     let secrets = Secrets;
 
     match args.subcommand {
-        Some(cli::Cmd::Daemon(_)) => daemon::run(restic, secrets, config).await,
-        Some(cli::Cmd::Backup(args)) => commands::backup(&restic, &secrets, &config, args).await,
-        Some(cli::Cmd::Config) => commands::config(&config),
-        Some(cli::Cmd::Secret(args)) => match args.subcommand {
+        cli::Cmd::Daemon => daemon::run(restic, secrets, config).await,
+        cli::Cmd::Backup(args) => commands::backup(&restic, &secrets, &config, args).await,
+        cli::Cmd::Config => commands::config(&config),
+        cli::Cmd::Secret(args) => match args.subcommand {
             cli::secret::Cmd::Set(args) => commands::secret::set(&secrets, &config, args),
             cli::secret::Cmd::List(args) => commands::secret::list(&secrets, &config, args),
         },
-        Some(cli::Cmd::Restic(args)) => commands::restic(&restic, &secrets, &config, args).await,
-        Some(cli::Cmd::Generate(args)) => match args.subcommand {
+        cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, &config, args).await,
+        cli::Cmd::Generate(args) => match args.subcommand {
             cli::generate::Cmd::SystemdUnit => commands::generate::systemd_unit(),
             cli::generate::Cmd::BashCompletions => commands::generate::bash_completions(),
         },
         #[cfg(feature = "desktop-commands")]
-        Some(cli::Cmd::Desktop(args)) => match args.subcommand {
+        cli::Cmd::Desktop(args) => match args.subcommand {
             cli::desktop::Cmd::OpenConfigFile => {
                 commands::desktop::open_config_file(config.source.as_ref().map(|o| o.as_path()))
             }
         },
-        None if args.version => commands::version(&restic).await,
-        None => unimplemented!(),
+        cli::Cmd::Version => commands::version(&restic).await,
     }
 }

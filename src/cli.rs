@@ -41,8 +41,8 @@ impl std::fmt::Display for ConfigFile {
 
 /// A configuration-driven backup program based on restic.
 #[derive(Clap)]
-#[clap(setting(clap::AppSettings::NoAutoVersion))]
-#[clap(setting(clap::AppSettings::VersionlessSubcommands))]
+#[clap(global_setting(clap::AppSettings::NoAutoVersion))]
+#[clap(global_setting(clap::AppSettings::VersionlessSubcommands))]
 pub struct Cli {
     /// Sets a custom configuration file path
     #[clap(
@@ -62,18 +62,14 @@ pub struct Cli {
     #[clap(long)]
     pub restic_binary: Option<PathBuf>,
 
-    /// Prints version information
-    #[clap(short = 'V', long)]
-    pub version: bool,
-
     #[clap(subcommand)]
-    pub subcommand: Option<Cmd>,
+    pub subcommand: Cmd,
 }
 
 #[derive(Clap)]
 pub enum Cmd {
-    /// Run the cirrus daemon
-    Daemon(daemon::Cli),
+    /// Runs the cirrus daemon
+    Daemon,
 
     /// Runs a configured backup
     Backup(backup::Cli),
@@ -94,13 +90,9 @@ pub enum Cmd {
     /// Commands specific to the desktop build
     #[cfg(feature = "desktop-commands")]
     Desktop(desktop::Cli),
-}
 
-pub mod daemon {
-    use clap::Clap;
-
-    #[derive(Clap)]
-    pub struct Cli {}
+    /// Prints version information
+    Version,
 }
 
 pub mod backup {

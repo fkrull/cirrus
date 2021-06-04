@@ -55,7 +55,7 @@ RUN mkdir sccache && \
     rm -rf sccache
 
 # Rust
-ENV RUST_VERSION=1.50.0
+ENV RUST_VERSION=1.52.1
 RUN curl https://sh.rustup.rs -sSf | \
     CARGO_HOME=/usr/local/cargo sh -s -- -y --profile default --no-modify-path --default-toolchain $RUST_VERSION
 ENV PATH=/usr/local/cargo/bin:$PATH

@@ -34,6 +34,7 @@ async fn main() -> eyre::Result<()> {
     let secrets = Secrets;
 
     match args.subcommand {
+        Some(cli::Cmd::Daemon(_)) => daemon::run(restic, secrets, config).await,
         Some(cli::Cmd::Backup(args)) => commands::backup(&restic, &secrets, &config, args).await,
         Some(cli::Cmd::Config) => commands::config(&config),
         Some(cli::Cmd::Secret(args)) => match args.subcommand {
@@ -52,6 +53,6 @@ async fn main() -> eyre::Result<()> {
             }
         },
         None if args.version => commands::version(&restic).await,
-        None => daemon::run(restic, secrets, config).await,
+        None => unimplemented!(),
     }
 }

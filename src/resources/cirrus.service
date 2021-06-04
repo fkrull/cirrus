@@ -3,7 +3,7 @@ Description=Cirrus Backup
 
 [Service]
 Restart=always
-ExecStart={cirrus_binary}
+ExecStart={cirrus_binary} daemon
 
 [Install]
 WantedBy=default.target

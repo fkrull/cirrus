@@ -72,6 +72,9 @@ pub struct Cli {
 
 #[derive(Clap)]
 pub enum Cmd {
+    /// Run the cirrus daemon
+    Daemon(daemon::Cli),
+
     /// Runs a configured backup
     Backup(backup::Cli),
 
@@ -91,6 +94,13 @@ pub enum Cmd {
     /// Commands specific to the desktop build
     #[cfg(feature = "desktop-commands")]
     Desktop(desktop::Cli),
+}
+
+pub mod daemon {
+    use clap::Clap;
+
+    #[derive(Clap)]
+    pub struct Cli {}
 }
 
 pub mod backup {

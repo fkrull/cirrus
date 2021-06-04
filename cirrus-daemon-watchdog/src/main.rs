@@ -10,7 +10,8 @@ fn main() {
     loop {
         let cmd = Command::new(&cirrus_command);
         let mut cmd = set_process_options(cmd);
-        cmd.args(std::env::args_os().skip(1))
+        cmd.arg("daemon")
+            .args(std::env::args_os().skip(1))
             .spawn()
             .unwrap()
             .wait()

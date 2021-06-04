@@ -1,4 +1,3 @@
-use crate::cli;
 use cirrus_core::{
     model::{backup, repo, Config},
     restic::{Options, Restic},
@@ -6,6 +5,9 @@ use cirrus_core::{
     secrets::Secrets,
 };
 
+use crate::cli;
+
+pub mod daemon;
 #[cfg(feature = "desktop-commands")]
 pub mod desktop;
 pub mod generate;

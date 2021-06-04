@@ -1,4 +1,3 @@
-use clap::Clap;
 use dirs_next as dirs;
 use std::{
     ffi::OsStr,
@@ -40,7 +39,7 @@ impl std::fmt::Display for ConfigFile {
 }
 
 /// A configuration-driven backup program based on restic.
-#[derive(Clap)]
+#[derive(clap::Clap)]
 #[clap(global_setting(clap::AppSettings::NoAutoVersion))]
 #[clap(global_setting(clap::AppSettings::VersionlessSubcommands))]
 pub struct Cli {
@@ -66,7 +65,7 @@ pub struct Cli {
     pub subcommand: Cmd,
 }
 
-#[derive(Clap)]
+#[derive(clap::Clap)]
 pub enum Cmd {
     /// Runs the cirrus daemon
     Daemon,
@@ -96,9 +95,7 @@ pub enum Cmd {
 }
 
 pub mod backup {
-    use clap::Clap;
-
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub struct Cli {
         /// The backup to run
         #[clap(name = "BACKUP")]
@@ -107,15 +104,13 @@ pub mod backup {
 }
 
 pub mod secret {
-    use clap::Clap;
-
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub struct Cli {
         #[clap(subcommand)]
         pub subcommand: Cmd,
     }
 
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub enum Cmd {
         /// Sets a secret from the terminal
         Set(Set),
@@ -124,7 +119,7 @@ pub mod secret {
         List(List),
     }
 
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub struct Set {
         /// Repository of the secret
         #[clap(name = "REPOSITORY")]
@@ -134,7 +129,7 @@ pub mod secret {
         pub secret: Option<String>,
     }
 
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub struct List {
         /// Shows passwords in clear text
         #[clap(long)]
@@ -143,32 +138,29 @@ pub mod secret {
 }
 
 pub mod restic {
-    use clap::{AppSettings, ArgSettings, Clap};
     use std::ffi::OsString;
 
-    #[derive(Clap)]
-    #[clap(setting(AppSettings::TrailingVarArg))]
+    #[derive(clap::Clap)]
+    #[clap(setting(clap::AppSettings::TrailingVarArg))]
     pub struct Cli {
         /// The cirrus repository to use with restic
         #[clap(short, long, env = "CIRRUS_REPOSITORY")]
         pub repository: Option<String>,
 
         /// Command-line arguments to pass to restic
-        #[clap(setting(ArgSettings::AllowHyphenValues))]
+        #[clap(setting(clap::ArgSettings::AllowHyphenValues))]
         pub cmd: Vec<OsString>,
     }
 }
 
 pub mod generate {
-    use clap::Clap;
-
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub struct Cli {
         #[clap(subcommand)]
         pub subcommand: Cmd,
     }
 
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub enum Cmd {
         /// Generate a systemd unit file
         SystemdUnit,
@@ -180,15 +172,13 @@ pub mod generate {
 
 #[cfg(feature = "desktop-commands")]
 pub mod desktop {
-    use clap::Clap;
-
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub struct Cli {
         #[clap(subcommand)]
         pub subcommand: Cmd,
     }
 
-    #[derive(Clap)]
+    #[derive(clap::Clap)]
     pub enum Cmd {
         /// Opens the config file in the default editor
         OpenConfigFile,

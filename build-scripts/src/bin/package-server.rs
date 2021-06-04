@@ -39,7 +39,7 @@ fn main() -> eyre::Result<()> {
     cmd!("buildah config --env XDG_DATA_HOME=/data/data {ctr}").run()?;
     cmd!("buildah config --env XDG_CACHE_HOME=/data/cache {ctr}").run()?;
     cmd!("buildah config --entrypoint /usr/bin/cirrus {ctr}").run()?;
-    cmd!("buildah config --command daemon {ctr}").run()?;
+    cmd!("buildah config --cmd daemon {ctr}").run()?;
     cmd!("buildah config --volume /data {ctr}").run()?;
     cmd!("buildah commit {ctr} cirrus-server-image").run()?;
 

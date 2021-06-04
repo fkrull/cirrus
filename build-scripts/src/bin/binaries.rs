@@ -10,9 +10,6 @@ struct Args {
     /// cargo features for cirrus
     #[argh(option, default = "String::new()")]
     features: String,
-    /// include cirrus-restart-helper binary
-    #[argh(switch)]
-    cirrus_restart_helper: bool,
     /// RUSTFLAGS to set for the build
     #[argh(option)]
     rustflags: Option<String>,
@@ -43,14 +40,11 @@ fn main() -> eyre::Result<()> {
             format!("{}/cirrus{}", package_dir, bin_ext),
         )?;
 
-        if args.cirrus_restart_helper {
-            cmd!("cargo build --package=cirrus-restart-helper --release --target={target}")
-                .run()?;
-            cp(
-                format!("target/{}/release/cirrus-restart-helper{}", target, bin_ext),
-                format!("{}/cirrus-restart-helper{}", package_dir, bin_ext),
-            )?;
-        }
+        cmd!("cargo build --package=cirrus-restart-helper --release --target={target}").run()?;
+        cp(
+            format!("target/{}/release/cirrus-restart-helper{}", target, bin_ext),
+            format!("{}/cirrus-restart-helper{}", package_dir, bin_ext),
+        )?;
     }
 
     // get restic

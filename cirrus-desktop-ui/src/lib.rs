@@ -96,11 +96,7 @@ impl cirrus_actor::Actor for DesktopUi {
 
     async fn on_start(&mut self) -> Result<(), Self::Error> {
         if let Some(status_icon) = &mut self.status_icon {
-            let model = status_icon::Model::new(
-                self.config.clone(),
-                self.job_sink.clone(),
-                self.daemon_config.versions.restic_version.clone(),
-            );
+            let model = status_icon::Model::new(self.config.clone(), self.job_sink.clone());
             status_icon.start(model)?;
         }
         Ok(())

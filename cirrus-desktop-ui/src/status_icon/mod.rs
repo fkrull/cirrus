@@ -18,20 +18,14 @@ pub(crate) struct Model {
     config: Arc<model::Config>,
     job_sink: Messages<job::Job>,
     running_jobs: HashMap<job::Id, job::Job>,
-    restic_version_string: String,
 }
 
 impl Model {
-    pub(crate) fn new(
-        config: Arc<model::Config>,
-        job_sink: Messages<job::Job>,
-        restic_version_string: String,
-    ) -> Self {
+    pub(crate) fn new(config: Arc<model::Config>, job_sink: Messages<job::Job>) -> Self {
         Model {
             config,
             job_sink,
             running_jobs: HashMap::new(),
-            restic_version_string,
         }
     }
 
@@ -48,9 +42,6 @@ impl Model {
             Event::JobFailed(job) => {
                 self.running_jobs.remove(&job.id);
                 Ok(HandleEventOutcome::UpdateView)
-            }
-            Event::Exit => {
-                std::process::exit(0);
             }
             Event::UpdateConfig(new_config) => {
                 self.config = new_config;
@@ -121,10 +112,6 @@ impl Model {
     fn backups(&self) -> impl Iterator<Item = &model::backup::Name> + '_ {
         self.config.backups.iter().map(|(name, _)| name)
     }
-
-    fn restic_version_string(&self) -> &str {
-        self.restic_version_string.as_str()
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -133,7 +120,6 @@ enum Event {
     JobSucceeded(job::Job),
     JobFailed(job::Job),
 
-    Exit,
     UpdateConfig(Arc<model::Config>),
     RunBackup(model::backup::Name),
 }

@@ -41,6 +41,8 @@ impl std::fmt::Display for ConfigFile {
 
 /// A configuration-driven backup program based on restic.
 #[derive(Clap)]
+#[clap(setting(clap::AppSettings::NoAutoVersion))]
+#[clap(setting(clap::AppSettings::VersionlessSubcommands))]
 pub struct Cli {
     /// Sets a custom configuration file path
     #[clap(
@@ -59,6 +61,10 @@ pub struct Cli {
     /// Sets the restic binary to use
     #[clap(long)]
     pub restic_binary: Option<PathBuf>,
+
+    /// Prints version information
+    #[clap(short = 'V', long)]
+    pub version: bool,
 
     #[clap(subcommand)]
     pub subcommand: Option<Cmd>,

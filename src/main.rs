@@ -51,6 +51,7 @@ async fn main() -> eyre::Result<()> {
                 commands::desktop::open_config_file(config.source.as_ref().map(|o| o.as_path()))
             }
         },
+        None if args.version => commands::version(&restic).await,
         None => daemon::run(restic, secrets, config).await,
     }
 }

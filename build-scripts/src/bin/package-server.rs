@@ -38,8 +38,8 @@ fn main() -> eyre::Result<()> {
     cmd!("buildah config --env XDG_CONFIG_HOME=/config {ctr}").run()?;
     cmd!("buildah config --env XDG_DATA_HOME=/data/data {ctr}").run()?;
     cmd!("buildah config --env XDG_CACHE_HOME=/data/cache {ctr}").run()?;
-    cmd!("buildah config --entrypoint /usr/bin/cirrus {ctr}").run()?;
-    cmd!("buildah config --cmd daemon {ctr}").run()?;
+    cmd!("buildah config --entrypoint '[\"/usr/bin/cirrus\"]' {ctr}").run()?;
+    cmd!("buildah config --cmd '[\"daemon\"]' {ctr}").run()?;
     cmd!("buildah config --volume /data {ctr}").run()?;
     cmd!("buildah commit {ctr} cirrus-server-image").run()?;
 
@@ -48,9 +48,9 @@ fn main() -> eyre::Result<()> {
 
 fn base_image(target: &str) -> eyre::Result<&str> {
     Ok(match target {
-        "x86_64-unknown-linux-musl" => "amd64/alpine:3.13",
-        "armv7-unknown-linux-musleabihf" => "arm32v7/alpine:3.13",
-        "aarch64-unknown-linux-musl" => "arm64v8/alpine:3.13",
+        "x86_64-unknown-linux-musl" => "docker.io/amd64/alpine:3.13",
+        "armv7-unknown-linux-musleabihf" => "docker.io/arm32v7/alpine:3.13",
+        "aarch64-unknown-linux-musl" => "docker.io/arm64v8/alpine:3.13",
         _ => eyre::bail!("unknown target {}", target),
     })
 }

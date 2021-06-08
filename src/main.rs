@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use cirrus::{cli, commands};
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 
@@ -23,16 +21,12 @@ async fn main() -> eyre::Result<()> {
         std::process::exit(1);
     }));
 
-    use cirrus::commands::daemon;
     use clap::Clap as _;
     let args: cli::Cli = cli::Cli::parse();
 
     let maybe_config = load_config(&args).await;
 
-    let restic = Restic::new(
-        args.restic_binary
-            .unwrap_or_else(|| PathBuf::from("restic")),
-    );
+    let restic = Restic::new(args.restic_binary);
     let secrets = Secrets;
 
     match args.subcommand {

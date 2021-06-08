@@ -13,7 +13,7 @@ use tokio::{
 
 #[derive(Debug)]
 pub struct Restic {
-    bin: PathBuf,
+    binary: Option<PathBuf>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -54,9 +54,8 @@ impl Restic {
     #[cfg(not(windows))]
     const EXCLUDE_PARAM: &'static str = "--exclude";
 
-    pub fn new(bin: impl Into<PathBuf>) -> Self {
-        let bin = bin.into();
-        Restic { bin }
+    pub fn new(binary: Option<PathBuf>) -> Self {
+        Restic { binary }
     }
 
     pub fn run<S: AsRef<OsStr>>(
@@ -65,38 +64,38 @@ impl Restic {
         extra_args: impl IntoIterator<Item = S>,
         options: &Options,
     ) -> eyre::Result<ResticProcess> {
-        let mut cmd = Command::new(&self.bin);
-        cmd.stdin(Stdio::null());
+        let extra_args = extra_args.into_iter().collect::<Vec<_>>();
+        let child = if let Some(binary) = &self.binary {
+            run_internal(
+                binary.as_os_str(),
+                repo_with_secrets.as_ref(),
+                &extra_args,
+                options,
+            )
+        } else {
+            run_internal(
+                OsStr::new("restic"),
+                repo_with_secrets.as_ref(),
+                &extra_args,
+                options,
+            )
+            .or_else(|e| {
+                let bundled_restic_exe = current_exe_dir()
+                    .map(|p| {
+                        p.join("restic")
+                            .with_extension(std::env::consts::EXE_EXTENSION)
+                    })
+                    .ok_or(e)?;
+                run_internal(
+                    bundled_restic_exe.as_os_str(),
+                    repo_with_secrets.as_ref(),
+                    &extra_args,
+                    options,
+                )
+            })
+        };
 
-        if let Some(repo_with_secrets) = repo_with_secrets {
-            cmd.env("RESTIC_PASSWORD", &repo_with_secrets.repo_password.0);
-            for (name, value) in &repo_with_secrets.secrets {
-                cmd.env(&name.0, &value.0);
-            }
-            cmd.arg("--repo").arg(&repo_with_secrets.repo.url.0);
-        }
-
-        for arg in extra_args {
-            cmd.arg(arg.as_ref());
-        }
-
-        if options.capture_output {
-            cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
-        }
-        if options.json {
-            cmd.arg("--json");
-        }
-        if let Some(arg) = options.verbose.arg() {
-            cmd.arg(arg);
-        }
-
-        #[cfg(windows)]
-        if atty::isnt(atty::Stream::Stdout) {
-            cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
-        }
-
-        let child = cmd.spawn().wrap_err("failed to start restic process")?;
-        Ok(ResticProcess::new(child))
+        Ok(ResticProcess::new(child?))
     }
 
     pub fn backup(
@@ -131,6 +130,51 @@ impl Restic {
         }
         args
     }
+}
+
+fn current_exe_dir() -> Option<PathBuf> {
+    let current_exe = std::env::current_exe().ok()?;
+    let dir = current_exe.parent()?;
+    Some(dir.to_owned())
+}
+
+fn run_internal(
+    program: &OsStr,
+    repo_with_secrets: Option<&RepoWithSecrets>,
+    extra_args: &[impl AsRef<OsStr>],
+    options: &Options,
+) -> eyre::Result<Child> {
+    let mut cmd = Command::new(program);
+    cmd.stdin(Stdio::null());
+
+    if let Some(repo_with_secrets) = repo_with_secrets {
+        cmd.env("RESTIC_PASSWORD", &repo_with_secrets.repo_password.0);
+        for (name, value) in &repo_with_secrets.secrets {
+            cmd.env(&name.0, &value.0);
+        }
+        cmd.arg("--repo").arg(&repo_with_secrets.repo.url.0);
+    }
+
+    for arg in extra_args {
+        cmd.arg(arg.as_ref());
+    }
+
+    if options.capture_output {
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    }
+    if options.json {
+        cmd.arg("--json");
+    }
+    if let Some(arg) = options.verbose.arg() {
+        cmd.arg(arg);
+    }
+
+    #[cfg(windows)]
+    if atty::isnt(atty::Stream::Stdout) {
+        cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+    }
+
+    cmd.spawn().wrap_err("failed to start restic process")
 }
 
 #[derive(Debug)]

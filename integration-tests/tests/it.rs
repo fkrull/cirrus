@@ -48,6 +48,11 @@ impl Workdir {
         Ok(Self { dir })
     }
 
+    pub fn with_exit_status(self, exit_status: i32) -> std::io::Result<Self> {
+        std::fs::write(self.path().join("exit-status"), exit_status.to_string())?;
+        Ok(self)
+    }
+
     pub fn path(&self) -> &Path {
         self.dir.path()
     }
@@ -73,9 +78,8 @@ impl Args {
     }
 }
 
-pub async fn parse_args(workdir: &Path) -> std::io::Result<Args> {
-    let args = tokio::fs::read_to_string(workdir.join("args"))
-        .await?
+pub fn parse_args(workdir: &Path) -> std::io::Result<Args> {
+    let args = std::fs::read_to_string(workdir.join("args"))?
         .lines()
         .map(|s| s.to_owned())
         .collect();
@@ -101,9 +105,8 @@ impl Env {
     }
 }
 
-pub async fn parse_env(workdir: &Path) -> std::io::Result<Env> {
-    let env = tokio::fs::read_to_string(workdir.join("env"))
-        .await?
+pub fn parse_env(workdir: &Path) -> std::io::Result<Env> {
+    let env = std::fs::read_to_string(workdir.join("env"))?
         .lines()
         .filter_map(|s| s.split_once('='))
         .map(|(key, value)| (key.to_owned(), value.to_owned()))

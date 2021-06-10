@@ -1,0 +1,12 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+authors = ["Felix Krull <f_krull@gmx.de>"]
+edition = "2018"
+
+[dev-dependencies]
+assert_cmd = "1.0.4"
+cirrus-core = { path = "../cirrus-core" }
+maplit = "1.0.2"
+tempfile = "3.2.0"
+tokio = { version = "1.6.1", features = ["fs", "macros"] }

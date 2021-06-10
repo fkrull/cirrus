@@ -11,6 +11,7 @@ members = [
     "cirrus-daemon",
     "cirrus-desktop-ui",
     "cirrus-daemon-watchdog",
+    "integration-tests",
     "build-scripts",
     "build-scripts/restic-bin",
 ]

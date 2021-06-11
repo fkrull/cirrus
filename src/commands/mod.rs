@@ -1,7 +1,6 @@
 use cirrus_core::{
     model::{backup, repo, Config},
     restic::{Options, Restic},
-    restic_util,
     secrets::Secrets,
 };
 
@@ -62,7 +61,7 @@ pub fn config(config: &Config) -> eyre::Result<()> {
 pub async fn version(restic: &Restic) -> eyre::Result<()> {
     // TODO: print some kind of cirrus version
     println!("cirrus: ???");
-    match restic_util::restic_version(restic).await {
+    match restic.version_string().await {
         Ok(restic_version) => println!("restic: {}", restic_version),
         Err(err) => println!(
             "Could not determine restic version ({}), is restic installed correctly?",

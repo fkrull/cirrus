@@ -153,3 +153,16 @@ async fn should_run_restic_with_options() {
         .unwrap()
         .assert_args(&["--json", "--verbose=3"]);
 }
+
+#[tokio::test]
+async fn should_get_restic_version_string() {
+    let workdir = new_workdir()
+        .with_stdout(b"  restic version line  \nother line\n\n")
+        .unwrap();
+    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+
+    let version_string = restic.version_string().await.unwrap();
+
+    assert_eq!(&version_string, "restic version line");
+    workdir.args().unwrap().assert_args(&["version"]);
+}

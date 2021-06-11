@@ -1,5 +1,5 @@
 use cirrus_actor::Messages;
-use cirrus_core::{model::Config, restic::Restic, restic_util, secrets::Secrets};
+use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
 use std::{path::PathBuf, sync::Arc};
 use tracing::{info, warn};
@@ -50,12 +50,10 @@ async fn setup_daemon_logger() -> eyre::Result<()> {
 pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Result<()> {
     setup_daemon_logger().await?;
 
-    let restic_version = restic_util::restic_version(&restic)
-        .await
-        .unwrap_or_else(|e| {
-            warn!("failed to query restic version: {}", e);
-            "<unknown restic version>".to_string()
-        });
+    let restic_version = restic.version_string().await.unwrap_or_else(|e| {
+        warn!("failed to query restic version: {}", e);
+        "<unknown restic version>".to_string()
+    });
 
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);

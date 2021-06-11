@@ -26,13 +26,13 @@ pub async fn restic(
             let repo_with_secrets = secrets.get_secrets(repo)?;
             restic
                 .run(Some(repo_with_secrets), args.cmd, &Options::default())?
-                .wait()
+                .check_wait()
                 .await
         }
         None => {
             restic
                 .run(None, args.cmd, &Options::default())?
-                .wait()
+                .check_wait()
                 .await
         }
     }
@@ -50,7 +50,7 @@ pub async fn backup(
     let repo_with_secrets = secrets.get_secrets(repo)?;
     restic
         .backup(repo_with_secrets, &backup_name, backup, &Options::default())?
-        .wait()
+        .check_wait()
         .await
 }
 

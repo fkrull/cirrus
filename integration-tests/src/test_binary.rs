@@ -29,13 +29,17 @@ fn get_exit_status(workdir: &Path) -> Result<i32, Box<dyn Error>> {
 
 fn copy_stdout(workdir: &Path) -> std::io::Result<()> {
     let mut file = File::open(workdir.join("stdout"))?;
-    std::io::copy(&mut file, &mut std::io::stdout())?;
+    let mut stdout = std::io::stdout();
+    std::io::copy(&mut file, &mut stdout)?;
+    stdout.flush()?;
     Ok(())
 }
 
 fn copy_stderr(workdir: &Path) -> std::io::Result<()> {
     let mut file = File::open(workdir.join("stderr"))?;
-    std::io::copy(&mut file, &mut std::io::stderr())?;
+    let mut stderr = std::io::stderr();
+    std::io::copy(&mut file, &mut stderr)?;
+    stderr.flush()?;
     Ok(())
 }
 

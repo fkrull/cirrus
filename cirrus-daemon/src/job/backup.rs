@@ -1,10 +1,10 @@
 use super::QueueId;
-use cirrus_core::restic::{Event, Verbosity};
 use cirrus_core::{
     model::{backup, repo},
-    restic::Restic,
+    restic::{Event, Restic, Verbosity},
     secrets::Secrets,
 };
+use futures::prelude::*;
 use tracing::{info, warn};
 
 #[derive(Debug, Clone)]
@@ -38,17 +38,8 @@ impl BackupSpec {
             },
         )?;
 
-        loop {
-            match process.next_event().await? {
-                Event::ProcessExit(status) => {
-                    return if status.success() {
-                        Ok(())
-                    } else if let Some(code) = status.code() {
-                        Err(eyre::eyre!("restic exited with status {}", code))
-                    } else {
-                        Err(eyre::eyre!("restic exited with unknown status"))
-                    }
-                }
+        while let Some(event) = process.next().await {
+            match event? {
                 Event::StdoutLine(line) => {
                     info!("{}", line);
                 }
@@ -58,8 +49,7 @@ impl BackupSpec {
             }
         }
 
-        //process.wait().await?;
-        //Ok(())
+        process.check_wait().await
     }
 
     pub fn name(&self) -> &str {

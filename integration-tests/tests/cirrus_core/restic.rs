@@ -1,4 +1,5 @@
 use crate::new_workdir;
+use cirrus_core::restic::Verbosity;
 use cirrus_core::{
     model::{backup, repo},
     restic::{Options, Restic},
@@ -125,4 +126,30 @@ async fn should_run_restic_backup() {
         "--exclude-caches",
         "--one-file-system",
     ]);
+}
+
+#[tokio::test]
+async fn should_run_restic_with_options() {
+    let workdir = new_workdir();
+    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+
+    restic
+        .run(
+            None,
+            std::iter::empty::<&str>(),
+            &Options {
+                json: true,
+                verbose: Verbosity::VVV,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+
+    workdir
+        .args()
+        .unwrap()
+        .assert_args(&["--json", "--verbose=3"]);
 }

@@ -1,4 +1,4 @@
-use crate::{parse_args, parse_env, Workdir};
+use crate::new_workdir;
 use cirrus_core::{
     model::{backup, repo},
     restic::{Options, Restic},
@@ -9,8 +9,8 @@ use std::collections::HashMap;
 
 #[tokio::test]
 async fn should_run_specified_restic_binary_with_explicit_arguments() {
-    let workdir = Workdir::new().unwrap();
-    let restic = Restic::new(Some(workdir.bin().to_owned()));
+    let workdir = new_workdir();
+    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
 
     restic
         .run(None, &["arg1", "arg2", "arg3", "arg4"], &Options::default())
@@ -19,15 +19,16 @@ async fn should_run_specified_restic_binary_with_explicit_arguments() {
         .await
         .unwrap();
 
-    parse_args(workdir.path())
+    workdir
+        .args()
         .unwrap()
         .assert_args(&["arg1", "arg2", "arg3", "arg4"]);
 }
 
 #[tokio::test]
 async fn should_run_restic_with_repo_parameter_and_secrets() {
-    let workdir = Workdir::new().unwrap();
-    let restic = Restic::new(Some(workdir.bin().to_owned()));
+    let workdir = new_workdir();
+    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
     let repo = repo::Definition {
         url: repo::Url("local:/srv/repo".to_owned()),
         password: repo::Secret::FromEnvVar {
@@ -56,10 +57,12 @@ async fn should_run_restic_with_repo_parameter_and_secrets() {
         .await
         .unwrap();
 
-    parse_args(workdir.path())
+    workdir
+        .args()
         .unwrap()
         .assert_args(&["--repo", "local:/srv/repo", "snapshots"]);
-    parse_env(workdir.path())
+    workdir
+        .env()
         .unwrap()
         .assert_var("RESTIC_PASSWORD", "repo-password")
         .assert_var("SECRET1", "secret1")
@@ -73,8 +76,8 @@ const EXCLUDE_PARAM: &'static str = "--exclude";
 
 #[tokio::test]
 async fn should_run_restic_backup() {
-    let workdir = Workdir::new().unwrap();
-    let restic = Restic::new(Some(workdir.bin().to_owned()));
+    let workdir = new_workdir();
+    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
     let repo = repo::Definition {
         url: repo::Url("local:/srv/repo".to_owned()),
         password: repo::Secret::FromEnvVar {
@@ -110,7 +113,7 @@ async fn should_run_restic_backup() {
         .await
         .unwrap();
 
-    parse_args(workdir.path()).unwrap().assert_args(&[
+    workdir.args().unwrap().assert_args(&[
         "--repo",
         "local:/srv/repo",
         "backup",

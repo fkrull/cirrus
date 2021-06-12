@@ -28,3 +28,4 @@ atty = "0.2.14"
 [dev-dependencies]
 maplit = "1.0.2"
 serde_json = "1.0.53"
+tempfile = "3.2.0"

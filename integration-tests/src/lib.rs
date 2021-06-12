@@ -111,16 +111,26 @@ impl Workdir {
         self.dir.path().join(exe_name(Self::TARGET_BINARY_NAME))
     }
 
-    pub fn args(&self) -> Args {
+    fn args(&self) -> Args {
         Args::new(&self.path().join("args")).unwrap()
     }
 
-    pub fn env(&self) -> Env {
+    pub fn assert_args(&self, args: &[impl AsRef<str>]) -> &Self {
+        self.args().assert_args(args);
+        self
+    }
+
+    fn env(&self) -> Env {
         Env::new(&self.path().join("env")).unwrap()
+    }
+
+    pub fn assert_env_var(&self, key: impl AsRef<str>, value: impl AsRef<str>) -> &Self {
+        self.env().assert_var(key, value);
+        self
     }
 }
 
-pub struct Args {
+struct Args {
     args: Vec<String>,
 }
 
@@ -133,14 +143,14 @@ impl Args {
         Ok(Args { args })
     }
 
-    pub fn assert_args(&self, args: &[impl AsRef<str>]) -> &Self {
+    fn assert_args(&self, args: &[impl AsRef<str>]) -> &Self {
         let args = args.into_iter().map(|s| s.as_ref()).collect::<Vec<_>>();
         assert_eq!(&self.args, &args);
         self
     }
 }
 
-pub struct Env {
+struct Env {
     env: Vec<(String, String)>,
 }
 
@@ -154,7 +164,7 @@ impl Env {
         Ok(Env { env })
     }
 
-    pub fn assert_var(&self, key: impl AsRef<str>, value: impl AsRef<str>) -> &Self {
+    fn assert_var(&self, key: impl AsRef<str>, value: impl AsRef<str>) -> &Self {
         let key = key.as_ref();
         let value = value.as_ref();
         assert!(self

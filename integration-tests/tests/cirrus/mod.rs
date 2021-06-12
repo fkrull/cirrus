@@ -16,7 +16,7 @@ fn should_run_restic_with_given_arguments() {
         .assert()
         .success()
         .stdout(b"stdout1\nstdout2\n".as_ref());
-    workdir.args().assert_args(&["snapshots"]);
+    workdir.assert_args(&["snapshots"]);
 }
 
 #[test]
@@ -47,14 +47,15 @@ fn should_run_backup() {
         .env("TEST_PASSWORD", "pwd")
         .assert()
         .success();
-    workdir.args().assert_args(&[
-        "--repo",
-        "local:/srv/repo",
-        "backup",
-        "/",
-        "--tag",
-        "cirrus-backup-test",
-        "--exclude-caches",
-    ]);
-    workdir.env().assert_var("RESTIC_PASSWORD", "pwd");
+    workdir
+        .assert_args(&[
+            "--repo",
+            "local:/srv/repo",
+            "backup",
+            "/",
+            "--tag",
+            "cirrus-backup-test",
+            "--exclude-caches",
+        ])
+        .assert_env_var("RESTIC_PASSWORD", "pwd");
 }

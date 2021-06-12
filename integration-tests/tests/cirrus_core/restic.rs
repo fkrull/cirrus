@@ -20,9 +20,7 @@ async fn should_run_specified_restic_binary_with_explicit_arguments() {
         .await
         .unwrap();
 
-    workdir
-        .args()
-        .assert_args(&["arg1", "arg2", "arg3", "arg4"]);
+    workdir.assert_args(&["arg1", "arg2", "arg3", "arg4"]);
 }
 
 #[tokio::test]
@@ -62,13 +60,10 @@ async fn should_run_restic_with_repo_parameter_and_secrets() {
         .unwrap();
 
     workdir
-        .args()
-        .assert_args(&["--repo", "local:/srv/repo", "snapshots"]);
-    workdir
-        .env()
-        .assert_var("RESTIC_PASSWORD", "repo-password")
-        .assert_var("SECRET1", "secret1")
-        .assert_var("SECRET2", "secret2");
+        .assert_args(&["--repo", "local:/srv/repo", "snapshots"])
+        .assert_env_var("RESTIC_PASSWORD", "repo-password")
+        .assert_env_var("SECRET1", "secret1")
+        .assert_env_var("SECRET2", "secret2");
 }
 
 #[cfg(windows)]
@@ -115,7 +110,7 @@ async fn should_run_restic_backup() {
         .await
         .unwrap();
 
-    workdir.args().assert_args(&[
+    workdir.assert_args(&[
         "--repo",
         "local:/srv/repo",
         "backup",
@@ -149,7 +144,7 @@ async fn should_run_restic_with_options() {
         .await
         .unwrap();
 
-    workdir.args().assert_args(&["--json", "--verbose=3"]);
+    workdir.assert_args(&["--json", "--verbose=3"]);
 }
 
 #[tokio::test]
@@ -160,5 +155,5 @@ async fn should_get_restic_version_string() {
     let version_string = restic.version_string().await.unwrap();
 
     assert_eq!(&version_string, "restic version line");
-    workdir.args().assert_args(&["version"]);
+    workdir.assert_args(&["version"]);
 }

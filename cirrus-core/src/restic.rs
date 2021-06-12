@@ -1,5 +1,4 @@
 use crate::{model::backup, secrets::RepoWithSecrets};
-use eyre::Context as _;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -49,6 +48,20 @@ pub struct BinaryConfig {
     pub fallback: Option<PathBuf>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("failed to start restic process")]
+    FailedToStartResticProcess(#[source] std::io::Error),
+    #[error("error reading from subprocess output")]
+    SubprocessIoError(#[source] std::io::Error),
+    #[error("error getting subprocess status")]
+    SubprocessStatusError(#[source] std::io::Error),
+    #[error("{}", .0.message())]
+    ResticError(ExitStatus),
+    #[error("couldn't determine restic version from output")]
+    FailedToGetResticVersion,
+}
+
 #[derive(Debug)]
 pub struct Restic {
     binary_config: BinaryConfig,
@@ -77,7 +90,7 @@ impl Restic {
         repo_with_secrets: Option<&RepoWithSecrets>,
         extra_args: &[impl AsRef<OsStr>],
         options: &Options,
-    ) -> eyre::Result<ResticProcess> {
+    ) -> Result<ResticProcess, Error> {
         self.run_with_path(
             &self.binary_config.path,
             repo_with_secrets,
@@ -96,7 +109,7 @@ impl Restic {
         name: &backup::Name,
         definition: &backup::Definition,
         options: &Options,
-    ) -> eyre::Result<ResticProcess> {
+    ) -> Result<ResticProcess, Error> {
         let mut args = Vec::new();
         args.push("backup".to_owned());
         args.push(definition.path.0.clone());
@@ -122,7 +135,7 @@ impl Restic {
         repo_with_secrets: Option<&RepoWithSecrets>,
         extra_args: &[impl AsRef<OsStr>],
         options: &Options,
-    ) -> eyre::Result<ResticProcess> {
+    ) -> Result<ResticProcess, Error> {
         let mut cmd = Command::new(path);
         cmd.stdin(Stdio::null());
 
@@ -153,7 +166,7 @@ impl Restic {
             cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
         }
 
-        let child = cmd.spawn().wrap_err("failed to start restic process")?;
+        let child = cmd.spawn().map_err(Error::FailedToStartResticProcess)?;
         Ok(ResticProcess::new(child))
     }
 }

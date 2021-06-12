@@ -26,15 +26,16 @@ pub async fn restic(
             restic
                 .run(Some(&repo_with_secrets), &args.cmd, &Options::default())?
                 .check_wait()
-                .await
+                .await?
         }
         None => {
             restic
                 .run(None, &args.cmd, &Options::default())?
                 .check_wait()
-                .await
+                .await?
         }
     }
+    Ok(())
 }
 
 pub async fn backup(
@@ -55,7 +56,8 @@ pub async fn backup(
             &Options::default(),
         )?
         .check_wait()
-        .await
+        .await?;
+    Ok(())
 }
 
 pub fn config(config: &Config) -> eyre::Result<()> {

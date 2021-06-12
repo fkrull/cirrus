@@ -49,7 +49,7 @@ impl BackupSpec {
             }
         }
 
-        process.check_wait().await
+        Ok(process.check_wait().await?)
     }
 
     pub fn name(&self) -> &str {

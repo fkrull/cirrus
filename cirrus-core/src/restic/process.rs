@@ -1,3 +1,4 @@
+use super::Error;
 use futures::{prelude::*, stream::BoxStream};
 use tokio::{
     io::{AsyncBufReadExt as _, BufReader},
@@ -16,13 +17,20 @@ impl ExitStatus {
         self == &ExitStatus::Successful
     }
 
-    pub fn check_status(&self) -> eyre::Result<()> {
+    pub fn check_status(&self) -> Result<(), Error> {
         match self {
             ExitStatus::Successful => Ok(()),
+            ExitStatus::Failed(_) => Err(Error::ResticError(*self)),
+        }
+    }
+
+    pub fn message(&self) -> String {
+        match self {
+            ExitStatus::Successful => "restic exited successfully".to_owned(),
             ExitStatus::Failed(Some(code)) => {
-                Err(eyre::eyre!("restic exited with status {}", code))
+                format!("restic exited with error status {}", code)
             }
-            ExitStatus::Failed(None) => Err(eyre::eyre!("restic exited with unknown status")),
+            ExitStatus::Failed(None) => "restic exited with unknown error status".to_owned(),
         }
     }
 }
@@ -43,15 +51,17 @@ pub enum Event {
     StderrLine(String),
 }
 
-fn merge_output_streams(child: &'_ mut Child) -> BoxStream<'static, std::io::Result<Event>> {
-    let stdout = child
-        .stdout
-        .take()
-        .map(|io| LinesStream::new(BufReader::new(io).lines()).map_ok(Event::StdoutLine));
-    let stderr = child
-        .stderr
-        .take()
-        .map(|io| LinesStream::new(BufReader::new(io).lines()).map_ok(Event::StderrLine));
+fn merge_output_streams(child: &'_ mut Child) -> BoxStream<'static, Result<Event, Error>> {
+    let stdout = child.stdout.take().map(|io| {
+        LinesStream::new(BufReader::new(io).lines())
+            .map_ok(Event::StdoutLine)
+            .map_err(Error::SubprocessIoError)
+    });
+    let stderr = child.stderr.take().map(|io| {
+        LinesStream::new(BufReader::new(io).lines())
+            .map_ok(Event::StderrLine)
+            .map_err(Error::SubprocessIoError)
+    });
 
     match (stdout, stderr) {
         (Some(stdout), Some(stderr)) => Box::pin(stream::select(stdout, stderr)),
@@ -65,7 +75,7 @@ fn merge_output_streams(child: &'_ mut Child) -> BoxStream<'static, std::io::Res
 pub struct ResticProcess {
     child: Child,
     #[pin]
-    events: BoxStream<'static, std::io::Result<Event>>,
+    events: BoxStream<'static, Result<Event, Error>>,
 }
 
 impl std::fmt::Debug for ResticProcess {
@@ -83,18 +93,22 @@ impl ResticProcess {
         ResticProcess { child, events }
     }
 
-    pub async fn wait(&mut self) -> std::io::Result<ExitStatus> {
+    pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
         while let Some(_) = self.next().await {}
-        self.child.wait().await.map(ExitStatus::from)
+        self.child
+            .wait()
+            .await
+            .map(ExitStatus::from)
+            .map_err(Error::SubprocessStatusError)
     }
 
-    pub async fn check_wait(&mut self) -> eyre::Result<()> {
+    pub async fn check_wait(&mut self) -> Result<(), Error> {
         self.wait().await?.check_status()
     }
 }
 
 impl Stream for ResticProcess {
-    type Item = std::io::Result<Event>;
+    type Item = Result<Event, Error>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,

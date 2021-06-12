@@ -8,11 +8,6 @@ use tokio::{
 };
 use tokio_stream::wrappers::LinesStream;
 
-#[derive(Debug)]
-pub struct Restic {
-    binary: Option<PathBuf>,
-}
-
 #[derive(Debug, Copy, Clone)]
 pub enum Verbosity {
     None,
@@ -45,14 +40,33 @@ pub struct Options {
     pub verbose: Verbosity,
 }
 
+#[derive(Debug)]
+pub struct BinaryConfig {
+    pub path: PathBuf,
+    pub fallback: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+pub struct Restic {
+    binary_config: BinaryConfig,
+}
+
 impl Restic {
     #[cfg(windows)]
     const EXCLUDE_PARAM: &'static str = "--iexclude";
     #[cfg(not(windows))]
     const EXCLUDE_PARAM: &'static str = "--exclude";
 
-    pub fn new(binary: Option<PathBuf>) -> Self {
-        Restic { binary }
+    pub fn new(binary_config: BinaryConfig) -> Self {
+        Restic { binary_config }
+    }
+
+    pub fn new_with_path(path: impl Into<PathBuf>) -> Self {
+        let path = path.into();
+        Self::new(BinaryConfig {
+            path,
+            fallback: None,
+        })
     }
 
     pub fn run<S: AsRef<OsStr>>(
@@ -62,35 +76,21 @@ impl Restic {
         options: &Options,
     ) -> eyre::Result<ResticProcess> {
         let extra_args = extra_args.into_iter().collect::<Vec<_>>();
-        let child = if let Some(binary) = &self.binary {
-            run_internal(
-                binary.as_os_str(),
+        let child = run_internal(
+            self.binary_config.path.as_os_str(),
+            repo_with_secrets.as_ref(),
+            &extra_args,
+            options,
+        )
+        .or_else(|e| match &self.binary_config.fallback {
+            Some(fallback) => run_internal(
+                fallback.as_os_str(),
                 repo_with_secrets.as_ref(),
                 &extra_args,
                 options,
-            )
-        } else {
-            run_internal(
-                OsStr::new("restic"),
-                repo_with_secrets.as_ref(),
-                &extra_args,
-                options,
-            )
-            .or_else(|e| {
-                let bundled_restic_exe = current_exe_dir()
-                    .map(|p| {
-                        p.join("restic")
-                            .with_extension(std::env::consts::EXE_EXTENSION)
-                    })
-                    .ok_or(e)?;
-                run_internal(
-                    bundled_restic_exe.as_os_str(),
-                    repo_with_secrets.as_ref(),
-                    &extra_args,
-                    options,
-                )
-            })
-        };
+            ),
+            None => Err(e),
+        });
 
         Ok(ResticProcess::new(child?))
     }
@@ -127,12 +127,6 @@ impl Restic {
         }
         args
     }
-}
-
-fn current_exe_dir() -> Option<PathBuf> {
-    let current_exe = std::env::current_exe().ok()?;
-    let dir = current_exe.parent()?;
-    Some(dir.to_owned())
 }
 
 fn run_internal(

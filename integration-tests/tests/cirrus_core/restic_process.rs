@@ -5,7 +5,7 @@ use futures::prelude::*;
 #[tokio::test]
 async fn check_wait_should_return_error_if_process_exits_with_unsuccessful_status_code() {
     let workdir = new_workdir().with_exit_status(1).unwrap();
-    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+    let restic = Restic::new_with_path(workdir.test_binary());
 
     let result = restic
         .run(None, std::iter::empty::<&str>(), &Options::default())
@@ -23,7 +23,7 @@ async fn should_capture_stdout_and_stderr() {
         .unwrap()
         .with_stderr("stderr1\nstderr2\nstderr3\n")
         .unwrap();
-    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+    let restic = Restic::new_with_path(workdir.test_binary());
 
     let mut process = restic
         .run(

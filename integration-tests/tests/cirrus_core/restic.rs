@@ -11,7 +11,7 @@ use std::collections::HashMap;
 #[tokio::test]
 async fn should_run_specified_restic_binary_with_explicit_arguments() {
     let workdir = new_workdir();
-    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+    let restic = Restic::new_with_path(workdir.test_binary());
 
     restic
         .run(None, &["arg1", "arg2", "arg3", "arg4"], &Options::default())
@@ -29,7 +29,7 @@ async fn should_run_specified_restic_binary_with_explicit_arguments() {
 #[tokio::test]
 async fn should_run_restic_with_repo_parameter_and_secrets() {
     let workdir = new_workdir();
-    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+    let restic = Restic::new_with_path(workdir.test_binary());
     let repo = repo::Definition {
         url: repo::Url("local:/srv/repo".to_owned()),
         password: repo::Secret::FromEnvVar {
@@ -78,7 +78,7 @@ const EXCLUDE_PARAM: &'static str = "--exclude";
 #[tokio::test]
 async fn should_run_restic_backup() {
     let workdir = new_workdir();
-    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+    let restic = Restic::new_with_path(workdir.test_binary());
     let repo = repo::Definition {
         url: repo::Url("local:/srv/repo".to_owned()),
         password: repo::Secret::FromEnvVar {
@@ -131,7 +131,7 @@ async fn should_run_restic_backup() {
 #[tokio::test]
 async fn should_run_restic_with_options() {
     let workdir = new_workdir();
-    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+    let restic = Restic::new_with_path(workdir.test_binary());
 
     restic
         .run(
@@ -159,7 +159,7 @@ async fn should_get_restic_version_string() {
     let workdir = new_workdir()
         .with_stdout(b"  restic version line  \nother line\n\n")
         .unwrap();
-    let restic = Restic::new(Some(workdir.test_binary().to_owned()));
+    let restic = Restic::new_with_path(workdir.test_binary());
 
     let version_string = restic.version_string().await.unwrap();
 

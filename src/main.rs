@@ -1,5 +1,6 @@
 use cirrus::{cli, commands};
-use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{model::Config, restic, secrets::Secrets};
+use std::path::PathBuf;
 
 async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
     let config = if let Some(config_string) = &args.config_string {
@@ -8,6 +9,31 @@ async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
         Config::from_file(args.config_file.path()?).await?
     };
     Ok(config)
+}
+
+fn current_exe_dir() -> Option<PathBuf> {
+    let current_exe = std::env::current_exe().ok()?;
+    let dir = current_exe.parent()?.to_owned();
+    Some(dir)
+}
+
+fn restic_binary_config(restic_binary_arg: Option<PathBuf>) -> restic::BinaryConfig {
+    if let Some(path) = restic_binary_arg {
+        restic::BinaryConfig {
+            path,
+            fallback: None,
+        }
+    } else {
+        let system = PathBuf::from("restic");
+        let fallback = current_exe_dir().map(|d| {
+            d.join("restic")
+                .with_extension(std::env::consts::EXE_EXTENSION)
+        });
+        restic::BinaryConfig {
+            path: system,
+            fallback,
+        }
+    }
 }
 
 #[tokio::main]
@@ -23,10 +49,8 @@ async fn main() -> eyre::Result<()> {
 
     use clap::Clap as _;
     let args: cli::Cli = cli::Cli::parse();
-
     let maybe_config = load_config(&args).await;
-
-    let restic = Restic::new(args.restic_binary);
+    let restic = restic::Restic::new(restic_binary_config(args.restic_binary));
     let secrets = Secrets;
 
     match args.subcommand {

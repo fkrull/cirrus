@@ -52,7 +52,11 @@ async fn should_run_restic_with_repo_parameter_and_secrets() {
     };
 
     restic
-        .run(Some(repo_with_secrets), &["snapshots"], &Options::default())
+        .run(
+            Some(&repo_with_secrets),
+            &["snapshots"],
+            &Options::default(),
+        )
         .unwrap()
         .wait()
         .await
@@ -104,7 +108,7 @@ async fn should_run_restic_backup() {
 
     restic
         .backup(
-            repo_with_secrets,
+            &repo_with_secrets,
             &backup_name,
             &backup,
             &Options::default(),
@@ -136,7 +140,7 @@ async fn should_run_restic_with_options() {
     restic
         .run(
             None,
-            std::iter::empty::<&str>(),
+            &[] as &[&str],
             &Options {
                 json: true,
                 verbose: Verbosity::VVV,

@@ -28,7 +28,7 @@ impl BackupSpec {
 
         let repo_with_secrets = secrets.get_secrets(&self.repo)?;
         let mut process = restic.backup(
-            repo_with_secrets,
+            &repo_with_secrets,
             &self.backup_name,
             &self.backup,
             &Options {

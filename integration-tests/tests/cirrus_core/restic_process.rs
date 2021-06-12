@@ -8,7 +8,7 @@ async fn check_wait_should_return_error_if_process_exits_with_unsuccessful_statu
     let restic = Restic::new_with_path(workdir.test_binary());
 
     let result = restic
-        .run(None, std::iter::empty::<&str>(), &Options::default())
+        .run(None, &[] as &[&str], &Options::default())
         .unwrap()
         .check_wait()
         .await;
@@ -28,7 +28,7 @@ async fn should_capture_stdout_and_stderr() {
     let mut process = restic
         .run(
             None,
-            std::iter::empty::<&str>(),
+            &[] as &[&str],
             &Options {
                 capture_output: true,
                 ..Default::default()

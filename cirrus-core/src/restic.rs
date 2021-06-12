@@ -69,26 +69,22 @@ impl Restic {
         })
     }
 
-    pub fn run<S: AsRef<OsStr>>(
+    pub fn run(
         &self,
-        repo_with_secrets: Option<RepoWithSecrets>,
-        extra_args: impl IntoIterator<Item = S>,
+        repo_with_secrets: Option<&RepoWithSecrets>,
+        extra_args: &[impl AsRef<OsStr>],
         options: &Options,
     ) -> eyre::Result<ResticProcess> {
-        let extra_args = extra_args.into_iter().collect::<Vec<_>>();
         let child = run_internal(
             self.binary_config.path.as_os_str(),
-            repo_with_secrets.as_ref(),
-            &extra_args,
+            repo_with_secrets,
+            extra_args,
             options,
         )
         .or_else(|e| match &self.binary_config.fallback {
-            Some(fallback) => run_internal(
-                fallback.as_os_str(),
-                repo_with_secrets.as_ref(),
-                &extra_args,
-                options,
-            ),
+            Some(fallback) => {
+                run_internal(fallback.as_os_str(), repo_with_secrets, extra_args, options)
+            }
             None => Err(e),
         });
 
@@ -97,14 +93,14 @@ impl Restic {
 
     pub fn backup(
         &self,
-        repo_with_secrets: RepoWithSecrets,
+        repo_with_secrets: &RepoWithSecrets,
         name: &backup::Name,
         definition: &backup::Definition,
         options: &Options,
     ) -> eyre::Result<ResticProcess> {
         self.run(
             Some(repo_with_secrets),
-            Self::backup_args(name, definition),
+            &Self::backup_args(name, definition),
             options,
         )
     }

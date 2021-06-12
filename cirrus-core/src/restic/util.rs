@@ -1,4 +1,4 @@
-use crate::restic::{Event, Options, Restic};
+use super::{Event, Options, Restic};
 use futures::{pin_mut, prelude::*};
 
 impl Restic {

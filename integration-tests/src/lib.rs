@@ -3,8 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-mod test_binary;
-pub use test_binary::test_binary_main;
+mod test_binary_main;
+pub use test_binary_main::test_binary_main;
 
 // Adapted from
 // https://github.com/rust-lang/cargo/blob/485670b3983b52289a2f353d589c57fae2f60f82/tests/testsuite/support/mod.rs#L507
@@ -73,28 +73,34 @@ pub struct Workdir {
 impl Workdir {
     const TARGET_BINARY_NAME: &'static str = "test-binary";
 
-    pub fn new(binary_name: &str) -> std::io::Result<Self> {
-        let dir = tempfile::TempDir::new()?;
+    pub fn new(binary_name: &str) -> Self {
+        let dir = tempfile::TempDir::new().unwrap();
         copy_or_symlink(
             &cargo_bin(binary_name),
             &dir.path().join(exe_name(Self::TARGET_BINARY_NAME)),
-        )?;
-        Ok(Self { dir })
+        )
+        .unwrap();
+        Self { dir }
     }
 
-    pub fn with_exit_status(self, exit_status: i32) -> std::io::Result<Self> {
-        std::fs::write(self.path().join("exit-status"), exit_status.to_string())?;
-        Ok(self)
+    pub fn with_exit_status(self, exit_status: i32) -> Self {
+        std::fs::write(self.path().join("exit-status"), exit_status.to_string()).unwrap();
+        self
     }
 
-    pub fn with_stdout(self, stdout: impl AsRef<[u8]>) -> std::io::Result<Self> {
-        std::fs::write(self.path().join("stdout"), stdout.as_ref())?;
-        Ok(self)
+    pub fn with_stdout(self, stdout: impl AsRef<[u8]>) -> Self {
+        std::fs::write(self.path().join("stdout"), stdout.as_ref()).unwrap();
+        self
     }
 
-    pub fn with_stderr(self, stderr: impl AsRef<[u8]>) -> std::io::Result<Self> {
-        std::fs::write(self.path().join("stderr"), stderr.as_ref())?;
-        Ok(self)
+    pub fn with_stderr(self, stderr: impl AsRef<[u8]>) -> Self {
+        std::fs::write(self.path().join("stderr"), stderr.as_ref()).unwrap();
+        self
+    }
+
+    pub fn with_file(self, name: &str, contents: impl AsRef<[u8]>) -> Self {
+        std::fs::write(self.path().join(name), contents.as_ref()).unwrap();
+        self
     }
 
     pub fn path(&self) -> &Path {
@@ -105,12 +111,12 @@ impl Workdir {
         self.dir.path().join(exe_name(Self::TARGET_BINARY_NAME))
     }
 
-    pub fn args(&self) -> std::io::Result<Args> {
-        Args::new(&self.path().join("args"))
+    pub fn args(&self) -> Args {
+        Args::new(&self.path().join("args")).unwrap()
     }
 
-    pub fn env(&self) -> std::io::Result<Env> {
-        Env::new(&self.path().join("env"))
+    pub fn env(&self) -> Env {
+        Env::new(&self.path().join("env")).unwrap()
     }
 }
 

@@ -22,7 +22,6 @@ async fn should_run_specified_restic_binary_with_explicit_arguments() {
 
     workdir
         .args()
-        .unwrap()
         .assert_args(&["arg1", "arg2", "arg3", "arg4"]);
 }
 
@@ -64,11 +63,9 @@ async fn should_run_restic_with_repo_parameter_and_secrets() {
 
     workdir
         .args()
-        .unwrap()
         .assert_args(&["--repo", "local:/srv/repo", "snapshots"]);
     workdir
         .env()
-        .unwrap()
         .assert_var("RESTIC_PASSWORD", "repo-password")
         .assert_var("SECRET1", "secret1")
         .assert_var("SECRET2", "secret2");
@@ -118,7 +115,7 @@ async fn should_run_restic_backup() {
         .await
         .unwrap();
 
-    workdir.args().unwrap().assert_args(&[
+    workdir.args().assert_args(&[
         "--repo",
         "local:/srv/repo",
         "backup",
@@ -152,21 +149,16 @@ async fn should_run_restic_with_options() {
         .await
         .unwrap();
 
-    workdir
-        .args()
-        .unwrap()
-        .assert_args(&["--json", "--verbose=3"]);
+    workdir.args().assert_args(&["--json", "--verbose=3"]);
 }
 
 #[tokio::test]
 async fn should_get_restic_version_string() {
-    let workdir = new_workdir()
-        .with_stdout(b"  restic version line  \nother line\n\n")
-        .unwrap();
+    let workdir = new_workdir().with_stdout(b"  restic version line  \nother line\n\n");
     let restic = Restic::new_with_path(workdir.test_binary());
 
     let version_string = restic.version_string().await.unwrap();
 
     assert_eq!(&version_string, "restic version line");
-    workdir.args().unwrap().assert_args(&["version"]);
+    workdir.args().assert_args(&["version"]);
 }

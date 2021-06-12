@@ -7,9 +7,14 @@ edition = "2018"
 [dependencies]
 maplit = "1.0.2"
 tempfile = "3.2.0"
+cirrus = { path = ".." }
+tokio = { version = "1.6.1", features = ["macros", "rt-multi-thread"] }
+eyre = "0.6.5"
 
 [dev-dependencies]
+assert_cmd = "1.0.5"
 cirrus-core = { path = "../cirrus-core" }
 eyre = "0.6.5"
 futures = "0.3.15"
 tokio = { version = "1.6.1", features = ["macros"] }
+toml = "0.5.8"

@@ -130,7 +130,7 @@ impl RunQueue {
         Ok(())
     }
 
-    async fn run(&mut self) {
+    async fn poll_job(&mut self) {
         if let Some(running) = &mut self.running {
             running.run().await;
         } else {
@@ -209,32 +209,20 @@ impl PerRepositoryQueue {
             || self.per_backup_queues.values().any(|q| q.has_running_job())
     }
 
-    async fn run(&mut self) {
+    async fn poll_jobs(&mut self) {
         use futures::future::select;
         use futures::pin_mut;
 
-        let repo_job = self.repo_queue.run();
+        let repo_job = self.repo_queue.poll_job();
         pin_mut!(repo_job);
         let backup_jobs = self
             .per_backup_queues
             .values_mut()
-            .map(|q| q.run())
+            .map(|q| q.poll_job())
             .map(Box::pin);
         let backup_jobs = select_all_or_pending(backup_jobs);
         pin_mut!(backup_jobs);
         select(repo_job, backup_jobs).await;
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Message {
-    Job(job::Job),
-    JobFinished,
-}
-
-impl From<job::Job> for Message {
-    fn from(job: job::Job) -> Self {
-        Message::Job(job)
     }
 }
 
@@ -287,13 +275,25 @@ impl JobQueues {
         Ok(())
     }
 
-    async fn run(&mut self) {
+    async fn poll_jobs(&mut self) {
         let jobs = self
             .per_repo_queues
             .values_mut()
-            .map(|q| q.run())
+            .map(|q| q.poll_jobs())
             .map(Box::pin);
         select_all_or_pending(jobs).await;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    Job(job::Job),
+    JobFinished,
+}
+
+impl From<job::Job> for Message {
+    fn from(job: job::Job) -> Self {
+        Message::Job(job)
     }
 }
 
@@ -312,7 +312,7 @@ impl cirrus_actor::Actor for JobQueues {
     }
 
     async fn idle(&mut self) -> Result<Self::Message, Self::Error> {
-        self.run().await;
+        self.poll_jobs().await;
         Ok(Message::JobFinished)
     }
 }

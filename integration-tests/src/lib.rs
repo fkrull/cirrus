@@ -30,18 +30,6 @@ fn cargo_bin(name: &str) -> PathBuf {
     target_dir().join(exe_name(name))
 }
 
-fn copy_or_symlink(src: &Path, dest: &Path) -> std::io::Result<()> {
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(src, dest)
-    }
-
-    #[cfg(not(unix))]
-    {
-        std::fs::copy(src, dest).map(|_| ())
-    }
-}
-
 pub struct EnvVarGuard {
     keys: Vec<OsString>,
 }
@@ -75,7 +63,7 @@ impl Workdir {
 
     pub fn new(binary_name: &str) -> Self {
         let dir = tempfile::TempDir::new().unwrap();
-        copy_or_symlink(
+        std::fs::copy(
             &cargo_bin(binary_name),
             &dir.path().join(exe_name(Self::TARGET_BINARY_NAME)),
         )

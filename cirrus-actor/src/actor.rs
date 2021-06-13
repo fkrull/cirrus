@@ -16,7 +16,7 @@ pub trait Actor: Send {
         Ok(())
     }
 
-    async fn on_idle(&mut self) -> Result<(), Self::Error> {
+    async fn idle(&mut self) -> Result<Self::Message, Self::Error> {
         futures::future::pending::<()>().await;
         unreachable!()
     }
@@ -24,9 +24,8 @@ pub trait Actor: Send {
 
 #[derive(Debug)]
 enum ActorSelect<M> {
-    MessageReceived(M),
+    Message(M),
     ChannelClosed,
-    IdleReady,
 }
 
 #[derive(Debug)]
@@ -40,14 +39,13 @@ impl<A: Actor> ActorInstance<A> {
         self.actor_impl.on_start().await?;
         loop {
             match self.select().await? {
-                ActorSelect::MessageReceived(message) => {
+                ActorSelect::Message(message) => {
                     self.actor_impl.on_message(message).await?;
                 }
                 ActorSelect::ChannelClosed => {
                     self.actor_impl.on_close().await?;
                     break;
                 }
-                ActorSelect::IdleReady => {}
             };
         }
 
@@ -58,12 +56,12 @@ impl<A: Actor> ActorInstance<A> {
         use futures::{future::select, future::Either, pin_mut, stream::StreamExt};
 
         let recv_fut = self.recv.next();
-        let idle_fut = self.actor_impl.on_idle();
+        let idle_fut = self.actor_impl.idle();
         pin_mut!(recv_fut);
         match select(recv_fut, idle_fut).await {
-            Either::Left((Some(message), _)) => Ok(ActorSelect::MessageReceived(message)),
+            Either::Left((Some(message), _)) => Ok(ActorSelect::Message(message)),
             Either::Left((None, _)) => Ok(ActorSelect::ChannelClosed),
-            Either::Right((Ok(()), _)) => Ok(ActorSelect::IdleReady),
+            Either::Right((Ok(message), _)) => Ok(ActorSelect::Message(message)),
             Either::Right((Err(error), _)) => Err(error),
         }
     }

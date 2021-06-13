@@ -80,18 +80,17 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     #[cfg(feature = "cirrus-desktop-ui")]
     let configreload_sink = configreload_sink.also_to(desktop_ui.actor_ref());
 
+    let job_sink = Messages::default().also_to(jobqueues.actor_ref());
+
     // create actor instances
-    let jobqueues_ref = jobqueues.actor_ref();
     let mut jobqueues = jobqueues.into_instance(job_queues::JobQueues::new(
         jobstatus_sink,
         restic.clone(),
         secrets.clone(),
     ));
 
-    let mut scheduler = scheduler.into_instance(scheduler::Scheduler::new(
-        config.clone(),
-        jobqueues_ref.clone(),
-    ));
+    let mut scheduler =
+        scheduler.into_instance(scheduler::Scheduler::new(config.clone(), job_sink.clone()));
 
     let configreloader_ref = configreloader.actor_ref();
     let mut configreloader = configreloader.into_instance(configreload::ConfigReloader::new(
@@ -104,7 +103,7 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     let mut desktop_ui = desktop_ui.into_instance(cirrus_desktop_ui::DesktopUi::new(
         daemon_config.clone(),
         config.clone(),
-        jobqueues_ref.clone().into(),
+        job_sink.clone(),
     )?);
 
     // run everything

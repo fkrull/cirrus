@@ -1,6 +1,6 @@
 use crate::job;
 use chrono::DateTime;
-use cirrus_actor::Actor;
+use cirrus_actor::{Actor, Messages};
 use cirrus_core::model;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tracing::info;
@@ -10,13 +10,13 @@ const SCHEDULE_INTERVAL: Duration = Duration::from_secs(30);
 #[derive(Debug)]
 pub struct Scheduler {
     config: Arc<model::Config>,
-    job_sink: cirrus_actor::ActorRef<job::Job>,
+    job_sink: Messages<job::Job>,
     start_time: DateTime<chrono::Utc>,
     previous_schedules: HashMap<model::backup::Name, DateTime<chrono::Utc>>,
 }
 
 impl Scheduler {
-    pub fn new(config: Arc<model::Config>, job_sink: cirrus_actor::ActorRef<job::Job>) -> Self {
+    pub fn new(config: Arc<model::Config>, job_sink: Messages<job::Job>) -> Self {
         Scheduler {
             config,
             job_sink,
@@ -73,6 +73,7 @@ impl Scheduler {
 #[derive(Debug, Clone)]
 pub enum Message {
     ConfigReloaded(Arc<model::Config>),
+    SchedulerTick,
 }
 
 impl From<crate::configreload::ConfigReload> for Message {
@@ -89,13 +90,13 @@ impl Actor for Scheduler {
     async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
         match message {
             Message::ConfigReloaded(new_config) => self.config = new_config,
+            Message::SchedulerTick => self.run_schedules()?,
         }
         Ok(())
     }
 
-    async fn on_idle(&mut self) -> Result<(), Self::Error> {
-        self.run_schedules()?;
+    async fn idle(&mut self) -> Result<Self::Message, Self::Error> {
         tokio::time::sleep(SCHEDULE_INTERVAL).await;
-        Ok(())
+        Ok(Message::SchedulerTick)
     }
 }

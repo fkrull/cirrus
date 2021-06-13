@@ -25,13 +25,24 @@ async fn select_all_or_pending<F: Future + Unpin>(
 struct RunningJob {
     job: job::Job,
     fut: Pin<Box<dyn Future<Output = eyre::Result<()>> + Send>>,
+    result: Option<eyre::Result<()>>,
 }
 
 impl std::fmt::Debug for RunningJob {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RunningJob")
+            .field("job", &self.job)
             .field("fut", &"<dyn Future>")
+            .field("result", &self.result)
             .finish()
+    }
+}
+
+impl RunningJob {
+    async fn run(&mut self) {
+        if self.result.is_none() {
+            self.result = Some((&mut self.fut).await);
+        }
     }
 }
 
@@ -88,6 +99,7 @@ impl RunQueue {
                 self.running = Some(RunningJob {
                     job: job.clone(),
                     fut,
+                    result: None,
                 });
                 self.jobstatus_messages
                     .send(job::StatusChange::new(job, job::Status::Started))?;
@@ -96,26 +108,34 @@ impl RunQueue {
         Ok(())
     }
 
-    async fn run(&mut self) -> eyre::Result<()> {
+    fn clean_finished_job(&mut self) -> eyre::Result<()> {
+        if let Some(running_job) = &mut self.running {
+            let result = running_job.result.take();
+            if let Some(result) = result {
+                let job = self.running.take().unwrap().job;
+                let new_status = match result {
+                    Ok(_) => {
+                        info!("'{}' finished successfully", job.spec.label());
+                        job::Status::FinishedSuccessfully
+                    }
+                    Err(error) => {
+                        error!("'{}' failed: {}", job.spec.label(), error);
+                        job::Status::FinishedWithError
+                    }
+                };
+                self.jobstatus_messages
+                    .send(job::StatusChange::new(job, new_status))?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn run(&mut self) {
         if let Some(running) = &mut self.running {
-            let result = (&mut running.fut).await;
-            let job = self.running.take().unwrap().job;
-            let new_status = match result {
-                Ok(_) => {
-                    info!("'{}' finished successfully", job.spec.label());
-                    job::Status::FinishedSuccessfully
-                }
-                Err(error) => {
-                    error!("'{}' failed: {}", job.spec.label(), error);
-                    job::Status::FinishedWithError
-                }
-            };
-            self.jobstatus_messages
-                .send(job::StatusChange::new(job, new_status))?;
+            running.run().await;
         } else {
             futures::future::pending::<()>().await;
         }
-        Ok(())
     }
 }
 
@@ -176,12 +196,20 @@ impl PerRepositoryQueue {
         Ok(())
     }
 
+    fn clean_finished_jobs(&mut self) -> eyre::Result<()> {
+        self.repo_queue.clean_finished_job()?;
+        for queue in self.per_backup_queues.values_mut() {
+            queue.clean_finished_job()?;
+        }
+        Ok(())
+    }
+
     fn has_running_jobs(&self) -> bool {
         self.repo_queue.has_running_job()
             || self.per_backup_queues.values().any(|q| q.has_running_job())
     }
 
-    async fn run(&mut self) -> eyre::Result<()> {
+    async fn run(&mut self) {
         use futures::future::select;
         use futures::pin_mut;
 
@@ -195,7 +223,18 @@ impl PerRepositoryQueue {
         let backup_jobs = select_all_or_pending(backup_jobs);
         pin_mut!(backup_jobs);
         select(repo_job, backup_jobs).await;
-        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    Job(job::Job),
+    JobFinished,
+}
+
+impl From<job::Job> for Message {
+    fn from(job: job::Job) -> Self {
+        Message::Job(job)
     }
 }
 
@@ -241,31 +280,39 @@ impl JobQueues {
         Ok(())
     }
 
-    async fn run(&mut self) -> eyre::Result<()> {
+    fn clean_finished_jobs(&mut self) -> eyre::Result<()> {
+        for queue in self.per_repo_queues.values_mut() {
+            queue.clean_finished_jobs()?;
+        }
+        Ok(())
+    }
+
+    async fn run(&mut self) {
         let jobs = self
             .per_repo_queues
             .values_mut()
             .map(|q| q.run())
             .map(Box::pin);
-        select_all_or_pending(jobs).await?;
-        Ok(())
+        select_all_or_pending(jobs).await;
     }
 }
 
 #[async_trait::async_trait]
 impl cirrus_actor::Actor for JobQueues {
-    type Message = job::Job;
+    type Message = Message;
     type Error = eyre::Report;
 
-    async fn on_message(&mut self, job: Self::Message) -> Result<(), Self::Error> {
-        self.push(job);
+    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
+        match message {
+            Message::Job(job) => self.push(job),
+            Message::JobFinished => self.clean_finished_jobs()?,
+        }
         self.maybe_start_next_jobs()?;
         Ok(())
     }
 
-    async fn on_idle(&mut self) -> Result<(), Self::Error> {
-        self.maybe_start_next_jobs()?;
-        self.run().await?;
-        Ok(())
+    async fn idle(&mut self) -> Result<Self::Message, Self::Error> {
+        self.run().await;
+        Ok(Message::JobFinished)
     }
 }

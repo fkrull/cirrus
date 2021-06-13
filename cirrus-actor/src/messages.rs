@@ -31,7 +31,7 @@ impl<M: Clone + Send + 'static> Messages<M> {
         }
     }
 
-    pub fn upcast<Super>(self) -> Messages<Super>
+    pub fn convert<Super>(self) -> Messages<Super>
     where
         M: From<Super>,
     {
@@ -41,7 +41,7 @@ impl<M: Clone + Send + 'static> Messages<M> {
         }
     }
 
-    pub fn upcast_filter<Super>(self) -> Messages<Super>
+    pub fn convert_filter<Super>(self) -> Messages<Super>
     where
         M: TryFrom<Super>,
     {
@@ -56,7 +56,7 @@ impl<M: Clone + Send + 'static> Messages<M> {
         Super: Clone + Send + From<M> + 'static,
         I: Into<Messages<Super>>,
     {
-        self._also_to(other.into().upcast())
+        self._also_to(other.into().convert())
     }
 
     /*pub fn also_to(self, other: impl Into<Messages<M>>) -> Messages<M> {

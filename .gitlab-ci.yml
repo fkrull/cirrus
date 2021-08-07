@@ -42,6 +42,7 @@ tools:ci-tools-image:
 build-version:
   stage: test
   script:
+    - mkdir -p target
     - sccache --start-server
     - cargo run -p build-scripts --bin get-build-version > target/build-version
     - sccache --show-stats

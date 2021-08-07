@@ -9,6 +9,8 @@ the version numbers are *not* semantic.
 * Include and show version string in release versions.
 
 ### Changed
+* Switch to new version number scheme consisting of a manually specified release version
+  and a timestamp-based build identifier.
 * Update bundled restic to 0.12.1.
 
 ### Removed

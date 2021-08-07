@@ -9,6 +9,7 @@ argh = "0.1.4"
 bzip2 = "0.4.2"
 eyre = "0.6.3"
 hex = "0.4.2"
+libc = "0.2.98"
 nanoserde = "0.1.22"
 restic-bin = { path = "restic-bin", features = ["download"] }
 sha2 = "0.9.3"

@@ -35,32 +35,18 @@ struct BuildDate {
 }
 
 impl BuildDate {
-    fn from_time(time: libc::time_t) -> Self {
-        let mut gmtime = libc::tm {
-            tm_sec: 0,
-            tm_min: 0,
-            tm_hour: 0,
-            tm_mday: 0,
-            tm_mon: 0,
-            tm_year: 0,
-            tm_wday: 0,
-            tm_yday: 0,
-            tm_isdst: 0,
-        };
-        unsafe { libc::gmtime_s(&mut gmtime, &time) };
+    fn from_datetime(timestamp: time::OffsetDateTime) -> Self {
         BuildDate {
-            year: gmtime.tm_year as u32 + 1900,
-            month: gmtime.tm_mon as u32 + 1,
-            day: gmtime.tm_mday as u32,
-            hour: gmtime.tm_hour as u32,
-            minute: gmtime.tm_min as u32,
+            year: timestamp.year() as u32,
+            month: u8::from(timestamp.month()) as u32,
+            day: timestamp.day() as u32,
+            hour: timestamp.hour() as u32,
+            minute: timestamp.minute() as u32,
         }
     }
 
     fn now() -> Self {
-        let mut now = 0;
-        unsafe { libc::time(&mut now) };
-        Self::from_time(now)
+        Self::from_datetime(time::OffsetDateTime::now_utc())
     }
 
     fn build_string(&self) -> String {
@@ -118,7 +104,9 @@ mod tests {
 
     #[test]
     fn should_get_build_date_from_timestamp() {
-        let date = BuildDate::from_time(1628356266);
+        let date = BuildDate::from_datetime(
+            time::OffsetDateTime::from_unix_timestamp(1628356266).unwrap(),
+        );
         assert_eq!(
             date,
             BuildDate {

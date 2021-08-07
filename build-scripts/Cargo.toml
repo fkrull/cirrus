@@ -9,12 +9,12 @@ argh = "0.1.4"
 bzip2 = "0.4.2"
 eyre = "0.6.3"
 hex = "0.4.2"
-libc = "0.2.98"
 nanoserde = "0.1.22"
 restic-bin = { path = "restic-bin", features = ["download"] }
 sha2 = "0.9.3"
 tar = "0.4.33"
 target-lexicon = "0.11.2"
 tempfile = "3.2.0"
+time = { version = "0.3.1", default-features = false, features = ["std"] }
 xshell = "0.1.8"
 zip = "0.5.10"

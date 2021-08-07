@@ -254,13 +254,13 @@ dependencies = [
  "bzip2 0.4.2",
  "eyre",
  "hex",
- "libc",
  "nanoserde",
  "restic-bin",
  "sha2",
  "tar",
  "target-lexicon",
  "tempfile",
+ "time 0.3.1",
  "xshell",
  "zip",
 ]
@@ -352,7 +352,7 @@ dependencies = [
  "libc",
  "num-integer",
  "num-traits",
- "time",
+ "time 0.1.44",
  "winapi 0.3.9",
 ]
 
@@ -2448,6 +2448,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "time"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a776787d9c5d455bec3db044586ccdd8a9c74d5da5dc319fb80f3db08808fe6"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "tinyvec"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3052,5 +3061,5 @@ dependencies = [
  "crc32fast",
  "flate2",
  "thiserror",
- "time",
+ "time 0.1.44",
 ]

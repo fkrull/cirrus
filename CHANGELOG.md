@@ -9,6 +9,7 @@ the version numbers are *not* semantic.
 * Include and show version string in release versions.
 
 ### Changed
+* Update bundled restic to 0.12.1.
 
 ### Removed
 

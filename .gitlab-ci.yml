@@ -39,6 +39,18 @@ tools:ci-tools-image:
       ci-tools
       docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
 
+build-version:
+  stage: test
+  script:
+    - sccache --start-server
+    - cargo run -p build-scripts --bin get-build-version > target/build-version
+    - sccache --show-stats
+    - cat target/build-version
+  artifacts:
+    reports:
+      dotenv: target/build-version
+    expire_in: 1 day
+
 test:
   stage: test
   script:
@@ -51,110 +63,71 @@ test:
 desktop:linux:x86_64:
   extends: .desktop
   stage: package
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   variables:
     OS: linux
     ARCH: x86_64
     TARGET: x86_64-unknown-linux-gnu
     PACKAGE_TYPE: tar.bz2
-    VERSION: ${CI_COMMIT_REF_NAME}
-    RELEASE_VERSION: ${CI_COMMIT_TAG}
+    VERSION: ${CIRRUS_VERSION}
     PACKAGE_RUSTFLAGS: -Clinker=x86_64-linux-gnu-gcc -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu
 
 desktop:linux:armv7:
   extends: .desktop
   stage: package
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   variables:
     OS: linux
     ARCH: arm
     TARGET: armv7-unknown-linux-gnueabihf
     PACKAGE_TYPE: tar.bz2
-    VERSION: ${CI_COMMIT_REF_NAME}
-    RELEASE_VERSION: ${CI_COMMIT_TAG}
+    VERSION: ${CIRRUS_VERSION}
     PACKAGE_RUSTFLAGS: -Clinker=arm-linux-gnueabihf-gcc -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf
 
 desktop:linux:aarch64:
   extends: .desktop
   stage: package
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   variables:
     OS: linux
     ARCH: aarch64
     TARGET: aarch64-unknown-linux-gnu
     PACKAGE_TYPE: tar.bz2
-    VERSION: ${CI_COMMIT_REF_NAME}
-    RELEASE_VERSION: ${CI_COMMIT_TAG}
+    VERSION: ${CIRRUS_VERSION}
     PACKAGE_RUSTFLAGS: -Clinker=aarch64-linux-gnu-gcc -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu
 
 desktop:windows:x86_64:
   extends: .desktop
   stage: package
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   variables:
     OS: windows
     ARCH: x86_64
     TARGET: x86_64-pc-windows-gnu
     PACKAGE_TYPE: zip
-    VERSION: ${CI_COMMIT_REF_NAME}
-    RELEASE_VERSION: ${CI_COMMIT_TAG}
+    VERSION: ${CIRRUS_VERSION}
 
 server:linux:x86_64:
   extends: .server
   stage: package
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   variables:
     TARGET: x86_64-unknown-linux-musl
-    RELEASE_VERSION: ${CI_COMMIT_TAG}
-    TAG: ${CI_COMMIT_REF_NAME}-linux-amd64
+    VERSION: ${CIRRUS_VERSION}
+    TAG: ${CIRRUS_VERSION}-linux-amd64
 
 server:linux:armv7:
   extends: .server
   stage: package
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   variables:
     TARGET: armv7-unknown-linux-musleabihf
     QEMU_BINARY: /usr/bin/qemu-arm-static
-    RELEASE_VERSION: ${CI_COMMIT_TAG}
-    TAG: ${CI_COMMIT_REF_NAME}-linux-arm32v7
+    VERSION: ${CIRRUS_VERSION}
+    TAG: ${CIRRUS_VERSION}-linux-arm32v7
 
 server:linux:aarch64:
   extends: .server
   stage: package
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   variables:
     TARGET: aarch64-unknown-linux-musl
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
-    RELEASE_VERSION: ${CI_COMMIT_TAG}
-    TAG: ${CI_COMMIT_REF_NAME}-linux-arm64v8
+    VERSION: ${CIRRUS_VERSION}
+    TAG: ${CIRRUS_VERSION}-linux-arm64v8
 
 # package manifests
 server:manifest:
@@ -163,20 +136,15 @@ server:manifest:
     - server:linux:x86_64
     - server:linux:armv7
     - server:linux:aarch64
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   script:
     - buildah manifest create cirrus-manifest-list
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-amd64
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-arm32v7
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}-linux-arm64v8
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_VERSION}-linux-amd64
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_VERSION}-linux-arm32v7
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_VERSION}-linux-arm64v8
     - buildah manifest push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_VERSION}
 
 desktop:manifest:
   stage: manifest
@@ -185,11 +153,6 @@ desktop:manifest:
     - desktop:linux:armv7
     - desktop:linux:aarch64
     - desktop:windows:x86_64
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: manual
-      allow_failure: true
   script:
     - cargo run -p build-scripts --bin finalize-manifest --
       --url-pattern ${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/raw/public/__FILENAME__
@@ -211,7 +174,7 @@ server:publish:
     - skopeo copy
       --all
       --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CI_COMMIT_REF_NAME}
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_VERSION}
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
 
 pages:
@@ -240,7 +203,7 @@ pages:
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
       --features desktop
-      --version "${RELEASE_VERSION}"
+      --version ${VERSION}
       --rustflags "${PACKAGE_RUSTFLAGS}"
       ${BINARIES_ARGS}
     - cargo run -p build-scripts --bin package-generic --
@@ -265,7 +228,7 @@ pages:
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
       --features ""
-      --version "${RELEASE_VERSION}"
+      --version ${VERSION}
       --rustflags "-Clinker=rust-lld"
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}

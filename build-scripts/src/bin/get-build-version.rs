@@ -10,7 +10,7 @@ fn main() -> eyre::Result<()> {
         release: release_version.to_string(),
         build_date: BuildDate::now(),
     };
-    println!("{}", build_version.version_string());
+    println!("CIRRUS_VERSION={}", build_version.version_string());
     Ok(())
 }
 

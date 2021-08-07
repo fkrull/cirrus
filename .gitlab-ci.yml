@@ -240,7 +240,7 @@ pages:
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
       --features desktop
-      --release-version "${RELEASE_VERSION}"
+      --version "${RELEASE_VERSION}"
       --rustflags "${PACKAGE_RUSTFLAGS}"
       ${BINARIES_ARGS}
     - cargo run -p build-scripts --bin package-generic --
@@ -265,7 +265,7 @@ pages:
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
       --features ""
-      --release-version "${RELEASE_VERSION}"
+      --version "${RELEASE_VERSION}"
       --rustflags "-Clinker=rust-lld"
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}

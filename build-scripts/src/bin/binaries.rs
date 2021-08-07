@@ -15,7 +15,7 @@ struct Args {
     rustflags: Option<String>,
     /// release version
     #[argh(option)]
-    release_version: String,
+    version: String,
 }
 
 fn main() -> eyre::Result<()> {
@@ -31,9 +31,7 @@ fn main() -> eyre::Result<()> {
     // compile cirrus
     {
         let _e1 = args.rustflags.as_ref().map(|s| pushenv("RUSTFLAGS", s));
-        let _e2 = Some(&args.release_version)
-            .filter(|s| !s.is_empty())
-            .map(|s| pushenv("CIRRUS_RELEASE_VERSION", s));
+        let _e2 = pushenv("CIRRUS_VERSION", &args.version);
 
         let features = args.features;
         cmd!("cargo build --release --target={target} --features={features}").run()?;

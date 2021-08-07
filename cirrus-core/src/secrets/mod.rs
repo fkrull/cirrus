@@ -108,9 +108,9 @@ mod tests {
         #[test]
         fn should_get_secret() {
             let secret = Secret::FromEnvVar {
-                env_var: "TEST_SECRET".to_owned(),
+                env_var: "TEST_SECRET1".to_owned(),
             };
-            let _guard = set_env("TEST_SECRET", "test-secret-value");
+            let _guard = set_env("TEST_SECRET1", "test-secret-value");
 
             let value = Secrets.get_secret(&secret).unwrap();
 
@@ -120,9 +120,9 @@ mod tests {
         #[test]
         fn should_not_get_secret_if_missing_env_var() {
             let secret = Secret::FromEnvVar {
-                env_var: "TEST_SECRET".to_owned(),
+                env_var: "TEST_SECRET2".to_owned(),
             };
-            std::env::remove_var("TEST_SECRET");
+            std::env::remove_var("TEST_SECRET2");
 
             let result = Secrets.get_secret(&secret);
 

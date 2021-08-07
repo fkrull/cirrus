@@ -127,6 +127,7 @@ server:linux:aarch64:
 server:manifest:
   stage: manifest
   needs:
+    - build-version
     - server:linux:x86_64
     - server:linux:armv7
     - server:linux:aarch64
@@ -143,6 +144,7 @@ server:manifest:
 desktop:manifest:
   stage: manifest
   needs:
+    - build-version
     - desktop:linux:x86_64
     - desktop:linux:armv7
     - desktop:linux:aarch64

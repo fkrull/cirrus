@@ -4,13 +4,15 @@ variables:
   STORAGE_DRIVER: vfs
   BUILDAH_ISOLATION: chroot
   CARGO_HOME: ${CI_PROJECT_DIR}/cargo
-  SCCACHE_DIR: ${CI_PROJECT_DIR}/sccache
   RUSTC_WRAPPER: sccache
 
 cache:
-  paths:
-    - cargo/
-    - sccache/
+  - key: rust-cargo
+    paths:
+      - cargo/
+  - key: rust-target-$CI_JOB_NAME
+    paths:
+      - target/
 
 include:
   - template: 'Workflows/Branch-Pipelines.gitlab-ci.yml'
@@ -43,9 +45,7 @@ build-version:
   stage: test
   script:
     - mkdir -p target
-    - sccache --start-server
     - cargo run -p build-scripts --bin get-build-version > target/build-version
-    - sccache --show-stats
     - cat target/build-version
   artifacts:
     reports:
@@ -56,9 +56,7 @@ test:
   stage: test
   script:
     - cargo fmt -- --check
-    - sccache --start-server
     - cargo test --workspace --all-features
-    - sccache --show-stats
 
 # package steps
 desktop:linux:x86_64:
@@ -202,7 +200,6 @@ pages:
   before_script:
     - rustup target add ${TARGET}
   script:
-    - sccache --start-server
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
       --features desktop
@@ -216,7 +213,6 @@ pages:
       --version ${VERSION}
       --pkg-type ${PACKAGE_TYPE}
       target/binaries
-    - sccache --show-stats
   artifacts:
     paths:
       - public
@@ -227,7 +223,6 @@ pages:
   before_script:
     - rustup target add ${TARGET}
   script:
-    - sccache --start-server
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
       --features ""
@@ -237,7 +232,6 @@ pages:
       --target ${TARGET}
       --qemu-binary "${QEMU_BINARY}"
       target/binaries
-    - sccache --show-stats
     - buildah push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-server-image

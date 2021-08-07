@@ -11,6 +11,7 @@ fn main() -> eyre::Result<()> {
         build_date: BuildDate::now(),
     };
     println!("CIRRUS_VERSION={}", build_version.version_string());
+    println!("CIRRUS_IMAGE_TAG={}", build_version.image_tag_string());
     Ok(())
 }
 
@@ -67,6 +68,10 @@ impl BuildVersion {
     fn version_string(&self) -> String {
         format!("{}+{}", self.release, self.build_date.build_string())
     }
+
+    fn image_tag_string(&self) -> String {
+        format!("{}-{}", self.release, self.build_date.build_string())
+    }
 }
 
 #[cfg(test)]
@@ -88,7 +93,7 @@ mod tests {
     }
 
     #[test]
-    fn should_format_version_string() {
+    fn should_format_version_string_and_image_tag_string() {
         let ver = BuildVersion {
             release: "1.0.5".to_string(),
             build_date: BuildDate {
@@ -100,6 +105,7 @@ mod tests {
             },
         };
         assert_eq!(&ver.version_string(), "1.0.5+r20210807.1211");
+        assert_eq!(&ver.image_tag_string(), "1.0.5-r20210807.1211");
     }
 
     #[test]

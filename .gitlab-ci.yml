@@ -28,10 +28,8 @@ stages:
 # ----
 tools:ci-tools-image:
   stage: tools
-  image: fedora:33
+  image: quay.io/buildah/stable
   when: manual
-  before_script:
-    - dnf install -y buildah
   script:
     - buildah build-using-dockerfile
       -t ci-tools
@@ -42,6 +40,8 @@ tools:ci-tools-image:
       docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
 
 build-version:
+  extends:
+    - .on-release-and-main
   stage: test
   script:
     - mkdir -p target
@@ -144,7 +144,8 @@ server:linux:aarch64:
 
 # package manifests
 server:manifest:
-  extends: .on-release-and-main
+  extends:
+    - .on-release-and-main
   stage: manifest
   needs:
     - build-version
@@ -162,7 +163,8 @@ server:manifest:
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
 
 desktop:manifest:
-  extends: .on-release-and-main
+  extends:
+    - .on-release-and-main
   stage: manifest
   needs:
     - build-version
@@ -181,7 +183,8 @@ desktop:manifest:
 
 # publish
 server:publish:
-  extends: .on-release
+  extends:
+    - .on-release
   stage: publish
   needs:
     - server:manifest
@@ -193,7 +196,8 @@ server:publish:
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
 
 pages:
-  extends: .on-release
+  extends:
+    - .on-release
   stage: publish
   needs:
     - desktop:manifest
@@ -220,8 +224,6 @@ pages:
 
 # build desktop binary package
 .desktop:
-  before_script:
-    - rustup target add ${TARGET}
   script:
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
@@ -243,8 +245,6 @@ pages:
 
 # build Linux container image
 .server:
-  before_script:
-    - rustup target add ${TARGET}
   script:
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}

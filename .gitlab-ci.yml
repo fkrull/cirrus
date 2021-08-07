@@ -60,11 +60,10 @@ test:
 
 # package steps
 desktop:linux:x86_64:
-  extends: .desktop
+  extends:
+    - .desktop
+    - .on-release-and-main
   stage: package
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   variables:
     VERSION: $CIRRUS_VERSION
     OS: linux
@@ -74,11 +73,10 @@ desktop:linux:x86_64:
     PACKAGE_RUSTFLAGS: -Clinker=x86_64-linux-gnu-gcc -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu
 
 desktop:linux:armv7:
-  extends: .desktop
+  extends:
+    - .desktop
+    - .on-release-and-main
   stage: package
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   variables:
     VERSION: $CIRRUS_VERSION
     OS: linux
@@ -88,11 +86,10 @@ desktop:linux:armv7:
     PACKAGE_RUSTFLAGS: -Clinker=arm-linux-gnueabihf-gcc -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf
 
 desktop:linux:aarch64:
-  extends: .desktop
+  extends:
+    - .desktop
+    - .on-release-and-main
   stage: package
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   variables:
     VERSION: $CIRRUS_VERSION
     OS: linux
@@ -102,11 +99,10 @@ desktop:linux:aarch64:
     PACKAGE_RUSTFLAGS: -Clinker=aarch64-linux-gnu-gcc -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu
 
 desktop:windows:x86_64:
-  extends: .desktop
+  extends:
+    - .desktop
+    - .on-release-and-main
   stage: package
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   variables:
     VERSION: $CIRRUS_VERSION
     OS: windows
@@ -115,22 +111,20 @@ desktop:windows:x86_64:
     PACKAGE_TYPE: zip
 
 server:linux:x86_64:
-  extends: .server
+  extends:
+    - .server
+    - .on-release-and-main
   stage: package
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   variables:
     VERSION: $CIRRUS_VERSION
     TAG: ${CIRRUS_IMAGE_TAG}-linux-amd64
     TARGET: x86_64-unknown-linux-musl
 
 server:linux:armv7:
-  extends: .server
+  extends:
+    - .server
+    - .on-release-and-main
   stage: package
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   variables:
     VERSION: $CIRRUS_VERSION
     TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
@@ -138,11 +132,10 @@ server:linux:armv7:
     QEMU_BINARY: /usr/bin/qemu-arm-static
 
 server:linux:aarch64:
-  extends: .server
+  extends:
+    - .server
+    - .on-release-and-main
   stage: package
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   variables:
     VERSION: $CIRRUS_VERSION
     TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
@@ -151,10 +144,8 @@ server:linux:aarch64:
 
 # package manifests
 server:manifest:
+  extends: .on-release-and-main
   stage: manifest
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   needs:
     - build-version
     - server:linux:x86_64
@@ -171,10 +162,8 @@ server:manifest:
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
 
 desktop:manifest:
+  extends: .on-release-and-main
   stage: manifest
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH == release
   needs:
     - build-version
     - desktop:linux:x86_64
@@ -192,11 +181,10 @@ desktop:manifest:
 
 # publish
 server:publish:
+  extends: .on-release
   stage: publish
   needs:
     - server:manifest
-  rules:
-    - if: $CI_COMMIT_BRANCH == release
   script:
     - skopeo copy
       --all
@@ -205,11 +193,10 @@ server:publish:
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
 
 pages:
+  extends: .on-release
   stage: publish
   needs:
     - desktop:manifest
-  rules:
-    - if: $CI_COMMIT_BRANCH == release
   script:
     - cp public/manifest.json latest.json
     - rm public/*
@@ -220,6 +207,17 @@ pages:
 
 
 # ----
+# on release and main
+.on-release-and-main:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_BRANCH == "release"'
+
+# only on release
+.on-release:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "release"'
+
 # build desktop binary package
 .desktop:
   before_script:

@@ -65,6 +65,7 @@ desktop:linux:x86_64:
   extends: .desktop
   stage: package
   variables:
+    VERSION: $CIRRUS_VERSION
     OS: linux
     ARCH: x86_64
     TARGET: x86_64-unknown-linux-gnu
@@ -75,6 +76,7 @@ desktop:linux:armv7:
   extends: .desktop
   stage: package
   variables:
+    VERSION: $CIRRUS_VERSION
     OS: linux
     ARCH: arm
     TARGET: armv7-unknown-linux-gnueabihf
@@ -85,6 +87,7 @@ desktop:linux:aarch64:
   extends: .desktop
   stage: package
   variables:
+    VERSION: $CIRRUS_VERSION
     OS: linux
     ARCH: aarch64
     TARGET: aarch64-unknown-linux-gnu
@@ -95,6 +98,7 @@ desktop:windows:x86_64:
   extends: .desktop
   stage: package
   variables:
+    VERSION: $CIRRUS_VERSION
     OS: windows
     ARCH: x86_64
     TARGET: x86_64-pc-windows-gnu
@@ -104,24 +108,27 @@ server:linux:x86_64:
   extends: .server
   stage: package
   variables:
-    TARGET: x86_64-unknown-linux-musl
+    VERSION: $CIRRUS_VERSION
     TAG: ${CIRRUS_IMAGE_TAG}-linux-amd64
+    TARGET: x86_64-unknown-linux-musl
 
 server:linux:armv7:
   extends: .server
   stage: package
   variables:
+    VERSION: $CIRRUS_VERSION
+    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
     TARGET: armv7-unknown-linux-musleabihf
     QEMU_BINARY: /usr/bin/qemu-arm-static
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
 
 server:linux:aarch64:
   extends: .server
   stage: package
   variables:
+    VERSION: $CIRRUS_VERSION
+    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
     TARGET: aarch64-unknown-linux-musl
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
 
 # package manifests
 server:manifest:
@@ -192,6 +199,8 @@ pages:
 # ----
 # build desktop binary package
 .desktop:
+  needs:
+    - build-version
   before_script:
     - rustup target add ${TARGET}
   script:
@@ -199,14 +208,14 @@ pages:
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
       --features desktop
-      --version ${CIRRUS_VERSION}
+      --version ${VERSION}
       --rustflags "${PACKAGE_RUSTFLAGS}"
       ${BINARIES_ARGS}
     - cargo run -p build-scripts --bin package-generic --
       --os ${OS}
       --arch ${ARCH}
       --build-type desktop
-      --version ${CIRRUS_VERSION}
+      --version ${VERSION}
       --pkg-type ${PACKAGE_TYPE}
       target/binaries
     - sccache --show-stats
@@ -224,7 +233,7 @@ pages:
     - cargo run -p build-scripts --bin binaries --
       --target ${TARGET}
       --features ""
-      --version ${CIRRUS_VERSION}
+      --version ${VERSION}
       --rustflags "-Clinker=rust-lld"
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}

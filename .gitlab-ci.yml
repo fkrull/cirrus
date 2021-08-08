@@ -119,6 +119,7 @@ server:manifest:
   extends: .on-release-and-main
   stage: server-manifest
   needs:
+    - test
     - server:linux:x86_64
     - server:linux:armv7
     - server:linux:aarch64

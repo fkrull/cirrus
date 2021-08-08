@@ -165,6 +165,7 @@ server:publish:
   extends: .on-release
   stage: publish
   needs:
+    - test
     - server:manifest
   script:
     - skopeo copy

@@ -144,7 +144,7 @@ server:manifest:
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
 
 # publish
-package:publish:
+pages:
   extends: .on-release
   stage: publish
   needs:
@@ -152,10 +152,11 @@ package:publish:
   script:
     - ls -l public
     - cat public/version
+    - mkdir public/latest
+    - mv public/*.zip public/version public/latest/
   artifacts:
     paths:
       - public
-    expire_in: 1 week
 
 server:publish:
   extends: .on-release

@@ -4,7 +4,6 @@ variables:
   STORAGE_DRIVER: vfs
   BUILDAH_ISOLATION: chroot
   CARGO_HOME: ${CI_PROJECT_DIR}/cargo
-  RUSTC_WRAPPER: sccache
 
 cache:
   - key: rust-cargo

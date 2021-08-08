@@ -12,6 +12,7 @@ async-trait = "0.1.41"
 eyre = "0.6.1"
 log = "0.4.11"
 once_cell = "1.4.1"
+dbus = "0.9.3"
 
 [target.'cfg(windows)'.dependencies]
 trayicon = { version = "0.1.0-beta.18", features = ["winit"] }

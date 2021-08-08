@@ -100,11 +100,21 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     )?);
 
     #[cfg(feature = "cirrus-desktop-ui")]
-    let mut desktop_ui = desktop_ui.into_instance(cirrus_desktop_ui::DesktopUi::new(
-        daemon_config.clone(),
-        config.clone(),
-        job_sink.clone(),
-    )?);
+    let desktop_ui = {
+        let desktop_ui_result = cirrus_desktop_ui::DesktopUi::new(
+            daemon_config.clone(),
+            config.clone(),
+            job_sink.clone(),
+        )
+        .map(|ui| desktop_ui.into_instance(ui));
+        match desktop_ui_result {
+            Ok(desktop_ui) => Some(desktop_ui),
+            Err(err) => {
+                warn!("failed to start desktop UI: {}", err);
+                None
+            }
+        }
+    };
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
@@ -115,7 +125,9 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     tokio::spawn(async move { scheduler.run().await.unwrap() });
     tokio::spawn(async move { configreloader.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
-    tokio::spawn(async move { desktop_ui.run().await.unwrap() });
+    if let Some(mut desktop_ui) = desktop_ui {
+        tokio::spawn(async move { desktop_ui.run().await.unwrap() });
+    }
 
     tokio::signal::ctrl_c().await?;
 

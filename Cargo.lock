@@ -459,6 +459,7 @@ dependencies = [
  "cirrus-actor",
  "cirrus-core",
  "cirrus-daemon",
+ "dbus 0.9.3",
  "eyre",
  "ksni",
  "log",
@@ -684,12 +685,13 @@ dependencies = [
 
 [[package]]
 name = "dbus"
-version = "0.9.1"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b1334c0161ddfccd239ac81b188d62015b049c986c5cd0b7f9447cf2c54f4a3"
+checksum = "c8862bb50aa3b2a2db5bfd2c875c73b3038aa931c411087e335ca8ca0ed430b9"
 dependencies = [
  "libc",
  "libdbus-sys",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -699,7 +701,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a49da9fdfbe872d4841d56605dc42efa5e6ca3291299b87f44e1cde91a28617c"
 dependencies = [
  "clap 2.33.3",
- "dbus 0.9.1",
+ "dbus 0.9.3",
  "xml-rs",
 ]
 
@@ -709,7 +711,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26a1c139b794d571d930124e17fa4cae8a904dc8e916abf551ab763b00e93a63"
 dependencies = [
- "dbus 0.9.1",
+ "dbus 0.9.3",
 ]
 
 [[package]]
@@ -1225,7 +1227,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48b786146a6b576a000a289d8e1a834a3de60db75973f43ebbfec733270973f0"
 dependencies = [
- "dbus 0.9.1",
+ "dbus 0.9.3",
  "dbus-codegen",
  "dbus-tree",
  "thiserror",

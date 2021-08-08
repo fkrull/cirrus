@@ -18,6 +18,7 @@ impl std::fmt::Debug for StatusIcon {
 
 impl StatusIcon {
     pub(crate) fn new() -> eyre::Result<Self> {
+        check_session_dbus_connection()?;
         Ok(StatusIcon { handle: None })
     }
 
@@ -63,6 +64,11 @@ impl StatusIcon {
         });
         Ok(())
     }
+}
+
+fn check_session_dbus_connection() -> eyre::Result<()> {
+    dbus::blocking::Connection::new_session()?;
+    Ok(())
 }
 
 impl ksni::Tray for super::Model {

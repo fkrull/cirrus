@@ -3,7 +3,7 @@ Description=Cirrus Backup
 
 [Service]
 Environment=PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
-Restart=always
+Restart=on-failure
 ExecStart={cirrus_binary} daemon
 
 [Install]

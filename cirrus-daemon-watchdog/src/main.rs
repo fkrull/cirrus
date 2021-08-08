@@ -10,12 +10,16 @@ fn main() {
     loop {
         let cmd = Command::new(&cirrus_command);
         let mut cmd = set_process_options(cmd);
-        cmd.arg("daemon")
+        let exit_status = cmd
+            .arg("daemon")
             .args(std::env::args_os().skip(1))
             .spawn()
             .unwrap()
-            .wait()
-            .ok();
+            .wait();
+        match exit_status {
+            Ok(s) if s.success() => break,
+            _ => continue,
+        }
     }
 }
 

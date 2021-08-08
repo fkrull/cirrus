@@ -39,24 +39,18 @@ tools:ci-tools-image:
       ci-tools
       docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
 
-build-version:
-  extends:
-    - .on-release-and-main
+test:
   stage: test
   script:
     - mkdir -p target
+    - cargo fmt -- --check
+    - cargo test --workspace --all-features
     - cargo run -p build-scripts --bin get-build-version > target/build-version
     - cat target/build-version
   artifacts:
     reports:
       dotenv: target/build-version
     expire_in: 1 day
-
-test:
-  stage: test
-  script:
-    - cargo fmt -- --check
-    - cargo test --workspace --all-features
 
 # package steps
 desktop:linux:x86_64:
@@ -148,7 +142,7 @@ server:manifest:
     - .on-release-and-main
   stage: manifest
   needs:
-    - build-version
+    - test
     - server:linux:x86_64
     - server:linux:armv7
     - server:linux:aarch64
@@ -167,7 +161,7 @@ desktop:manifest:
     - .on-release-and-main
   stage: manifest
   needs:
-    - build-version
+    - test
     - desktop:linux:x86_64
     - desktop:linux:armv7
     - desktop:linux:aarch64
@@ -187,6 +181,7 @@ server:publish:
     - .on-release
   stage: publish
   needs:
+    - test
     - server:manifest
   script:
     - skopeo copy
@@ -200,6 +195,7 @@ pages:
     - .on-release
   stage: publish
   needs:
+    - test
     - desktop:manifest
   script:
     - cp public/manifest.json latest.json

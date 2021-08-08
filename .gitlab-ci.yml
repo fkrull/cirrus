@@ -13,6 +13,7 @@ stages:
   - test
   - package
   - server
+  - server-manifest
   - publish
 
 
@@ -82,6 +83,7 @@ server:linux:x86_64:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:x86_64
   variables:
     VERSION: $CIRRUS_VERSION
@@ -92,6 +94,7 @@ server:linux:armv7:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:armv7
   variables:
     VERSION: $CIRRUS_VERSION
@@ -103,6 +106,7 @@ server:linux:aarch64:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:aarch64
   variables:
     VERSION: $CIRRUS_VERSION
@@ -110,10 +114,10 @@ server:linux:aarch64:
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
     TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
 
-# publish
-server:publish:
-  extends: .on-release
-  stage: publish
+# server image manifest
+server:manifest:
+  extends: .on-release-and-main
+  stage: server-manifest
   needs:
     - test
     - server:linux:x86_64
@@ -128,9 +132,18 @@ server:publish:
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
-    - buildah manifest push
-      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-      cirrus-manifest-list
+
+# publish
+server:publish:
+  extends: .on-release
+  stage: publish
+  needs:
+    - server:manifest
+  script:
+    - skopeo copy
+      --all
+      --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
 
 #pages:
@@ -184,8 +197,6 @@ server:publish:
   extends:
     - .on-release-and-main
     - .job-cache
-  needs:
-    - test
   script:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
@@ -202,8 +213,6 @@ server:publish:
   extends:
     - .on-release-and-main
     - .shared-cache
-  needs:
-    - test
   script:
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}

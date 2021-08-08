@@ -1,5 +1,7 @@
 use std::path::Path;
+use tempfile::TempDir;
 use xshell::*;
+use zip::{write::FileOptions, ZipWriter};
 
 /// Build binaries and a package.
 #[derive(argh::FromArgs)]
@@ -24,7 +26,7 @@ fn main() -> eyre::Result<()> {
     let target = args.target;
     let bin_ext = bin_ext(&target)?;
 
-    let tmp = tempfile::TempDir::new()?;
+    let tmp = TempDir::new()?;
 
     // compile cirrus
     {
@@ -81,7 +83,6 @@ fn bin_ext(target: &str) -> eyre::Result<&'static str> {
 
 fn package_zip(dir: &Path, dest: &Path) -> eyre::Result<()> {
     use std::{fs::File, io::copy};
-    use zip::{write::FileOptions, write::ZipWriter};
 
     let mut zip = ZipWriter::new(File::create(dest)?);
 

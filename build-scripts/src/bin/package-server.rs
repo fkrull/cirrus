@@ -1,6 +1,7 @@
-use std::fs::File;
-use std::path::Path;
+use std::{fs::File, path::Path};
+use tempfile::TempDir;
 use xshell::*;
+use zip::ZipArchive;
 
 /// Build a container image.
 #[derive(argh::FromArgs)]
@@ -26,8 +27,8 @@ fn main() -> eyre::Result<()> {
     let ctr = cmd!("buildah from {base_image}").read()?;
 
     // copy files
-    let tmp = tempfile::TempDir::new()?;
-    let mut zip = zip::ZipArchive::new(File::open(args.binaries_zip)?)?;
+    let tmp = TempDir::new()?;
+    let mut zip = ZipArchive::new(File::open(args.binaries_zip)?)?;
     zip.extract(tmp.path())?;
     for path in read_dir(tmp.path())? {
         cmd!("buildah copy --chown root:root {ctr} {path} /usr/bin/").run()?;

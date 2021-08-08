@@ -163,13 +163,12 @@ server:publish:
 
 
 # ----
-# on release and main
+# which branches to run on
 .on-release-and-main:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_COMMIT_BRANCH == "release"'
 
-# only on release
 .on-release:
   rules:
     - if: '$CI_COMMIT_BRANCH == "release"'

@@ -13,7 +13,7 @@ stages:
   - test
   - package
   - server
-  - server-manifest
+  - manifest
   - publish
 
 
@@ -83,41 +83,51 @@ server:linux:x86_64:
   extends: .server
   stage: server
   needs:
-    - test
     - package:linux:x86_64
   variables:
-    VERSION: $CIRRUS_VERSION
-    TARGET: x86_64-unknown-linux-gnu
     TAG: ${CIRRUS_IMAGE_TAG}-linux-amd64
+    TARGET: x86_64-unknown-linux-gnu
 
 server:linux:armv7:
   extends: .server
   stage: server
   needs:
-    - test
     - package:linux:armv7
   variables:
-    VERSION: $CIRRUS_VERSION
+    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
     TARGET: armv7-unknown-linux-gnueabihf
     QEMU_BINARY: /usr/bin/qemu-arm-static
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
 
 server:linux:aarch64:
   extends: .server
   stage: server
   needs:
-    - test
     - package:linux:aarch64
   variables:
-    VERSION: $CIRRUS_VERSION
+    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
     TARGET: aarch64-unknown-linux-gnu
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
 
-# server image manifest
+# manifest
+package:manifest:
+  extends: .on-release-and-main
+  stage: manifest
+  needs:
+    - test
+    - package:linux:x86_64
+    - package:linux:armv7
+    - package:linux:aarch64
+    - package:windows:x86_64
+  script:
+    - echo "$CIRRUS_VERSION" > public/version
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 day
+
 server:manifest:
   extends: .on-release-and-main
-  stage: server-manifest
+  stage: manifest
   needs:
     - test
     - server:linux:x86_64
@@ -134,6 +144,19 @@ server:manifest:
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
 
 # publish
+package:publish:
+  extends: .on-release
+  stage: publish
+  needs:
+    - package:manifest
+  script:
+    - ls -l public
+    - cat public/version
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week
+
 server:publish:
   extends: .on-release
   stage: publish
@@ -145,21 +168,6 @@ server:publish:
       --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
-
-#pages:
-#  extends:
-#    - .on-release
-#  stage: publish
-#  needs:
-#    - test
-#    - desktop:manifest
-#  script:
-#    - cp public/manifest.json latest.json
-#    - rm public/*
-#    - cp latest.json public/latest.json
-#  artifacts:
-#    paths:
-#      - public
 
 
 # ----
@@ -197,6 +205,8 @@ server:publish:
   extends:
     - .on-release-and-main
     - .job-cache
+  needs:
+    - test
   script:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
@@ -213,11 +223,13 @@ server:publish:
   extends:
     - .on-release-and-main
     - .shared-cache
+  needs:
+    - test
   script:
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}
       --qemu-binary "${QEMU_BINARY}"
-      public/cirrus_${VERSION}_${TARGET}.zip
+      public/cirrus_${TARGET}.zip
     - buildah push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-server-image

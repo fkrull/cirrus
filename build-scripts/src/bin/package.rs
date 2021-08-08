@@ -60,7 +60,7 @@ fn main() -> eyre::Result<()> {
 
     // build package
     mkdir_p("public")?;
-    let pkg_filename = format!("cirrus_{}_{}.zip", args.version, target);
+    let pkg_filename = format!("cirrus_{}.zip", target);
     let pkg_path = Path::new("public").join(&pkg_filename);
     package_zip(tmp.path(), &pkg_path)?;
 

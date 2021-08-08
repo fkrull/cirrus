@@ -83,6 +83,7 @@ server:linux:x86_64:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:x86_64
   variables:
     TAG: ${CIRRUS_IMAGE_TAG}-linux-amd64
@@ -92,6 +93,7 @@ server:linux:armv7:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:armv7
   variables:
     TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
@@ -102,6 +104,7 @@ server:linux:aarch64:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:aarch64
   variables:
     TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
@@ -224,8 +227,6 @@ server:publish:
   extends:
     - .on-release-and-main
     - .shared-cache
-  needs:
-    - test
   script:
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}

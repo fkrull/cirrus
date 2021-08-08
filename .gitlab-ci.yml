@@ -52,56 +52,95 @@ test:
     expire_in: 1 day
 
 # package steps
-desktop:linux:x86_64:
+package:linux:x86_64:
   extends:
-    - .desktop
+    - .package
     - .on-release-and-main
   stage: package
   variables:
     VERSION: $CIRRUS_VERSION
-    OS: linux
-    ARCH: x86_64
     TARGET: x86_64-unknown-linux-gnu
-    PACKAGE_TYPE: tar.bz2
     PACKAGE_RUSTFLAGS: -Clinker=x86_64-linux-gnu-gcc -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu
 
-desktop:linux:armv7:
+package:linux:armv7:
   extends:
-    - .desktop
+    - .package
     - .on-release-and-main
   stage: package
   variables:
     VERSION: $CIRRUS_VERSION
-    OS: linux
-    ARCH: arm
     TARGET: armv7-unknown-linux-gnueabihf
-    PACKAGE_TYPE: tar.bz2
     PACKAGE_RUSTFLAGS: -Clinker=arm-linux-gnueabihf-gcc -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf
 
-desktop:linux:aarch64:
+package:linux:aarch64:
   extends:
-    - .desktop
+    - .package
     - .on-release-and-main
   stage: package
   variables:
     VERSION: $CIRRUS_VERSION
-    OS: linux
-    ARCH: aarch64
     TARGET: aarch64-unknown-linux-gnu
-    PACKAGE_TYPE: tar.bz2
     PACKAGE_RUSTFLAGS: -Clinker=aarch64-linux-gnu-gcc -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu
 
-desktop:windows:x86_64:
+package:windows:x86_64:
   extends:
-    - .desktop
+    - .package
     - .on-release-and-main
   stage: package
   variables:
     VERSION: $CIRRUS_VERSION
-    OS: windows
-    ARCH: x86_64
     TARGET: x86_64-pc-windows-gnu
-    PACKAGE_TYPE: zip
+
+#desktop:linux:x86_64:
+#  extends:
+#    - .desktop
+#    - .on-release-and-main
+#  stage: package
+#  variables:
+#    VERSION: $CIRRUS_VERSION
+#    OS: linux
+#    ARCH: x86_64
+#    TARGET: x86_64-unknown-linux-gnu
+#    PACKAGE_TYPE: tar.bz2
+#    PACKAGE_RUSTFLAGS: -Clinker=x86_64-linux-gnu-gcc -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu
+#
+#desktop:linux:armv7:
+#  extends:
+#    - .desktop
+#    - .on-release-and-main
+#  stage: package
+#  variables:
+#    VERSION: $CIRRUS_VERSION
+#    OS: linux
+#    ARCH: arm
+#    TARGET: armv7-unknown-linux-gnueabihf
+#    PACKAGE_TYPE: tar.bz2
+#    PACKAGE_RUSTFLAGS: -Clinker=arm-linux-gnueabihf-gcc -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf
+#
+#desktop:linux:aarch64:
+#  extends:
+#    - .desktop
+#    - .on-release-and-main
+#  stage: package
+#  variables:
+#    VERSION: $CIRRUS_VERSION
+#    OS: linux
+#    ARCH: aarch64
+#    TARGET: aarch64-unknown-linux-gnu
+#    PACKAGE_TYPE: tar.bz2
+#    PACKAGE_RUSTFLAGS: -Clinker=aarch64-linux-gnu-gcc -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu
+#
+#desktop:windows:x86_64:
+#  extends:
+#    - .desktop
+#    - .on-release-and-main
+#  stage: package
+#  variables:
+#    VERSION: $CIRRUS_VERSION
+#    OS: windows
+#    ARCH: x86_64
+#    TARGET: x86_64-pc-windows-gnu
+#    PACKAGE_TYPE: zip
 
 server:linux:x86_64:
   extends:
@@ -155,24 +194,24 @@ server:manifest:
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
 
-desktop:manifest:
-  extends:
-    - .on-release-and-main
-  stage: manifest
-  needs:
-    - test
-    - desktop:linux:x86_64
-    - desktop:linux:armv7
-    - desktop:linux:aarch64
-    - desktop:windows:x86_64
-  script:
-    - cargo run -p build-scripts --bin finalize-manifest --
-      --url-pattern ${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/raw/public/__FILENAME__
-      public
-  artifacts:
-    paths:
-      - public
-    expire_in: 1 day
+#desktop:manifest:
+#  extends:
+#    - .on-release-and-main
+#  stage: manifest
+#  needs:
+#    - test
+#    - desktop:linux:x86_64
+#    - desktop:linux:armv7
+#    - desktop:linux:aarch64
+#    - desktop:windows:x86_64
+#  script:
+#    - cargo run -p build-scripts --bin finalize-manifest --
+#      --url-pattern ${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/raw/public/__FILENAME__
+#      public
+#  artifacts:
+#    paths:
+#      - public
+#    expire_in: 1 day
 
 # publish
 server:publish:
@@ -189,20 +228,20 @@ server:publish:
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
 
-pages:
-  extends:
-    - .on-release
-  stage: publish
-  needs:
-    - test
-    - desktop:manifest
-  script:
-    - cp public/manifest.json latest.json
-    - rm public/*
-    - cp latest.json public/latest.json
-  artifacts:
-    paths:
-      - public
+#pages:
+#  extends:
+#    - .on-release
+#  stage: publish
+#  needs:
+#    - test
+#    - desktop:manifest
+#  script:
+#    - cp public/manifest.json latest.json
+#    - rm public/*
+#    - cp latest.json public/latest.json
+#  artifacts:
+#    paths:
+#      - public
 
 
 # ----
@@ -217,22 +256,33 @@ pages:
   rules:
     - if: '$CI_COMMIT_BRANCH == "release"'
 
-# build desktop binary package
-.desktop:
+# build binary package
+#.desktop:
+#script:
+#  - cargo run -p build-scripts --bin binaries --
+#    --target ${TARGET}
+#    --features desktop
+#    --version ${VERSION}
+#    --rustflags "${PACKAGE_RUSTFLAGS}"
+#    ${BINARIES_ARGS}
+#  - cargo run -p build-scripts --bin package-generic --
+#    --os ${OS}
+#    --arch ${ARCH}
+#    --build-type desktop
+#    --version ${VERSION}
+#    --pkg-type ${PACKAGE_TYPE}
+#    target/binaries
+#artifacts:
+#  paths:
+#    - public
+#  expire_in: 1 day
+.package:
   script:
-    - cargo run -p build-scripts --bin binaries --
+    - cargo run -p build-scripts --bin package --
+      --version ${VERSION}
       --target ${TARGET}
       --features desktop
-      --version ${VERSION}
       --rustflags "${PACKAGE_RUSTFLAGS}"
-      ${BINARIES_ARGS}
-    - cargo run -p build-scripts --bin package-generic --
-      --os ${OS}
-      --arch ${ARCH}
-      --build-type desktop
-      --version ${VERSION}
-      --pkg-type ${PACKAGE_TYPE}
-      target/binaries
   artifacts:
     paths:
       - public

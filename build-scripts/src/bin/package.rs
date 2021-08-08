@@ -4,6 +4,9 @@ use xshell::*;
 /// Build binaries and a package.
 #[derive(argh::FromArgs)]
 struct Args {
+    /// version
+    #[argh(option)]
+    version: String,
     /// rust target triple
     #[argh(option)]
     target: String,
@@ -13,9 +16,6 @@ struct Args {
     /// RUSTFLAGS to set for the build
     #[argh(option)]
     rustflags: Option<String>,
-    /// version
-    #[argh(option)]
-    version: String,
 }
 
 fn main() -> eyre::Result<()> {

@@ -51,6 +51,10 @@ impl Model {
                 self.run_backup(name)?;
                 Ok(HandleEventOutcome::Unchanged)
             }
+            Event::Exit => {
+                tracing::info!("exiting due to user request via status icon");
+                std::process::exit(0)
+            }
         }
     }
 
@@ -122,6 +126,7 @@ enum Event {
 
     UpdateConfig(Arc<model::Config>),
     RunBackup(model::backup::Name),
+    Exit,
 }
 
 #[derive(Debug)]

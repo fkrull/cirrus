@@ -126,6 +126,15 @@ impl ksni::Tray for super::Model {
                 ..Default::default()
             }
             .into(),
+            MenuItem::Separator,
+            StandardItem {
+                label: "Exit".to_owned(),
+                activate: Box::new(move |this: &mut super::Model| {
+                    this.handle_event(super::Event::Exit).unwrap();
+                }),
+                ..Default::default()
+            }
+            .into(),
         ]
     }
 }

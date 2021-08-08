@@ -109,7 +109,10 @@ fn menu(model: &super::Model) -> trayicon::MenuBuilder<super::Event> {
         .fold(trayicon::MenuBuilder::new(), |menu, name| {
             menu.item(&name.0, super::Event::RunBackup(name.clone()))
         });
-    trayicon::MenuBuilder::new().submenu("Run Backup", backups_menu)
+    trayicon::MenuBuilder::new()
+        .submenu("Run Backup", backups_menu)
+        .separator()
+        .item("Exit", super::Event::Exit)
 }
 
 fn icon_for_status(model: &super::Model) -> eyre::Result<&'static trayicon::Icon> {

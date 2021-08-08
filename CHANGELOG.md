@@ -7,6 +7,7 @@ the version numbers are *not* semantic.
 ## 1.0.1 - 2021-08-08
 ### Added
 * Include target triple in version output.
+* Added back Exit menu item to status icon UI.
 
 ## 1.0.0 - 2021-08-07
 ### Added

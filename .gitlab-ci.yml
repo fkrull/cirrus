@@ -20,7 +20,8 @@ stages:
   - tools
   - test
   - package
-  - manifest
+  - server
+  - server-manifest
   - publish
 
 
@@ -41,21 +42,19 @@ tools:ci-tools-image:
 test:
   stage: test
   script:
-    - mkdir -p target
+    - mkdir -p public
     - cargo fmt -- --check
     - cargo test --workspace --all-features
-    - cargo run -p build-scripts --bin get-build-version > target/build-version
-    - cat target/build-version
+    - cargo run -p build-scripts --bin get-build-version > public/build-version
+    - cat public/build-version
   artifacts:
     reports:
-      dotenv: target/build-version
+      dotenv: public/build-version
     expire_in: 1 day
 
 # package steps
 package:linux:x86_64:
-  extends:
-    - .package
-    - .on-release-and-main
+  extends: .package
   stage: package
   variables:
     VERSION: $CIRRUS_VERSION
@@ -63,9 +62,7 @@ package:linux:x86_64:
     PACKAGE_RUSTFLAGS: -Clinker=x86_64-linux-gnu-gcc -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu
 
 package:linux:armv7:
-  extends:
-    - .package
-    - .on-release-and-main
+  extends: .package
   stage: package
   variables:
     VERSION: $CIRRUS_VERSION
@@ -73,9 +70,7 @@ package:linux:armv7:
     PACKAGE_RUSTFLAGS: -Clinker=arm-linux-gnueabihf-gcc -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf
 
 package:linux:aarch64:
-  extends:
-    - .package
-    - .on-release-and-main
+  extends: .package
   stage: package
   variables:
     VERSION: $CIRRUS_VERSION
@@ -83,9 +78,7 @@ package:linux:aarch64:
     PACKAGE_RUSTFLAGS: -Clinker=aarch64-linux-gnu-gcc -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu
 
 package:windows:x86_64:
-  extends:
-    - .package
-    - .on-release-and-main
+  extends: .package
   stage: package
   variables:
     VERSION: $CIRRUS_VERSION
@@ -142,45 +135,44 @@ package:windows:x86_64:
 #    TARGET: x86_64-pc-windows-gnu
 #    PACKAGE_TYPE: zip
 
+# server container images
 server:linux:x86_64:
-  extends:
-    - .server
-    - .on-release-and-main
-  stage: package
+  extends: .server
+  stage: server
+  needs:
+    - package:linux:x86_64
   variables:
     VERSION: $CIRRUS_VERSION
+    TARGET: x86_64-unknown-linux-gnu
     TAG: ${CIRRUS_IMAGE_TAG}-linux-amd64
-    TARGET: x86_64-unknown-linux-musl
 
 server:linux:armv7:
-  extends:
-    - .server
-    - .on-release-and-main
-  stage: package
+  extends: .server
+  stage: server
+  needs:
+    - package:linux:armv7
   variables:
     VERSION: $CIRRUS_VERSION
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
-    TARGET: armv7-unknown-linux-musleabihf
+    TARGET: armv7-unknown-linux-gnueabihf
     QEMU_BINARY: /usr/bin/qemu-arm-static
+    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
 
 server:linux:aarch64:
-  extends:
-    - .server
-    - .on-release-and-main
-  stage: package
+  extends: .server
+  stage: server
+  needs:
+    - package:linux:aarch64
   variables:
     VERSION: $CIRRUS_VERSION
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
-    TARGET: aarch64-unknown-linux-musl
+    TARGET: aarch64-unknown-linux-gnu
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
+    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
 
-# package manifests
+# server image manifest
 server:manifest:
-  extends:
-    - .on-release-and-main
-  stage: manifest
+  extends: .on-release-and-main
+  stage: server-manifest
   needs:
-    - test
     - server:linux:x86_64
     - server:linux:armv7
     - server:linux:aarch64
@@ -193,6 +185,26 @@ server:manifest:
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
+
+# package manifests
+#server:manifest:
+#  extends:
+#    - .on-release-and-main
+#  stage: manifest
+#  needs:
+#    - test
+#    - server:linux:x86_64
+#    - server:linux:armv7
+#    - server:linux:aarch64
+#  script:
+#    - buildah manifest create cirrus-manifest-list
+#      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-amd64
+#      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-arm32v7
+#      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-arm64v8
+#    - buildah manifest push
+#      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+#      cirrus-manifest-list
+#      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
 
 #desktop:manifest:
 #  extends:
@@ -215,11 +227,9 @@ server:manifest:
 
 # publish
 server:publish:
-  extends:
-    - .on-release
+  extends: .on-release
   stage: publish
   needs:
-    - test
     - server:manifest
   script:
     - skopeo copy
@@ -277,6 +287,7 @@ server:publish:
 #    - public
 #  expire_in: 1 day
 .package:
+  extends: .on-release-and-main
   script:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
@@ -290,16 +301,12 @@ server:publish:
 
 # build Linux container image
 .server:
+  extends: .on-release-and-main
   script:
-    - cargo run -p build-scripts --bin binaries --
-      --target ${TARGET}
-      --features ""
-      --version ${VERSION}
-      --rustflags "-Clinker=rust-lld"
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}
       --qemu-binary "${QEMU_BINARY}"
-      target/binaries
+      public/cirrus_${VERSION}_${TARGET}.zip
     - buildah push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-server-image

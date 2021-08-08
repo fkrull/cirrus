@@ -1,12 +1,13 @@
+use std::fs::File;
 use std::path::Path;
 use xshell::*;
 
 /// Build a container image.
 #[derive(argh::FromArgs)]
 struct Args {
-    /// directory to package
+    /// zip file of binaries
     #[argh(positional)]
-    dir: String,
+    binaries_zip: String,
 
     /// rust compile target
     #[argh(option)]
@@ -25,7 +26,10 @@ fn main() -> eyre::Result<()> {
     let ctr = cmd!("buildah from {base_image}").read()?;
 
     // copy files
-    for path in read_dir(&args.dir)? {
+    let tmp = tempfile::TempDir::new()?;
+    let mut zip = zip::ZipArchive::new(File::open(args.binaries_zip)?)?;
+    zip.extract(tmp.path())?;
+    for path in read_dir(tmp.path())? {
         cmd!("buildah copy --chown root:root {ctr} {path} /usr/bin/").run()?;
     }
 
@@ -33,7 +37,7 @@ fn main() -> eyre::Result<()> {
     buildah_run(
         &ctr,
         qemu.as_ref(),
-        "apk add --no-cache ca-certificates openssh-client",
+        "apt-get update && apt-get install -y ca-certificates libdbus-1-3 openssh-client",
     )?;
     cmd!("buildah config --env XDG_CONFIG_HOME=/config {ctr}").run()?;
     cmd!("buildah config --env XDG_DATA_HOME=/data/data {ctr}").run()?;
@@ -48,9 +52,9 @@ fn main() -> eyre::Result<()> {
 
 fn base_image(target: &str) -> eyre::Result<&str> {
     Ok(match target {
-        "x86_64-unknown-linux-musl" => "docker.io/amd64/alpine:3.13",
-        "armv7-unknown-linux-musleabihf" => "docker.io/arm32v7/alpine:3.13",
-        "aarch64-unknown-linux-musl" => "docker.io/arm64v8/alpine:3.13",
+        "x86_64-unknown-linux-gnu" => "docker.io/amd64/debian:10-slim",
+        "armv7-unknown-linux-gnueabihf" => "docker.io/arm32v7/debian:10-slim",
+        "aarch64-unknown-linux-gnu" => "docker.io/arm64v8/debian:10-slim",
         _ => eyre::bail!("unknown target {}", target),
     })
 }

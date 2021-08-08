@@ -37,7 +37,7 @@ fn main() -> eyre::Result<()> {
     buildah_run(
         &ctr,
         qemu.as_ref(),
-        "apt-get update && apt-get install -y ca-certificates libdbus-1-3 openssh-client",
+        "apt-get update && apt-get install --no-install-recommends -y ca-certificates libdbus-1-3 openssh-client && apt-cache clean && rm -rf /var/lib/apt",
     )?;
     cmd!("buildah config --env XDG_CONFIG_HOME=/config {ctr}").run()?;
     cmd!("buildah config --env XDG_DATA_HOME=/data/data {ctr}").run()?;

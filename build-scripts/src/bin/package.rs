@@ -32,6 +32,7 @@ fn main() -> eyre::Result<()> {
     {
         let _e1 = args.rustflags.as_ref().map(|s| pushenv("RUSTFLAGS", s));
         let _e2 = pushenv("CIRRUS_VERSION", &args.version);
+        let _e3 = pushenv("CIRRUS_TARGET", &target);
 
         let features = args.features;
         cmd!("cargo build --release --target={target} --features={features}").run()?;

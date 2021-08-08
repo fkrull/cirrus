@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Note that
 the version numbers are *not* semantic.
 
+## 1.1.0 - 2021-08-08
+### Added
+* Include target triple in version output.
+
 ## 1.0.0 - 2021-08-07
 ### Added
 * Include and show version string in release versions.

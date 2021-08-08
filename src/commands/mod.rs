@@ -66,10 +66,12 @@ pub fn config(config: &Config) -> eyre::Result<()> {
 }
 
 pub async fn version(restic: &Restic) -> eyre::Result<()> {
-    println!(
-        "cirrus: {}",
-        cirrus_core::VERSION.unwrap_or("[untagged build]")
-    );
+    if let Some((version, target)) = cirrus_core::VERSION.zip(cirrus_core::TARGET) {
+        println!("cirrus: {} on {}", version, target);
+    } else {
+        println!("cirrus: [untagged build]");
+    }
+
     match restic.version_string().await {
         Ok(restic_version) => println!("restic: {}", restic_version),
         Err(err) => println!(

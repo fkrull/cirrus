@@ -42,14 +42,14 @@ tools:ci-tools-image:
 test:
   stage: test
   script:
-    - mkdir -p public
+    - mkdir -p target
     - cargo fmt -- --check
     - cargo test --workspace --all-features
-    - cargo run -p build-scripts --bin get-build-version > public/build-version
-    - cat public/build-version
+    - cargo run -p build-scripts --bin get-build-version > target/build-version
+    - cat target/build-version
   artifacts:
     reports:
-      dotenv: public/build-version
+      dotenv: target/build-version
     expire_in: 1 day
 
 # package steps
@@ -140,6 +140,7 @@ server:linux:x86_64:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:x86_64
   variables:
     VERSION: $CIRRUS_VERSION
@@ -150,6 +151,7 @@ server:linux:armv7:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:armv7
   variables:
     VERSION: $CIRRUS_VERSION
@@ -161,6 +163,7 @@ server:linux:aarch64:
   extends: .server
   stage: server
   needs:
+    - test
     - package:linux:aarch64
   variables:
     VERSION: $CIRRUS_VERSION

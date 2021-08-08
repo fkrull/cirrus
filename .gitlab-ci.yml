@@ -5,14 +5,6 @@ variables:
   BUILDAH_ISOLATION: chroot
   CARGO_HOME: ${CI_PROJECT_DIR}/cargo
 
-cache:
-  - key: rust-cargo
-    paths:
-      - cargo/
-  - key: rust-target-$CI_JOB_NAME
-    paths:
-      - target/
-
 include:
   - template: 'Workflows/Branch-Pipelines.gitlab-ci.yml'
 
@@ -40,10 +32,12 @@ tools:ci-tools-image:
       docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
 
 test:
+  extends: .shared-cache
   stage: test
   script:
     - mkdir -p target
     - cargo fmt -- --check
+    - cargo build -p build-scripts
     - cargo test --workspace --all-features
     - cargo run -p build-scripts --bin get-build-version > target/build-version
     - cat target/build-version
@@ -83,57 +77,6 @@ package:windows:x86_64:
   variables:
     VERSION: $CIRRUS_VERSION
     TARGET: x86_64-pc-windows-gnu
-
-#desktop:linux:x86_64:
-#  extends:
-#    - .desktop
-#    - .on-release-and-main
-#  stage: package
-#  variables:
-#    VERSION: $CIRRUS_VERSION
-#    OS: linux
-#    ARCH: x86_64
-#    TARGET: x86_64-unknown-linux-gnu
-#    PACKAGE_TYPE: tar.bz2
-#    PACKAGE_RUSTFLAGS: -Clinker=x86_64-linux-gnu-gcc -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu
-#
-#desktop:linux:armv7:
-#  extends:
-#    - .desktop
-#    - .on-release-and-main
-#  stage: package
-#  variables:
-#    VERSION: $CIRRUS_VERSION
-#    OS: linux
-#    ARCH: arm
-#    TARGET: armv7-unknown-linux-gnueabihf
-#    PACKAGE_TYPE: tar.bz2
-#    PACKAGE_RUSTFLAGS: -Clinker=arm-linux-gnueabihf-gcc -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf
-#
-#desktop:linux:aarch64:
-#  extends:
-#    - .desktop
-#    - .on-release-and-main
-#  stage: package
-#  variables:
-#    VERSION: $CIRRUS_VERSION
-#    OS: linux
-#    ARCH: aarch64
-#    TARGET: aarch64-unknown-linux-gnu
-#    PACKAGE_TYPE: tar.bz2
-#    PACKAGE_RUSTFLAGS: -Clinker=aarch64-linux-gnu-gcc -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu
-#
-#desktop:windows:x86_64:
-#  extends:
-#    - .desktop
-#    - .on-release-and-main
-#  stage: package
-#  variables:
-#    VERSION: $CIRRUS_VERSION
-#    OS: windows
-#    ARCH: x86_64
-#    TARGET: x86_64-pc-windows-gnu
-#    PACKAGE_TYPE: zip
 
 # server container images
 server:linux:x86_64:
@@ -189,45 +132,6 @@ server:manifest:
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
 
-# package manifests
-#server:manifest:
-#  extends:
-#    - .on-release-and-main
-#  stage: manifest
-#  needs:
-#    - test
-#    - server:linux:x86_64
-#    - server:linux:armv7
-#    - server:linux:aarch64
-#  script:
-#    - buildah manifest create cirrus-manifest-list
-#      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-amd64
-#      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-arm32v7
-#      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-arm64v8
-#    - buildah manifest push
-#      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-#      cirrus-manifest-list
-#      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
-
-#desktop:manifest:
-#  extends:
-#    - .on-release-and-main
-#  stage: manifest
-#  needs:
-#    - test
-#    - desktop:linux:x86_64
-#    - desktop:linux:armv7
-#    - desktop:linux:aarch64
-#    - desktop:windows:x86_64
-#  script:
-#    - cargo run -p build-scripts --bin finalize-manifest --
-#      --url-pattern ${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/raw/public/__FILENAME__
-#      public
-#  artifacts:
-#    paths:
-#      - public
-#    expire_in: 1 day
-
 # publish
 server:publish:
   extends: .on-release
@@ -269,28 +173,30 @@ server:publish:
   rules:
     - if: '$CI_COMMIT_BRANCH == "release"'
 
+# caches
+.shared-cache:
+  cache:
+    - key: rust-cargo
+      paths:
+        - cargo/
+    - key: rust-target-shared
+      paths:
+        - target/
+
+.job-cache:
+  cache:
+    - key: rust-cargo
+      paths:
+        - cargo/
+    - key: rust-target-${CI_JOB_NAME}
+      paths:
+        - target/
+
 # build binary package
-#.desktop:
-#script:
-#  - cargo run -p build-scripts --bin binaries --
-#    --target ${TARGET}
-#    --features desktop
-#    --version ${VERSION}
-#    --rustflags "${PACKAGE_RUSTFLAGS}"
-#    ${BINARIES_ARGS}
-#  - cargo run -p build-scripts --bin package-generic --
-#    --os ${OS}
-#    --arch ${ARCH}
-#    --build-type desktop
-#    --version ${VERSION}
-#    --pkg-type ${PACKAGE_TYPE}
-#    target/binaries
-#artifacts:
-#  paths:
-#    - public
-#  expire_in: 1 day
 .package:
-  extends: .on-release-and-main
+  extends:
+    - .on-release-and-main
+    - .job-cache
   script:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
@@ -304,7 +210,9 @@ server:publish:
 
 # build Linux container image
 .server:
-  extends: .on-release-and-main
+  extends:
+    - .on-release-and-main
+    - .shared-cache
   script:
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}

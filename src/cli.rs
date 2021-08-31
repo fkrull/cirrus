@@ -90,6 +90,9 @@ pub enum Cmd {
     #[cfg(feature = "desktop-commands")]
     Desktop(desktop::Cli),
 
+    /// Internal commands
+    Internal(internal::Cli),
+
     /// Prints version information
     Version,
 }
@@ -182,5 +185,20 @@ pub mod desktop {
     pub enum Cmd {
         /// Opens the config file in the default editor
         OpenConfigFile,
+    }
+}
+
+pub mod internal {
+    #[derive(clap::Clap)]
+    pub struct Cli {
+        #[clap(subcommand)]
+        pub subcommand: Cmd,
+    }
+
+    #[derive(clap::Clap)]
+    pub enum Cmd {
+        #[cfg(feature = "daemon-supervisor")]
+        /// Launches the cirrus daemon using the built-in daemon supervisor
+        DaemonSupervisor,
     }
 }

@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Note that
 the version numbers are *not* semantic.
 
+## 1.1.0 - 2021-09-01
+### Added
+* Bundle a built-in daemon supervisor (mostly for Windows).
+
 ## 1.0.1 - 2021-08-08
 ### Added
 * Include target triple in version output.

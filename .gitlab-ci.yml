@@ -216,7 +216,7 @@ server:publish:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
       --target ${TARGET}
-      --features desktop
+      --features desktop,daemon-supervisor
       --rustflags "${PACKAGE_RUSTFLAGS}"
   artifacts:
     paths:

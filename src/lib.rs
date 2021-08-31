@@ -73,6 +73,10 @@ pub async fn main() -> eyre::Result<()> {
                 maybe_config?.source.as_ref().map(|o| o.as_path()),
             ),
         },
+        cli::Cmd::Internal(args) => match args.subcommand {
+            #[cfg(feature = "daemon-supervisor")]
+            cli::internal::Cmd::DaemonSupervisor => commands::internal::daemon_supervisor().await,
+        },
         cli::Cmd::Version => commands::version(&restic).await,
     }
 }

@@ -41,7 +41,7 @@ features = ["macros", "signal", "rt-multi-thread"]
 
 [features]
 default = []
-
+daemon-supervisor = []
 # desktop features
 desktop-commands = ["opener"]
 desktop = ["desktop-commands", "cirrus-core/keyring", "cirrus-desktop-ui"]

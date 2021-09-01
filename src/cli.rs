@@ -91,6 +91,7 @@ pub enum Cmd {
     Desktop(desktop::Cli),
 
     /// Internal commands
+    #[clap(setting = clap::AppSettings::Hidden)]
     Internal(internal::Cli),
 
     /// Prints version information

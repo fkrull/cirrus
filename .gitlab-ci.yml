@@ -123,6 +123,7 @@ package:manifest:
     - package:windows:x86_64
   script:
     - echo "$CIRRUS_VERSION" > public/version
+    - echo "$CIRRUS_VERSION"
   artifacts:
     paths:
       - public
@@ -145,6 +146,7 @@ server:manifest:
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
+    - echo "$CIRRUS_IMAGE_TAG"
 
 # publish
 pages:

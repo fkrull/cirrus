@@ -128,6 +128,15 @@ impl ksni::Tray for super::Model {
             .into(),
             MenuItem::Separator,
             StandardItem {
+                label: "Open Configuration".to_owned(),
+                activate: Box::new(move |this: &mut super::Model| {
+                    this.handle_event(super::Event::OpenConfigFile).unwrap();
+                }),
+                enabled: self.can_open_config_file(),
+                ..Default::default()
+            }
+            .into(),
+            StandardItem {
                 label: "Exit".to_owned(),
                 activate: Box::new(move |this: &mut super::Model| {
                     this.handle_event(super::Event::Exit).unwrap();

@@ -86,10 +86,6 @@ pub enum Cmd {
     /// Generates various support files
     Generate(generate::Cli),
 
-    /// Commands specific to the desktop build
-    #[cfg(feature = "desktop-commands")]
-    Desktop(desktop::Cli),
-
     /// Internal commands
     #[clap(setting = clap::AppSettings::Hidden)]
     Internal(internal::Cli),
@@ -171,21 +167,6 @@ pub mod generate {
 
         /// Generate bash completions
         BashCompletions,
-    }
-}
-
-#[cfg(feature = "desktop-commands")]
-pub mod desktop {
-    #[derive(clap::Clap)]
-    pub struct Cli {
-        #[clap(subcommand)]
-        pub subcommand: Cmd,
-    }
-
-    #[derive(clap::Clap)]
-    pub enum Cmd {
-        /// Opens the config file in the default editor
-        OpenConfigFile,
     }
 }
 

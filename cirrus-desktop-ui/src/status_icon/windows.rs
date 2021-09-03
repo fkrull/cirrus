@@ -112,6 +112,12 @@ fn menu(model: &super::Model) -> trayicon::MenuBuilder<super::Event> {
     trayicon::MenuBuilder::new()
         .submenu("Run Backup", backups_menu)
         .separator()
+        .with(trayicon::MenuItem::Item {
+            name: "Open Configuration".to_owned(),
+            id: super::Event::OpenConfigFile,
+            disabled: !model.can_open_config_file(),
+            icon: None,
+        })
         .item("Exit", super::Event::Exit)
 }
 

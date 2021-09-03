@@ -67,12 +67,6 @@ pub async fn main() -> eyre::Result<()> {
             cli::generate::Cmd::SystemdUnit => commands::generate::systemd_unit(),
             cli::generate::Cmd::BashCompletions => commands::generate::bash_completions(),
         },
-        #[cfg(feature = "desktop-commands")]
-        cli::Cmd::Desktop(args) => match args.subcommand {
-            cli::desktop::Cmd::OpenConfigFile => commands::desktop::open_config_file(
-                maybe_config?.source.as_ref().map(|o| o.as_path()),
-            ),
-        },
         cli::Cmd::Internal(args) => match args.subcommand {
             #[cfg(feature = "daemon-supervisor")]
             cli::internal::Cmd::DaemonSupervisor => commands::internal::daemon_supervisor().await,

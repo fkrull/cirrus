@@ -24,7 +24,6 @@ cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
 eyre = "0.6.1"
 clap = "3.0.0-beta.2"
 hostname = "0.3.1"
-opener = { version = "0.4.1", optional = true }
 rpassword = "5.0.0"
 termcolor = "1.1.0"
 toml = "0.5.6"
@@ -43,5 +42,4 @@ features = ["macros", "signal", "rt-multi-thread"]
 default = []
 daemon-supervisor = []
 # desktop features
-desktop-commands = ["opener"]
-desktop = ["desktop-commands", "cirrus-core/keyring", "cirrus-desktop-ui"]
+desktop = ["cirrus-core/keyring", "cirrus-desktop-ui"]

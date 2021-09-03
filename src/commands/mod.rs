@@ -7,8 +7,6 @@ use cirrus_core::{
 use crate::cli;
 
 pub mod daemon;
-#[cfg(feature = "desktop-commands")]
-pub mod desktop;
 pub mod generate;
 pub mod internal;
 pub mod secret;

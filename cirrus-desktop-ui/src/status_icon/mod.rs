@@ -1,6 +1,7 @@
 use cirrus_actor::Messages;
 use cirrus_core::model;
 use cirrus_daemon::job;
+use eyre::WrapErr;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 #[cfg(windows)]
@@ -51,6 +52,10 @@ impl Model {
                 self.run_backup(name)?;
                 Ok(HandleEventOutcome::Unchanged)
             }
+            Event::OpenConfigFile => {
+                self.open_config_file()?;
+                Ok(HandleEventOutcome::Unchanged)
+            }
             Event::Exit => {
                 tracing::info!("exiting due to user request via status icon");
                 std::process::exit(0)
@@ -82,6 +87,16 @@ impl Model {
         );
         self.job_sink.send(job)?;
         Ok(())
+    }
+
+    fn open_config_file(&self) -> eyre::Result<()> {
+        let config_path = self
+            .config
+            .source
+            .as_ref()
+            .ok_or_else(|| eyre::Report::msg("configuration not loaded from file"))?;
+        opener::open(config_path)
+            .wrap_err_with(|| format!("failed to open config file {}", config_path.display()))
     }
 
     fn app_name(&self) -> &'static str {
@@ -116,6 +131,10 @@ impl Model {
     fn backups(&self) -> impl Iterator<Item = &model::backup::Name> + '_ {
         self.config.backups.iter().map(|(name, _)| name)
     }
+
+    fn can_open_config_file(&self) -> bool {
+        self.config.source.is_some()
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -126,6 +145,7 @@ enum Event {
 
     UpdateConfig(Arc<model::Config>),
     RunBackup(model::backup::Name),
+    OpenConfigFile,
     Exit,
 }
 

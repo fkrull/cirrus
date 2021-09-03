@@ -7,6 +7,10 @@ the version numbers are *not* semantic.
 ## 1.1.0 - 2021-09-01
 ### Added
 * Bundle a built-in daemon supervisor (mostly for Windows).
+* Desktop: add menu item to open configuration file
+
+### Removed
+* Remove open-config-file CLI command.
 
 ## 1.0.1 - 2021-08-08
 ### Added

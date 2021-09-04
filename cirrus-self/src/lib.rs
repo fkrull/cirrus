@@ -27,12 +27,7 @@ pub struct Install {
     destdir: Option<PathBuf>,
 }
 
-mod resources {
-    pub static CIRRUS_SERVICE: &str = include_str!("resources/cirrus.service");
-    pub static CIRRUS_DAEMON_VBS: &str = include_str!("resources/cirrus-daemon.vbs");
-}
-
-pub fn contents(template: &str, executable: &str) -> String {
+fn replace_vars(template: &str, executable: &str) -> String {
     template.replace("{{executable}}", executable)
 }
 
@@ -47,19 +42,33 @@ fn current_exe() -> eyre::Result<String> {
 fn self_installer() -> eyre::Result<SelfInstaller> {
     use selfinstaller::steps::*;
 
+    static CIRRUS_DAEMON_VBS: &str = include_str!("resources/cirrus-daemon.vbs");
     let executable = current_exe()?;
     let startup_dir = windirs::known_folder_path(windirs::FolderId::Startup)?;
     Ok(SelfInstaller::new()
         .add_step(directory(&startup_dir))
         .add_step(file(
             startup_dir.join("cirrus-daemon.vbs"),
-            contents(resources::CIRRUS_DAEMON_VBS, &executable),
+            replace_vars(CIRRUS_DAEMON_VBS, &executable),
         )))
 }
 
 #[cfg(not(windows))]
 fn self_installer() -> eyre::Result<SelfInstaller> {
-    todo!()
+    use selfinstaller::steps::*;
+
+    static CIRRUS_SERVICE: &str = include_str!("resources/cirrus.service");
+    let executable = current_exe()?;
+    let systemd_dir = dirs_next::config_dir()
+        .ok_or_else(|| eyre::eyre!("failed to get user config dir"))?
+        .join("systemd")
+        .join("user");
+    Ok(SelfInstaller::new()
+        .add_step(directory(&systemd_dir))
+        .add_step(file(
+            systemd_dir.join("cirrus.service"),
+            replace_vars(CIRRUS_SERVICE, &executable),
+        )))
 }
 
 fn install(installer: &mut SelfInstaller, args: Install) -> eyre::Result<()> {
@@ -74,7 +83,8 @@ fn install(installer: &mut SelfInstaller, args: Install) -> eyre::Result<()> {
 pub fn run_self_action(args: Cli) -> eyre::Result<()> {
     let mut installer = self_installer()?;
     match args.command {
-        Command::Install(args) => install(&mut installer, args),
-        Command::Uninstall => installer.uninstall(&Destination::System),
-    }
+        Command::Install(args) => install(&mut installer, args)?,
+        Command::Uninstall => installer.uninstall(&Destination::System)?,
+    };
+    Ok(())
 }

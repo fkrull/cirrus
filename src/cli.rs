@@ -41,14 +41,14 @@ impl std::fmt::Display for ConfigFile {
 /// A configuration-driven backup program based on restic.
 #[derive(clap::Clap)]
 #[clap(global_setting(clap::AppSettings::NoAutoVersion))]
-#[clap(global_setting(clap::AppSettings::VersionlessSubcommands))]
+#[clap(global_setting(clap::AppSettings::DisableVersionForSubcommands))]
 pub struct Cli {
     /// Sets a custom configuration file path
     #[clap(
         short,
         long,
         env = "CIRRUS_CONFIG_FILE",
-        default_value,
+        default_value_t,
         parse(from_os_str)
     )]
     pub config_file: ConfigFile,
@@ -85,6 +85,11 @@ pub enum Cmd {
 
     /// Generates various support files
     Generate(generate::Cli),
+
+    /// Runs self management tasks
+    #[cfg(feature = "selfinstaller")]
+    #[clap(name = "self")]
+    SelfCommands(cirrus_self::Cli),
 
     /// Internal commands
     #[clap(setting = clap::AppSettings::Hidden)]

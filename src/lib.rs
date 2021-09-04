@@ -67,6 +67,8 @@ pub async fn main() -> eyre::Result<()> {
             cli::generate::Cmd::SystemdUnit => commands::generate::systemd_unit(),
             cli::generate::Cmd::BashCompletions => commands::generate::bash_completions(),
         },
+        #[cfg(feature = "selfinstaller")]
+        cli::Cmd::SelfCommands(args) => cirrus_self::run_self_action(args),
         cli::Cmd::Internal(args) => match args.subcommand {
             #[cfg(feature = "daemon-supervisor")]
             cli::internal::Cmd::DaemonSupervisor => commands::internal::daemon_supervisor().await,

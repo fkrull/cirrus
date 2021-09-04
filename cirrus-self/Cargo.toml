@@ -10,3 +10,6 @@ selfinstaller = { path = "../selfinstaller" }
 
 [target.'cfg(windows)'.dependencies]
 windirs = "1.0.1"
+
+[target.'cfg(not(windows))'.dependencies]
+dirs-next = "2.0.0"

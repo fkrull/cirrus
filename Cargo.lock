@@ -374,6 +374,7 @@ dependencies = [
  "cirrus-core",
  "cirrus-daemon",
  "cirrus-desktop-ui",
+ "cirrus-self",
  "clap 3.0.0-beta.4",
  "clap_generate",
  "color-eyre",
@@ -471,6 +472,7 @@ name = "cirrus-self"
 version = "0.1.0"
 dependencies = [
  "clap 3.0.0-beta.4",
+ "dirs-next",
  "eyre",
  "selfinstaller",
  "windirs",
@@ -524,9 +526,9 @@ dependencies = [
 
 [[package]]
 name = "clap_generate"
-version = "3.0.0-beta.2"
+version = "3.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adf420f8b687b628d2915ccfd43a660c437a170432e3fbcb66944e8717a0d68f"
+checksum = "2d9b1abef93569f290952eff3c4a0a92d6767bb5158db095b4dc9a512b1c3643"
 dependencies = [
  "clap 3.0.0-beta.4",
 ]

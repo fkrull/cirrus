@@ -2,7 +2,8 @@
 url = "local:target/test-repo"
 
 [repositories.test.password]
-env_var = "TEST_PASSWORD"
+toml = "example/test-secret.toml"
+key = "test-password"
 
 [backups.test]
 repository = "test"

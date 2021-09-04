@@ -63,7 +63,7 @@ pub async fn main() -> eyre::Result<()> {
             cli::secret::Cmd::List(args) => commands::secret::list(&secrets, &maybe_config?, args),
         },
         cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, &maybe_config?, args).await,
-        #[cfg(feature = "selfinstaller")]
+        #[cfg(feature = "self-commands")]
         cli::Cmd::SelfCommands(args) => cirrus_self::run_self_action(args),
         cli::Cmd::Internal(args) => match args.subcommand {
             #[cfg(feature = "daemon-supervisor")]

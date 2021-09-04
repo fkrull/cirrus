@@ -40,16 +40,6 @@ fn main() -> eyre::Result<()> {
             format!("target/{}/release/cirrus{}", target, bin_ext),
             tmp.path().join(format!("cirrus{}", bin_ext)),
         )?;
-
-        cmd!("cargo build --package=cirrus-daemon-watchdog --release --target={target}").run()?;
-        cp(
-            format!(
-                "target/{}/release/cirrus-daemon-watchdog{}",
-                target, bin_ext
-            ),
-            tmp.path()
-                .join(format!("cirrus-daemon-watchdog{}", bin_ext)),
-        )?;
     }
 
     // get restic

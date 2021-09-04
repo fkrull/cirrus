@@ -10,7 +10,6 @@ members = [
     "cirrus-core",
     "cirrus-daemon",
     "cirrus-desktop-ui",
-    "cirrus-daemon-watchdog",
     "cirrus-self",
     "integration-tests",
     "build-scripts",

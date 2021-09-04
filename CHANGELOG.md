@@ -8,6 +8,9 @@ the version numbers are *not* semantic.
 ### Added
 * New built-in self installer that sets up daemon autostart for desktop systems.
 
+### Removed
+* Remove cirrus-daemon-watchdog.
+
 ## 1.1.1 - 2021-09-04
 ### Changed
 * Fix backups run from the daemon if the desktop UI has errored.

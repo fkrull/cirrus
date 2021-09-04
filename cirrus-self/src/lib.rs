@@ -59,8 +59,9 @@ fn self_installer() -> eyre::Result<SelfInstaller> {
 
     static CIRRUS_SERVICE: &str = include_str!("resources/cirrus.service");
     let executable = current_exe()?;
-    let systemd_dir = dirs_next::config_dir()
-        .ok_or_else(|| eyre::eyre!("failed to get user config dir"))?
+    let systemd_dir = dirs_next::home_dir()
+        .ok_or_else(|| eyre::eyre!("failed to get user home"))?
+        .join(".config")
         .join("systemd")
         .join("user");
     Ok(SelfInstaller::new()
@@ -68,7 +69,8 @@ fn self_installer() -> eyre::Result<SelfInstaller> {
         .add_step(file(
             systemd_dir.join("cirrus.service"),
             replace_vars(CIRRUS_SERVICE, &executable),
-        )))
+        ))
+        .add_step(systemd::enable_user("cirrus.service")))
 }
 
 fn install(installer: &mut SelfInstaller, args: Install) -> eyre::Result<()> {

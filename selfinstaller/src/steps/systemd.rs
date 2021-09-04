@@ -1,29 +1,46 @@
 use crate::{Action, Destination};
 use std::process::Command;
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+enum Mode {
+    System,
+    User,
+}
+
+impl Mode {
+    fn arg(&self) -> &str {
+        match self {
+            Mode::System => "--system",
+            Mode::User => "--user",
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SystemdEnable {
+    mode: Mode,
     unit: String,
 }
 
 impl crate::InstallStep for SystemdEnable {
     fn install_description(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "enable systemd unit {}", self.unit)
+        match self.mode {
+            Mode::System => write!(f, "enable systemd unit {}", self.unit),
+            Mode::User => write!(f, "enable user-session systemd unit {}", self.unit),
+        }
     }
 
     fn uninstall_description(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "disable systemd unit {}", self.unit)
+        match self.mode {
+            Mode::System => write!(f, "disable systemd unit {}", self.unit),
+            Mode::User => write!(f, "disable user-session systemd unit {}", self.unit),
+        }
     }
 
     fn install(&self, destination: &Destination) -> eyre::Result<Action> {
         if destination.is_system() {
-            run_cmd(Command::new("systemctl").arg("daemon-reload"))?;
-            run_cmd(
-                Command::new("systemctl")
-                    .arg("enable")
-                    .arg("--now")
-                    .arg(&self.unit),
-            )?;
+            run_systemctl(self.mode, ["daemon-reload"])?;
+            run_systemctl(self.mode, ["enable", "--now", &self.unit])?;
             Ok(Action::Ok)
         } else {
             Ok(Action::Skipped("non-system destination".to_owned()))
@@ -32,12 +49,7 @@ impl crate::InstallStep for SystemdEnable {
 
     fn uninstall(&self, destination: &Destination) -> eyre::Result<Action> {
         if destination.is_system() {
-            run_cmd(
-                Command::new("systemctl")
-                    .arg("disable")
-                    .arg("--now")
-                    .arg(&self.unit),
-            )?;
+            run_systemctl(self.mode, ["disable", "--now", &self.unit])?;
             Ok(Action::Ok)
         } else {
             Ok(Action::Skipped("non-system destination".to_owned()))
@@ -45,8 +57,12 @@ impl crate::InstallStep for SystemdEnable {
     }
 }
 
-fn run_cmd(cmd: &mut Command) -> eyre::Result<()> {
-    let status = cmd.spawn()?.wait()?;
+fn run_systemctl<'a>(mode: Mode, args: impl IntoIterator<Item = &'a str>) -> eyre::Result<()> {
+    let status = Command::new("systemctl")
+        .arg(mode.arg())
+        .args(args)
+        .spawn()?
+        .wait()?;
     if !status.success() {
         Err(eyre::eyre!("systemctl exited unsuccessfully"))
     } else {
@@ -56,5 +72,16 @@ fn run_cmd(cmd: &mut Command) -> eyre::Result<()> {
 
 pub fn enable(unit: impl Into<String>) -> SystemdEnable {
     let unit = unit.into();
-    SystemdEnable { unit }
+    SystemdEnable {
+        mode: Mode::System,
+        unit,
+    }
+}
+
+pub fn enable_user(unit: impl Into<String>) -> SystemdEnable {
+    let unit = unit.into();
+    SystemdEnable {
+        mode: Mode::User,
+        unit,
+    }
 }

@@ -10,6 +10,7 @@ the version numbers are *not* semantic.
 
 ### Removed
 * Remove cirrus-daemon-watchdog.
+* Remove `generate` subcommand.
 
 ## 1.1.1 - 2021-09-04
 ### Changed

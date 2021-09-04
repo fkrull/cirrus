@@ -1,13 +1,11 @@
+use crate::cli;
 use cirrus_core::{
     model::{backup, repo, Config},
     restic::{Options, Restic},
     secrets::Secrets,
 };
 
-use crate::cli;
-
 pub mod daemon;
-pub mod generate;
 pub mod internal;
 pub mod secret;
 

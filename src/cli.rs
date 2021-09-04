@@ -83,9 +83,6 @@ pub enum Cmd {
     /// Runs custom restic commands on configured repositories
     Restic(restic::Cli),
 
-    /// Generates various support files
-    Generate(generate::Cli),
-
     /// Runs self management tasks
     #[cfg(feature = "selfinstaller")]
     #[clap(name = "self")]
@@ -155,23 +152,6 @@ pub mod restic {
         /// Command-line arguments to pass to restic
         #[clap(setting(clap::ArgSettings::AllowHyphenValues))]
         pub cmd: Vec<OsString>,
-    }
-}
-
-pub mod generate {
-    #[derive(clap::Clap)]
-    pub struct Cli {
-        #[clap(subcommand)]
-        pub subcommand: Cmd,
-    }
-
-    #[derive(clap::Clap)]
-    pub enum Cmd {
-        /// Generate a systemd unit file
-        SystemdUnit,
-
-        /// Generate bash completions
-        BashCompletions,
     }
 }
 

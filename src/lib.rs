@@ -63,10 +63,6 @@ pub async fn main() -> eyre::Result<()> {
             cli::secret::Cmd::List(args) => commands::secret::list(&secrets, &maybe_config?, args),
         },
         cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, &maybe_config?, args).await,
-        cli::Cmd::Generate(args) => match args.subcommand {
-            cli::generate::Cmd::SystemdUnit => commands::generate::systemd_unit(),
-            cli::generate::Cmd::BashCompletions => commands::generate::bash_completions(),
-        },
         #[cfg(feature = "selfinstaller")]
         cli::Cmd::SelfCommands(args) => cirrus_self::run_self_action(args),
         cli::Cmd::Internal(args) => match args.subcommand {

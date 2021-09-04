@@ -11,9 +11,11 @@ members = [
     "cirrus-daemon",
     "cirrus-desktop-ui",
     "cirrus-daemon-watchdog",
+    "cirrus-self",
     "integration-tests",
     "build-scripts",
     "build-scripts/restic-bin",
+    "selfinstaller",
 ]
 
 [dependencies]
@@ -22,7 +24,7 @@ cirrus-actor = { path = "cirrus-actor" }
 cirrus-daemon = { path = "cirrus-daemon" }
 cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
 eyre = "0.6.1"
-clap = "3.0.0-beta.2"
+clap = "3.0.0-beta.4"
 hostname = "0.3.1"
 rpassword = "5.0.0"
 termcolor = "1.1.0"

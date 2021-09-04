@@ -68,21 +68,32 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     let jobqueues = cirrus_actor::new();
     let scheduler = cirrus_actor::new();
     let configreloader = cirrus_actor::new();
-    #[cfg(feature = "cirrus-desktop-ui")]
-    let desktop_ui = cirrus_actor::new();
-
-    // connect multicast
-    let jobstatus_sink = Messages::default();
-    #[cfg(feature = "cirrus-desktop-ui")]
-    let jobstatus_sink = jobstatus_sink.also_to(desktop_ui.actor_ref());
-
-    let configreload_sink = Messages::default().also_to(scheduler.actor_ref());
-    #[cfg(feature = "cirrus-desktop-ui")]
-    let configreload_sink = configreload_sink.also_to(desktop_ui.actor_ref());
-
+    let mut jobstatus_sink = Messages::default();
+    let mut configreload_sink = Messages::default().also_to(scheduler.actor_ref());
     let job_sink = Messages::default().also_to(jobqueues.actor_ref());
 
     // create actor instances
+    #[cfg(feature = "cirrus-desktop-ui")]
+    let desktop_ui = {
+        let desktop_ui_builder = cirrus_actor::new();
+        let desktop_ui_ref = desktop_ui_builder.actor_ref();
+        match cirrus_desktop_ui::DesktopUi::new(
+            daemon_config.clone(),
+            config.clone(),
+            job_sink.clone(),
+        ) {
+            Ok(desktop_ui) => {
+                jobstatus_sink = jobstatus_sink.also_to(desktop_ui_ref.clone());
+                configreload_sink = configreload_sink.also_to(desktop_ui_ref);
+                Some(desktop_ui_builder.into_instance(desktop_ui))
+            }
+            Err(err) => {
+                warn!("failed to start desktop UI: {}", err);
+                None
+            }
+        }
+    };
+
     let mut jobqueues = jobqueues.into_instance(job_queues::JobQueues::new(
         jobstatus_sink,
         restic.clone(),
@@ -98,23 +109,6 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
         configreloader_ref,
         configreload_sink,
     )?);
-
-    #[cfg(feature = "cirrus-desktop-ui")]
-    let desktop_ui = {
-        let desktop_ui_result = cirrus_desktop_ui::DesktopUi::new(
-            daemon_config.clone(),
-            config.clone(),
-            job_sink.clone(),
-        )
-        .map(|ui| desktop_ui.into_instance(ui));
-        match desktop_ui_result {
-            Ok(desktop_ui) => Some(desktop_ui),
-            Err(err) => {
-                warn!("failed to start desktop UI: {}", err);
-                None
-            }
-        }
-    };
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();

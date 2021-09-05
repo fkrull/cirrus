@@ -13,7 +13,6 @@ stages:
   - test
   - package
   - server
-  - manifest
   - publish
 
 
@@ -111,10 +110,10 @@ server:linux:aarch64:
     TARGET: aarch64-unknown-linux-gnu
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
 
-# manifest
-package:manifest:
+# publish
+pages:
   extends: .on-main
-  stage: manifest
+  stage: publish
   needs:
     - test
     - package:linux:x86_64
@@ -122,16 +121,18 @@ package:manifest:
     - package:linux:aarch64
     - package:windows:x86_64
   script:
-    - echo "$CIRRUS_VERSION" > public/version
+    - mkdir public/latest
+    - mv public/*.zip public/latest/
+    - echo "$CIRRUS_VERSION" > public/latest/version
+    - ls -l public/latest
     - echo "$CIRRUS_VERSION"
   artifacts:
     paths:
       - public
-    expire_in: 1 day
 
-server:manifest:
+server:publish:
   extends: .on-main
-  stage: manifest
+  stage: publish
   needs:
     - test
     - server:linux:x86_64
@@ -146,35 +147,11 @@ server:manifest:
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
-    - echo "$CIRRUS_IMAGE_TAG"
-
-# publish
-pages:
-  extends: .on-main
-  stage: publish
-  needs:
-    - package:manifest
-  script:
-    - ls -l public
-    - cat public/version
-    - mkdir public/latest
-    - mv public/*.zip public/version public/latest/
-  artifacts:
-    paths:
-      - public
-
-server:publish:
-  extends: .on-main
-  stage: publish
-  needs:
-    - test
-    - server:manifest
-  script:
-    - skopeo copy
-      --all
-      --dest-creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
+    - buildah manifest push
+      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
+      cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
+    - echo "$CIRRUS_IMAGE_TAG"
 
 
 # ----

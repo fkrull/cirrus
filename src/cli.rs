@@ -150,7 +150,6 @@ pub mod restic {
         pub repository: Option<String>,
 
         /// Command-line arguments to pass to restic
-        #[clap(setting(clap::ArgSettings::AllowHyphenValues))]
         pub cmd: Vec<OsString>,
     }
 }

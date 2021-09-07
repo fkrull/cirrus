@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Note that
 the version numbers are *not* semantic.
 
+## 1.2.1 - 2021-09-08
+### Changed
+* Windows: build cirrus.exe as combined GUI/CLI application so it doesn't pop up a console window
+
 ## 1.2.0 - 2021-09-04
 ### Added
 * New built-in self installer that sets up daemon autostart for desktop systems.

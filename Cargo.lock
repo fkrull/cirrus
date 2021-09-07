@@ -387,6 +387,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "winapi 0.3.9",
 ]
 
 [[package]]

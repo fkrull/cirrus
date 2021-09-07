@@ -376,7 +376,6 @@ dependencies = [
  "cirrus-desktop-ui",
  "cirrus-self",
  "clap 3.0.0-beta.4",
- "clap_generate",
  "color-eyre",
  "dirs-next",
  "eyre",
@@ -515,15 +514,6 @@ dependencies = [
  "proc-macro2 1.0.29",
  "quote 1.0.9",
  "syn",
-]
-
-[[package]]
-name = "clap_generate"
-version = "3.0.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d9b1abef93569f290952eff3c4a0a92d6767bb5158db095b4dc9a512b1c3643"
-dependencies = [
- "clap 3.0.0-beta.4",
 ]
 
 [[package]]

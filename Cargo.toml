@@ -34,7 +34,6 @@ dirs-next = "2.0.0"
 tracing = "0.1.23"
 tracing-subscriber = { version = "0.2.15", default-features = false, features = ["fmt", "ansi", "registry", "chrono", "tracing-log"] }
 tracing-appender = "0.1.2"
-clap_generate = "3.0.0-beta.4"
 
 [dependencies.tokio]
 version = "1.0.0"

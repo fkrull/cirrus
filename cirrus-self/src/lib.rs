@@ -82,7 +82,7 @@ fn install(installer: &mut SelfInstaller, args: Install) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn run_self_action(args: Cli) -> eyre::Result<()> {
+pub fn self_action(args: Cli) -> eyre::Result<()> {
     let mut installer = self_installer()?;
     match args.command {
         Command::Install(args) => install(&mut installer, args)?,

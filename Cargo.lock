@@ -1434,6 +1434,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "mslnk"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5eef7a9e30fd9d7c7a576aa2e4c051cefbfbc438876b9b7f5675989e04b8d373"
+dependencies = [
+ "bitflags",
+ "byteorder",
+]
+
+[[package]]
 name = "ndk"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2178,6 +2188,7 @@ name = "selfinstaller"
 version = "0.1.0"
 dependencies = [
  "eyre",
+ "mslnk",
  "owo-colors 2.0.0",
  "tempfile",
  "thiserror",

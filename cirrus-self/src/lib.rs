@@ -27,10 +27,6 @@ pub struct Install {
     destdir: Option<PathBuf>,
 }
 
-fn replace_vars(template: &str, executable: &str) -> String {
-    template.replace("{{executable}}", executable)
-}
-
 fn current_exe() -> eyre::Result<String> {
     std::env::current_exe()?
         .into_os_string()
@@ -42,14 +38,14 @@ fn current_exe() -> eyre::Result<String> {
 fn self_installer() -> eyre::Result<SelfInstaller> {
     use selfinstaller::steps::*;
 
-    static CIRRUS_DAEMON_VBS: &str = include_str!("resources/cirrus-daemon.vbs");
     let executable = current_exe()?;
     let startup_dir = windirs::known_folder_path(windirs::FolderId::Startup)?;
     Ok(SelfInstaller::new()
         .add_step(directory(&startup_dir))
-        .add_step(file(
-            startup_dir.join("cirrus-daemon.vbs"),
-            replace_vars(CIRRUS_DAEMON_VBS, &executable),
+        .add_step(windows::shortcut(
+            startup_dir.join("Cirrus Daemon.lnk"),
+            &executable,
+            Some("daemon --supervisor"),
         )))
 }
 
@@ -68,7 +64,7 @@ fn self_installer() -> eyre::Result<SelfInstaller> {
         .add_step(directory(&systemd_dir))
         .add_step(file(
             systemd_dir.join("cirrus.service"),
-            replace_vars(CIRRUS_SERVICE, &executable),
+            CIRRUS_SERVICE.replace("{{executable}}", executable),
         ))
         .add_step(systemd::enable_user("cirrus.service")))
 }

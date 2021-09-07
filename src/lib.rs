@@ -55,7 +55,7 @@ pub async fn main() -> eyre::Result<()> {
     let secrets = Secrets;
 
     match args.subcommand {
-        cli::Cmd::Daemon => commands::daemon::run(restic, secrets, maybe_config?).await,
+        cli::Cmd::Daemon(args) => commands::daemon::run(args, restic, secrets, maybe_config?).await,
         cli::Cmd::Backup(args) => commands::backup(&restic, &secrets, &maybe_config?, args).await,
         cli::Cmd::Config => commands::config(&maybe_config?),
         cli::Cmd::Secret(args) => match args.subcommand {
@@ -65,10 +65,6 @@ pub async fn main() -> eyre::Result<()> {
         cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, &maybe_config?, args).await,
         #[cfg(feature = "self-commands")]
         cli::Cmd::SelfCommands(args) => cirrus_self::self_action(args),
-        cli::Cmd::Internal(args) => match args.subcommand {
-            #[cfg(feature = "daemon-supervisor")]
-            cli::internal::Cmd::DaemonSupervisor => commands::internal::daemon_supervisor().await,
-        },
         cli::Cmd::Version => commands::version(&restic).await,
     }
 }

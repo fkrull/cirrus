@@ -68,7 +68,7 @@ pub struct Cli {
 #[derive(clap::Clap)]
 pub enum Cmd {
     /// Runs the cirrus daemon
-    Daemon,
+    Daemon(daemon::Cli),
 
     /// Runs a configured backup
     Backup(backup::Cli),
@@ -88,12 +88,17 @@ pub enum Cmd {
     #[clap(name = "self")]
     SelfCommands(cirrus_self::Cli),
 
-    /// Internal commands
-    #[clap(setting = clap::AppSettings::Hidden)]
-    Internal(internal::Cli),
-
     /// Prints version information
     Version,
+}
+
+pub mod daemon {
+    #[derive(clap::Clap)]
+    pub struct Cli {
+        /// Run the daemon under the built-in supervisor
+        #[clap(long)]
+        pub supervisor: bool,
+    }
 }
 
 pub mod backup {
@@ -151,20 +156,5 @@ pub mod restic {
 
         /// Command-line arguments to pass to restic
         pub cmd: Vec<OsString>,
-    }
-}
-
-pub mod internal {
-    #[derive(clap::Clap)]
-    pub struct Cli {
-        #[clap(subcommand)]
-        pub subcommand: Cmd,
-    }
-
-    #[derive(clap::Clap)]
-    pub enum Cmd {
-        #[cfg(feature = "daemon-supervisor")]
-        /// Launches the cirrus daemon using the built-in daemon supervisor
-        DaemonSupervisor,
     }
 }

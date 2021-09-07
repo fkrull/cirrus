@@ -190,7 +190,7 @@ server:publish:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
       --target ${TARGET}
-      --features daemon-supervisor,desktop,self-commands
+      --features desktop,self-commands
       --rustflags "${PACKAGE_RUSTFLAGS}"
   artifacts:
     paths:

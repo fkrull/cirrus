@@ -1,7 +1,9 @@
+use crate::cli;
 use cirrus_actor::Messages;
 use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
 use std::{path::PathBuf, sync::Arc};
+use tokio::process::Command;
 use tracing::{info, warn};
 
 async fn data_dir() -> eyre::Result<PathBuf> {
@@ -47,7 +49,12 @@ async fn setup_daemon_logger() -> eyre::Result<()> {
     Ok(())
 }
 
-pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Result<()> {
+async fn run_daemon(
+    _args: cli::daemon::Cli,
+    restic: Restic,
+    secrets: Secrets,
+    config: Config,
+) -> eyre::Result<()> {
     setup_daemon_logger().await?;
 
     let restic_version = restic.version_string().await.unwrap_or_else(|e| {
@@ -126,4 +133,33 @@ pub async fn run(restic: Restic, secrets: Secrets, config: Config) -> eyre::Resu
     tokio::signal::ctrl_c().await?;
 
     Ok(())
+}
+
+async fn run_supervisor() -> eyre::Result<()> {
+    let cirrus_exe = std::env::current_exe()?;
+    loop {
+        let exit_status = Command::new(&cirrus_exe)
+            .arg("daemon")
+            .spawn()?
+            .wait()
+            .await;
+        match exit_status {
+            Ok(s) if s.success() => break,
+            _ => continue,
+        }
+    }
+    Ok(())
+}
+
+pub async fn run(
+    args: cli::daemon::Cli,
+    restic: Restic,
+    secrets: Secrets,
+    config: Config,
+) -> eyre::Result<()> {
+    if args.supervisor {
+        run_supervisor().await
+    } else {
+        run_daemon(args, restic, secrets, config).await
+    }
 }

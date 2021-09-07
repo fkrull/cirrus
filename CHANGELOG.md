@@ -7,6 +7,7 @@ the version numbers are *not* semantic.
 ## 1.2.1 - 2021-09-08
 ### Changed
 * Windows: build cirrus.exe as combined GUI/CLI application so it doesn't pop up a console window
+* Move built-in supervisor to a flag on the `daemon` command.
 
 ## 1.2.0 - 2021-09-04
 ### Added

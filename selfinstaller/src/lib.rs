@@ -124,7 +124,7 @@ impl Destination {
 
 #[derive(Default)]
 pub struct SelfInstaller {
-    steps: Vec<Box<dyn InstallStep>>,
+    steps: Vec<Box<dyn InstallStep + Send>>,
 }
 
 impl SelfInstaller {
@@ -132,7 +132,7 @@ impl SelfInstaller {
         SelfInstaller::default()
     }
 
-    pub fn add_step<T: InstallStep + 'static>(mut self, step: T) -> Self {
+    pub fn add_step<T: InstallStep + Send + 'static>(mut self, step: T) -> Self {
         self.steps.push(Box::new(step));
         self
     }

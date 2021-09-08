@@ -116,7 +116,7 @@ async fn should_run_restic_backup() {
         "backup",
         "/home/test",
         "--tag",
-        "cirrus-backup-bkp",
+        "cirrus.bkp",
         EXCLUDE_PARAM,
         ".Trash",
         "--exclude-caches",

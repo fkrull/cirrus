@@ -54,7 +54,7 @@ fn should_run_backup() {
             "backup",
             "/",
             "--tag",
-            "cirrus-backup-test",
+            "cirrus.test",
             "--exclude-caches",
         ])
         .assert_env_var("RESTIC_PASSWORD", "pwd");

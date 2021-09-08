@@ -137,7 +137,7 @@ impl Restic {
         options: &Options,
     ) -> Result<ResticProcess, Error> {
         let mut cmd = Command::new(path);
-        cmd.stdin(Stdio::null());
+        cmd.stdin(Stdio::null()).kill_on_drop(true);
 
         if let Some(repo_with_secrets) = repo_with_secrets {
             cmd.env("RESTIC_PASSWORD", &repo_with_secrets.repo_password.0);

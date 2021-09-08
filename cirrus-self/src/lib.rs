@@ -64,7 +64,7 @@ fn self_installer() -> eyre::Result<SelfInstaller> {
         .add_step(directory(&systemd_dir))
         .add_step(file(
             systemd_dir.join("cirrus.service"),
-            CIRRUS_SERVICE.replace("{{executable}}", executable),
+            CIRRUS_SERVICE.replace("{{executable}}", &executable),
         ))
         .add_step(systemd::enable_user("cirrus.service")))
 }

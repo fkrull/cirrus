@@ -13,12 +13,6 @@ async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
     Ok(config)
 }
 
-fn current_exe_dir() -> Option<PathBuf> {
-    let current_exe = std::env::current_exe().ok()?;
-    let dir = current_exe.parent()?.to_owned();
-    Some(dir)
-}
-
 fn restic_config(restic_binary_arg: Option<PathBuf>) -> restic::Config {
     if let Some(path) = restic_binary_arg {
         restic::Config {
@@ -30,12 +24,25 @@ fn restic_config(restic_binary_arg: Option<PathBuf>) -> restic::Config {
             path: PathBuf::from("restic"),
             env_var: None,
         };
-        let bundled = current_exe_dir().map(|d| {
-            let path = d
-                .join("restic")
-                .with_extension(std::env::consts::EXE_EXTENSION);
-            restic::CommandConfig::from_path(path)
+
+        #[cfg(feature = "restigo")]
+        let bundled = std::env::current_exe().ok().map(|exe| {
+            restic::CommandConfig::from_path(exe)
+                .with_env_var("__CIRRUS_INTERNAL_MODE_BUNDLED_RESTIC")
         });
+
+        #[cfg(not(feature = "restigo"))]
+        let bundled = std::env::current_exe()
+            .ok()
+            .as_ref()
+            .and_then(|exe| exe.parent())
+            .map(|d| {
+                let path = d
+                    .join("restic")
+                    .with_extension(std::env::consts::EXE_EXTENSION);
+                restic::CommandConfig::from_path(path)
+            });
+
         restic::Config {
             primary: system,
             fallback: bundled,

@@ -8,5 +8,10 @@ async fn main() -> eyre::Result<()> {
         winapi::um::wincon::AttachConsole(winapi::um::wincon::ATTACH_PARENT_PROCESS)
     };
 
+    #[cfg(feature = "restigo")]
+    if std::env::var_os("__CIRRUS_INTERNAL_MODE_BUNDLED_RESTIC").is_some() {
+        restigo::restic_main();
+    }
+
     cirrus::main().await
 }

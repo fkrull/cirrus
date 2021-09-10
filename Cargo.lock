@@ -380,6 +380,7 @@ dependencies = [
  "dirs-next",
  "eyre",
  "hostname",
+ "restigo",
  "rpassword",
  "termcolor",
  "tokio",
@@ -2033,6 +2034,10 @@ dependencies = [
  "ureq",
  "zip",
 ]
+
+[[package]]
+name = "restigo"
+version = "0.1.0"
 
 [[package]]
 name = "ring"

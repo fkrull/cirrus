@@ -190,7 +190,7 @@ server:publish:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
       --target ${TARGET}
-      --features desktop,self-commands
+      --features cirrus-desktop-ui,cirrus-self,desktop-keyring
       --rustflags "${PACKAGE_RUSTFLAGS}"
   artifacts:
     paths:

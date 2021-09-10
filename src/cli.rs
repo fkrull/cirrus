@@ -84,7 +84,7 @@ pub enum Cmd {
     Restic(restic::Cli),
 
     /// Runs self management tasks
-    #[cfg(feature = "self-commands")]
+    #[cfg(feature = "cirrus-self")]
     #[clap(name = "self")]
     SelfCommands(cirrus_self::Cli),
 

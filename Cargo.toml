@@ -18,7 +18,7 @@ members = [
 ]
 
 [dependencies]
-cirrus-core = { path = "cirrus-core" }
+cirrus-core = { path = "cirrus-core", features = ["keyring"] }
 cirrus-actor = { path = "cirrus-actor" }
 cirrus-daemon = { path = "cirrus-daemon" }
 cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
@@ -44,4 +44,3 @@ winapi = { version = "0.3.9", features = ["wincon"] }
 
 [features]
 default = []
-desktop-keyring = ["cirrus-core/keyring"]

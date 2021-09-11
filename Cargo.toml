@@ -14,9 +14,9 @@ members = [
     "integration-tests",
     "build-scripts",
     "build-scripts/restic-bin",
-    "restigo",
     "selfinstaller",
 ]
+exclude = ["restigo"]
 
 [dependencies]
 cirrus-core = { path = "cirrus-core", features = ["keyring"] }

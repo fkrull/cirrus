@@ -67,7 +67,7 @@ pub async fn main() -> eyre::Result<()> {
             cli::secret::Cmd::Set(args) => commands::secret::set(&secrets, &maybe_config?, args),
             cli::secret::Cmd::List(args) => commands::secret::list(&secrets, &maybe_config?, args),
         },
-        cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, &maybe_config?, args).await,
+        cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, maybe_config, args).await,
         #[cfg(feature = "cirrus-self")]
         cli::Cmd::SelfCommands(args) => cirrus_self::self_action(args),
         cli::Cmd::Version => commands::version(&restic).await,

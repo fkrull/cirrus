@@ -59,3 +59,17 @@ fn should_run_backup() {
         ])
         .assert_env_var("RESTIC_PASSWORD", "pwd");
 }
+
+#[test]
+fn should_run_restic_subcommand_without_config_file_if_possible() {
+    let workdir = new_workdir();
+    Command::cargo_bin("test-cirrus")
+        .unwrap()
+        .arg("--restic-binary")
+        .arg(workdir.test_binary())
+        .arg("--config-file")
+        .arg(workdir.path().join("does-not-exist.toml"))
+        .args(&["restic", "version"])
+        .assert()
+        .success();
+}

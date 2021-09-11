@@ -6,7 +6,7 @@ the version numbers are *not* semantic.
 
 ## 1.3.0
 ### Added
-* Extended the `--restic` parameter with special values `bundled` and `system-then-bundled`.
+* Extended the `--restic` parameter with special values `system`, `bundled` and `system-then-bundled`.
 
 ### Changed
 * New tag format: `cirrus.<backup name>`

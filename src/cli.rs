@@ -40,8 +40,9 @@ impl std::fmt::Display for ConfigFile {
 
 #[derive(Debug)]
 pub enum ResticArg {
-    SystemThenBundled,
+    System,
     Bundled,
+    SystemThenBundled,
     Path(PathBuf),
 }
 
@@ -53,10 +54,12 @@ impl Default for ResticArg {
 
 impl From<&OsStr> for ResticArg {
     fn from(s: &OsStr) -> Self {
-        if s == OsStr::new("system-then-bundled") {
-            ResticArg::SystemThenBundled
+        if s == OsStr::new("system") {
+            ResticArg::System
         } else if s == OsStr::new("bundled") {
             ResticArg::Bundled
+        } else if s == OsStr::new("system-then-bundled") {
+            ResticArg::SystemThenBundled
         } else {
             ResticArg::Path(PathBuf::from(s))
         }
@@ -66,8 +69,9 @@ impl From<&OsStr> for ResticArg {
 impl std::fmt::Display for ResticArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            ResticArg::SystemThenBundled => write!(f, "system-then-bundled"),
+            ResticArg::System => write!(f, "system"),
             ResticArg::Bundled => write!(f, "bundled"),
+            ResticArg::SystemThenBundled => write!(f, "system-then-bundled"),
             ResticArg::Path(path) => write!(f, "{}", path.display()),
         }
     }
@@ -92,13 +96,13 @@ pub struct Cli {
     #[clap(long, env = "CIRRUS_CONFIG")]
     pub config_string: Option<String>,
 
-    /// Use the specific restic implementation
-    #[clap(
-        long,
-        possible_values(&["system-then-bundled", "bundled", "<PATH>"]),
-        default_value_t,
-        parse(from_os_str)
-    )]
+    /// Use the specific restic implementation.
+    /// Possible values:
+    /// "system": use only the system restic;
+    /// "bundled": use only the bundled restic build;
+    /// "system-then-bundled": first try the system restic, then the bundled restic;
+    /// <PATH>: use only the restic binary at PATH
+    #[clap(long, default_value_t, parse(from_os_str))]
     pub restic: ResticArg,
 
     #[clap(subcommand)]

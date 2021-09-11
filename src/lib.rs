@@ -14,6 +14,10 @@ async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
     Ok(config)
 }
 
+fn system_restic() -> restic::CommandConfig {
+    restic::CommandConfig::from_path(PathBuf::from("restic"))
+}
+
 fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
     let current_exe = std::env::current_exe()?;
     let bundled_path = current_exe
@@ -26,13 +30,17 @@ fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
 
 fn restic_config(restic_arg: ResticArg) -> eyre::Result<restic::Config> {
     let config = match restic_arg {
-        ResticArg::SystemThenBundled => restic::Config {
-            primary: restic::CommandConfig::from_path(PathBuf::from("restic")),
-            fallback: bundled_restic().ok(),
+        ResticArg::System => restic::Config {
+            primary: system_restic(),
+            fallback: None,
         },
         ResticArg::Bundled => restic::Config {
             primary: bundled_restic()?,
             fallback: None,
+        },
+        ResticArg::SystemThenBundled => restic::Config {
+            primary: system_restic(),
+            fallback: bundled_restic().ok(),
         },
         ResticArg::Path(path) => restic::Config {
             primary: restic::CommandConfig::from_path(path),

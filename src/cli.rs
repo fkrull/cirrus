@@ -38,6 +38,41 @@ impl std::fmt::Display for ConfigFile {
     }
 }
 
+#[derive(Debug)]
+pub enum ResticArg {
+    SystemThenBundled,
+    Bundled,
+    Path(PathBuf),
+}
+
+impl Default for ResticArg {
+    fn default() -> Self {
+        ResticArg::SystemThenBundled
+    }
+}
+
+impl From<&OsStr> for ResticArg {
+    fn from(s: &OsStr) -> Self {
+        if s == OsStr::new("system-then-bundled") {
+            ResticArg::SystemThenBundled
+        } else if s == OsStr::new("bundled") {
+            ResticArg::Bundled
+        } else {
+            ResticArg::Path(PathBuf::from(s))
+        }
+    }
+}
+
+impl std::fmt::Display for ResticArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            ResticArg::SystemThenBundled => write!(f, "system-then-bundled"),
+            ResticArg::Bundled => write!(f, "bundled"),
+            ResticArg::Path(path) => write!(f, "{}", path.display()),
+        }
+    }
+}
+
 /// A configuration-driven backup program based on restic.
 #[derive(clap::Clap)]
 #[clap(global_setting(clap::AppSettings::NoAutoVersion))]
@@ -57,9 +92,14 @@ pub struct Cli {
     #[clap(long, env = "CIRRUS_CONFIG")]
     pub config_string: Option<String>,
 
-    /// Sets the restic binary to use
-    #[clap(long)]
-    pub restic: Option<PathBuf>,
+    /// Use the specific restic implementation
+    #[clap(
+        long,
+        possible_values(&["system-then-bundled", "bundled", "<PATH>"]),
+        default_value_t,
+        parse(from_os_str)
+    )]
+    pub restic: ResticArg,
 
     #[clap(subcommand)]
     pub subcommand: Cmd,

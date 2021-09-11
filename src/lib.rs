@@ -1,3 +1,4 @@
+use crate::cli::ResticArg;
 use cirrus_core::{model::Config, restic, secrets::Secrets};
 use std::path::PathBuf;
 
@@ -13,34 +14,32 @@ async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
     Ok(config)
 }
 
-fn current_exe_dir() -> Option<PathBuf> {
-    let current_exe = std::env::current_exe().ok()?;
-    let dir = current_exe.parent()?.to_owned();
-    Some(dir)
+fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
+    let current_exe = std::env::current_exe()?;
+    let bundled_path = current_exe
+        .parent()
+        .ok_or_else(|| eyre::eyre!("can't determine parent directory for executable"))?
+        .join("restic")
+        .with_extension(std::env::consts::EXE_EXTENSION);
+    Ok(restic::CommandConfig::from_path(bundled_path))
 }
 
-fn restic_config(restic_binary_arg: Option<PathBuf>) -> restic::Config {
-    if let Some(path) = restic_binary_arg {
-        restic::Config {
+fn restic_config(restic_arg: ResticArg) -> eyre::Result<restic::Config> {
+    let config = match restic_arg {
+        ResticArg::SystemThenBundled => restic::Config {
+            primary: restic::CommandConfig::from_path(PathBuf::from("restic")),
+            fallback: bundled_restic().ok(),
+        },
+        ResticArg::Bundled => restic::Config {
+            primary: bundled_restic()?,
+            fallback: None,
+        },
+        ResticArg::Path(path) => restic::Config {
             primary: restic::CommandConfig::from_path(path),
             fallback: None,
-        }
-    } else {
-        let system = restic::CommandConfig {
-            path: PathBuf::from("restic"),
-            env_var: None,
-        };
-        let bundled = current_exe_dir().map(|d| {
-            let path = d
-                .join("restic")
-                .with_extension(std::env::consts::EXE_EXTENSION);
-            restic::CommandConfig::from_path(path)
-        });
-        restic::Config {
-            primary: system,
-            fallback: bundled,
-        }
-    }
+        },
+    };
+    Ok(config)
 }
 
 pub async fn main() -> eyre::Result<()> {
@@ -56,7 +55,7 @@ pub async fn main() -> eyre::Result<()> {
     use clap::Clap as _;
     let args: cli::Cli = cli::Cli::parse();
     let maybe_config = load_config(&args).await;
-    let restic = restic::Restic::new(restic_config(args.restic));
+    let restic = restic::Restic::new(restic_config(args.restic)?);
     let secrets = Secrets;
 
     match args.subcommand {

@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 the version numbers are *not* semantic.
 
 ## 1.3.0
+### Added
+* Extended the `--restic` parameter with special values `bundled` and `system-then-bundled`.
+
 ### Changed
 * New tag format: `cirrus.<backup name>`
 * Changed `--restic-binary` argument to `--restic`.

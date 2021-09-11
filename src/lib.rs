@@ -19,21 +19,26 @@ fn current_exe_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
-fn restic_binary_config(restic_binary_arg: Option<PathBuf>) -> restic::BinaryConfig {
+fn restic_config(restic_binary_arg: Option<PathBuf>) -> restic::Config {
     if let Some(path) = restic_binary_arg {
-        restic::BinaryConfig {
-            path,
+        restic::Config {
+            primary: restic::CommandConfig::from_path(path),
             fallback: None,
         }
     } else {
-        let system = PathBuf::from("restic");
-        let fallback = current_exe_dir().map(|d| {
-            d.join("restic")
-                .with_extension(std::env::consts::EXE_EXTENSION)
+        let system = restic::CommandConfig {
+            path: PathBuf::from("restic"),
+            env_var: None,
+        };
+        let bundled = current_exe_dir().map(|d| {
+            let path = d
+                .join("restic")
+                .with_extension(std::env::consts::EXE_EXTENSION);
+            restic::CommandConfig::from_path(path)
         });
-        restic::BinaryConfig {
-            path: system,
-            fallback,
+        restic::Config {
+            primary: system,
+            fallback: bundled,
         }
     }
 }
@@ -51,7 +56,7 @@ pub async fn main() -> eyre::Result<()> {
     use clap::Clap as _;
     let args: cli::Cli = cli::Cli::parse();
     let maybe_config = load_config(&args).await;
-    let restic = restic::Restic::new(restic_binary_config(args.restic_binary));
+    let restic = restic::Restic::new(restic_config(args.restic_binary));
     let secrets = Secrets;
 
     match args.subcommand {

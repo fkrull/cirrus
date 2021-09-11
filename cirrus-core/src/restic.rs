@@ -1,9 +1,5 @@
 use crate::{model::backup, secrets::RepoWithSecrets};
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-    process::Stdio,
-};
+use std::{ffi::OsStr, path::PathBuf, process::Stdio};
 use tokio::process::Command;
 
 pub use process::*;
@@ -43,9 +39,39 @@ pub struct Options {
 }
 
 #[derive(Debug)]
-pub struct BinaryConfig {
+pub struct CommandConfig {
     pub path: PathBuf,
-    pub fallback: Option<PathBuf>,
+    pub env_var: Option<&'static str>,
+}
+
+impl CommandConfig {
+    pub fn from_path(path: PathBuf) -> Self {
+        CommandConfig {
+            path,
+            env_var: None,
+        }
+    }
+
+    pub fn with_env_var(self, env_var: &'static str) -> Self {
+        Self {
+            env_var: Some(env_var),
+            ..self
+        }
+    }
+
+    fn to_command(&self) -> Command {
+        let mut cmd = Command::new(&self.path);
+        if let Some(env_var) = &self.env_var {
+            cmd.env(env_var, "1");
+        }
+        cmd
+    }
+}
+
+#[derive(Debug)]
+pub struct Config {
+    pub primary: CommandConfig,
+    pub fallback: Option<CommandConfig>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -64,7 +90,7 @@ pub enum Error {
 
 #[derive(Debug)]
 pub struct Restic {
-    binary_config: BinaryConfig,
+    config: Config,
 }
 
 impl Restic {
@@ -73,14 +99,13 @@ impl Restic {
     #[cfg(not(windows))]
     const EXCLUDE_PARAM: &'static str = "--exclude";
 
-    pub fn new(binary_config: BinaryConfig) -> Self {
-        Restic { binary_config }
+    pub fn new(config: Config) -> Self {
+        Restic { config }
     }
 
     pub fn new_with_path(path: impl Into<PathBuf>) -> Self {
-        let path = path.into();
-        Self::new(BinaryConfig {
-            path,
+        Self::new(Config {
+            primary: CommandConfig::from_path(path.into()),
             fallback: None,
         })
     }
@@ -91,16 +116,13 @@ impl Restic {
         extra_args: &[impl AsRef<OsStr>],
         options: &Options,
     ) -> Result<ResticProcess, Error> {
-        self.run_with_path(
-            &self.binary_config.path,
-            repo_with_secrets,
-            extra_args,
-            options,
-        )
-        .or_else(|e| match &self.binary_config.fallback {
-            Some(fallback) => self.run_with_path(fallback, repo_with_secrets, extra_args, options),
-            None => Err(e),
-        })
+        self.run_with_config(&self.config.primary, repo_with_secrets, extra_args, options)
+            .or_else(|e| match &self.config.fallback {
+                Some(fallback) => {
+                    self.run_with_config(fallback, repo_with_secrets, extra_args, options)
+                }
+                None => Err(e),
+            })
     }
 
     pub fn backup(
@@ -129,14 +151,14 @@ impl Restic {
         self.run(Some(repo_with_secrets), &args, options)
     }
 
-    fn run_with_path(
+    fn run_with_config(
         &self,
-        path: &Path,
+        config: &CommandConfig,
         repo_with_secrets: Option<&RepoWithSecrets>,
         extra_args: &[impl AsRef<OsStr>],
         options: &Options,
     ) -> Result<ResticProcess, Error> {
-        let mut cmd = Command::new(path);
+        let mut cmd = config.to_command();
         cmd.stdin(Stdio::null()).kill_on_drop(true);
 
         if let Some(repo_with_secrets) = repo_with_secrets {

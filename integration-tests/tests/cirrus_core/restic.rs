@@ -2,7 +2,7 @@ use crate::new_workdir;
 use cirrus_core::restic::Verbosity;
 use cirrus_core::{
     model::{backup, repo},
-    restic::{Options, Restic},
+    restic::{CommandConfig, Config, Options, Restic},
     secrets,
 };
 use maplit::hashmap;
@@ -21,6 +21,24 @@ async fn should_run_specified_restic_binary_with_explicit_arguments() {
         .unwrap();
 
     workdir.assert_args(&["arg1", "arg2", "arg3", "arg4"]);
+}
+
+#[tokio::test]
+async fn should_run_specified_restic_binary_with_additional_env_var() {
+    let workdir = new_workdir();
+    let restic = Restic::new(Config {
+        primary: CommandConfig::from_path(workdir.test_binary()).with_env_var("EXTRA_ENV"),
+        fallback: None,
+    });
+
+    restic
+        .run(None, &["arg"], &Options::default())
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+
+    workdir.assert_env_var("EXTRA_ENV", "1");
 }
 
 #[tokio::test]

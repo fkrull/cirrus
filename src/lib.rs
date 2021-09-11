@@ -1,3 +1,4 @@
+use crate::cli::ResticArg;
 use cirrus_core::{model::Config, restic, secrets::Secrets};
 use std::path::PathBuf;
 
@@ -13,41 +14,50 @@ async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
     Ok(config)
 }
 
-fn restic_config(restic_binary_arg: Option<PathBuf>) -> restic::Config {
-    if let Some(path) = restic_binary_arg {
-        restic::Config {
+fn system_restic() -> restic::CommandConfig {
+    restic::CommandConfig::from_path(PathBuf::from("restic"))
+}
+
+#[cfg(not(feature = "restigo"))]
+fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
+    let current_exe = std::env::current_exe()?;
+    let bundled_path = current_exe
+        .parent()
+        .ok_or_else(|| eyre::eyre!("can't determine parent directory for executable"))?
+        .join("restic")
+        .with_extension(std::env::consts::EXE_EXTENSION);
+    Ok(restic::CommandConfig::from_path(bundled_path))
+}
+
+#[cfg(feature = "restigo")]
+fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
+    let path = std::env::current_exe()?;
+    Ok(
+        restic::CommandConfig::from_path(path)
+            .with_env_var("__CIRRUS_INTERNAL_MODE_BUNDLED_RESTIC"),
+    )
+}
+
+fn restic_config(restic_arg: ResticArg) -> eyre::Result<restic::Config> {
+    let config = match restic_arg {
+        ResticArg::System => restic::Config {
+            primary: system_restic(),
+            fallback: None,
+        },
+        ResticArg::Bundled => restic::Config {
+            primary: bundled_restic()?,
+            fallback: None,
+        },
+        ResticArg::SystemThenBundled => restic::Config {
+            primary: system_restic(),
+            fallback: bundled_restic().ok(),
+        },
+        ResticArg::Path(path) => restic::Config {
             primary: restic::CommandConfig::from_path(path),
             fallback: None,
-        }
-    } else {
-        let system = restic::CommandConfig {
-            path: PathBuf::from("restic"),
-            env_var: None,
-        };
-
-        #[cfg(feature = "restigo")]
-        let bundled = std::env::current_exe().ok().map(|exe| {
-            restic::CommandConfig::from_path(exe)
-                .with_env_var("__CIRRUS_INTERNAL_MODE_BUNDLED_RESTIC")
-        });
-
-        #[cfg(not(feature = "restigo"))]
-        let bundled = std::env::current_exe()
-            .ok()
-            .as_ref()
-            .and_then(|exe| exe.parent())
-            .map(|d| {
-                let path = d
-                    .join("restic")
-                    .with_extension(std::env::consts::EXE_EXTENSION);
-                restic::CommandConfig::from_path(path)
-            });
-
-        restic::Config {
-            primary: system,
-            fallback: bundled,
-        }
-    }
+        },
+    };
+    Ok(config)
 }
 
 pub async fn main() -> eyre::Result<()> {
@@ -63,7 +73,7 @@ pub async fn main() -> eyre::Result<()> {
     use clap::Clap as _;
     let args: cli::Cli = cli::Cli::parse();
     let maybe_config = load_config(&args).await;
-    let restic = restic::Restic::new(restic_config(args.restic_binary));
+    let restic = restic::Restic::new(restic_config(args.restic)?);
     let secrets = Secrets;
 
     match args.subcommand {
@@ -74,7 +84,7 @@ pub async fn main() -> eyre::Result<()> {
             cli::secret::Cmd::Set(args) => commands::secret::set(&secrets, &maybe_config?, args),
             cli::secret::Cmd::List(args) => commands::secret::list(&secrets, &maybe_config?, args),
         },
-        cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, &maybe_config?, args).await,
+        cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, maybe_config, args).await,
         #[cfg(feature = "cirrus-self")]
         cli::Cmd::SelfCommands(args) => cirrus_self::self_action(args),
         cli::Cmd::Version => commands::version(&restic).await,

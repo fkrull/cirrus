@@ -8,7 +8,7 @@ fn should_run_restic_with_given_arguments() {
         .with_file("cirrus.toml", "");
     Command::cargo_bin("test-cirrus")
         .unwrap()
-        .arg("--restic-binary")
+        .arg("--restic")
         .arg(workdir.test_binary())
         .arg("--config-file")
         .arg(workdir.path().join("cirrus.toml"))
@@ -39,7 +39,7 @@ fn should_run_backup() {
     );
     Command::cargo_bin("test-cirrus")
         .unwrap()
-        .arg("--restic-binary")
+        .arg("--restic")
         .arg(workdir.test_binary())
         .arg("--config-file")
         .arg(workdir.path().join("cirrus.toml"))
@@ -58,4 +58,18 @@ fn should_run_backup() {
             "--exclude-caches",
         ])
         .assert_env_var("RESTIC_PASSWORD", "pwd");
+}
+
+#[test]
+fn should_run_restic_subcommand_without_config_file_if_possible() {
+    let workdir = new_workdir();
+    Command::cargo_bin("test-cirrus")
+        .unwrap()
+        .arg("--restic")
+        .arg(workdir.test_binary())
+        .arg("--config-file")
+        .arg(workdir.path().join("does-not-exist.toml"))
+        .args(&["restic", "version"])
+        .assert()
+        .success();
 }

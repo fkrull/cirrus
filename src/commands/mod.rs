@@ -11,12 +11,13 @@ pub mod secret;
 pub async fn restic(
     restic: &Restic,
     secrets: &Secrets,
-    config: &Config,
+    maybe_config: eyre::Result<Config>,
     args: cli::restic::Cli,
 ) -> eyre::Result<()> {
     match args.repository {
         Some(repo_name) => {
             let repo_name = repo::Name(repo_name.to_owned());
+            let config = maybe_config?;
             let repo = config.repository(&repo_name)?;
             let repo_with_secrets = secrets.get_secrets(repo)?;
             restic

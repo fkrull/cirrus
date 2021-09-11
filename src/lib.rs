@@ -56,7 +56,7 @@ pub async fn main() -> eyre::Result<()> {
     use clap::Clap as _;
     let args: cli::Cli = cli::Cli::parse();
     let maybe_config = load_config(&args).await;
-    let restic = restic::Restic::new(restic_config(args.restic_binary));
+    let restic = restic::Restic::new(restic_config(args.restic));
     let secrets = Secrets;
 
     match args.subcommand {

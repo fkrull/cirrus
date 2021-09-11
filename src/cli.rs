@@ -59,7 +59,7 @@ pub struct Cli {
 
     /// Sets the restic binary to use
     #[clap(long)]
-    pub restic_binary: Option<PathBuf>,
+    pub restic: Option<PathBuf>,
 
     #[clap(subcommand)]
     pub subcommand: Cmd,

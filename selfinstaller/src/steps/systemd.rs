@@ -85,3 +85,89 @@ pub fn enable_user(unit: impl Into<String>) -> SystemdEnable {
         unit,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::steps::testutil;
+    use crate::InstallStep;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_mode_arg_system() {
+        assert_eq!(Mode::System.arg(), "--system");
+    }
+
+    #[test]
+    fn test_mode_arg_user() {
+        assert_eq!(Mode::User.arg(), "--user");
+    }
+
+    #[test]
+    fn test_systemd_enable() {
+        let step = enable("ssh.service");
+        assert_eq!(step.mode, Mode::System);
+    }
+
+    #[test]
+    fn test_systemd_enable_user() {
+        let step = enable_user("bob.socket");
+        assert_eq!(step.mode, Mode::User);
+    }
+
+    #[test]
+    fn test_system_install_description() {
+        let step = enable("unit.service");
+        assert_eq!(
+            &testutil::install_description(&step),
+            "enable systemd unit unit.service"
+        );
+    }
+
+    #[test]
+    fn test_user_install_description() {
+        let step = enable_user("session.service");
+        assert_eq!(
+            &testutil::install_description(&step),
+            "enable user-session systemd unit session.service"
+        );
+    }
+
+    #[test]
+    fn test_system_uninstall_description() {
+        let step = enable("unit.service");
+        assert_eq!(
+            &testutil::uninstall_description(&step),
+            "disable systemd unit unit.service"
+        );
+    }
+
+    #[test]
+    fn test_user_uninstall_description() {
+        let step = enable_user("session.service");
+        assert_eq!(
+            &testutil::uninstall_description(&step),
+            "disable user-session systemd unit session.service"
+        );
+    }
+
+    #[test]
+    fn should_install_nothing_for_non_system_destination() {
+        let step = enable("unit.service");
+
+        let result = step.install(&Destination::DestDir(PathBuf::new())).unwrap();
+
+        assert!(matches!(result, Action::Skipped(_)));
+    }
+
+    #[test]
+    fn should_uninstall_nothing_for_non_system_destination() {
+        let step = enable("unit.service");
+
+        let result = step
+            .uninstall(&Destination::DestDir(PathBuf::new()))
+            .unwrap();
+
+        assert!(matches!(result, Action::Skipped(_)));
+    }
+}

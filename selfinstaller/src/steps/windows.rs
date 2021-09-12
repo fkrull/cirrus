@@ -129,7 +129,7 @@ mod tests {
         let result = step.uninstall(&Destination::System).unwrap();
 
         assert_eq!(result, Action::Ok);
-        assert!(std::fs::metadata(&path).is_err());
+        assert!(!path.exists());
     }
 
     #[test]
@@ -144,6 +144,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(result, Action::Ok);
-        assert!(std::fs::metadata(&path).is_err());
+        assert!(!path.exists());
     }
 }

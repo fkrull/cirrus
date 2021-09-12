@@ -84,12 +84,12 @@ mod tests {
         let result = step.install(&Destination::System).unwrap();
 
         assert_eq!(result, Action::Ok);
-        let metadata = std::fs::metadata(&path).unwrap();
-        assert!(metadata.is_dir());
+        assert!(path.is_dir());
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            assert_eq!(metadata.permissions().mode(), 0o755);
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert_eq!(metadata.permissions().mode() & 0o755, 0o755);
         }
     }
 
@@ -103,8 +103,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(result, Action::Ok);
-        let metadata = std::fs::metadata(tmp.path().join("test/path")).unwrap();
-        assert!(metadata.is_dir());
+        assert!(tmp.path().join("test/path").is_dir());
     }
 
     #[test]
@@ -117,7 +116,7 @@ mod tests {
         let result = step.uninstall(&Destination::System).unwrap();
 
         assert_eq!(result, Action::Ok);
-        assert!(std::fs::metadata(&path).is_err());
+        assert!(!path.exists());
     }
 
     #[test]
@@ -131,7 +130,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(result, Action::Ok);
-        assert!(std::fs::metadata(tmp.path().join("subdir")).is_err());
+        assert!(!tmp.path().join("subdir").exists());
     }
 
     #[test]
@@ -145,6 +144,6 @@ mod tests {
         let result = step.uninstall(&Destination::System).unwrap();
 
         assert!(matches!(result, Action::Warn(_)));
-        assert!(std::fs::metadata(&path).unwrap().is_dir());
+        assert!(path.is_dir());
     }
 }

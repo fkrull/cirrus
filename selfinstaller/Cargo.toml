@@ -15,4 +15,5 @@ thiserror = "1.0.26"
 mslnk = "0.1.6"
 
 [dev-dependencies]
+argh = "0.1.6"
 tempfile = "3.2.0"

@@ -1,0 +1,6 @@
+[Unit]
+Description=Sample job that prints a supportive message
+
+[Service]
+Type=oneshot
+ExecStart={{executable}} run "Hey there, you are great!"

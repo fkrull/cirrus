@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use owo_colors::OwoColorize;
 use std::{
     fmt::Display,

@@ -1,6 +1,8 @@
+//! Installation step that creates a directory.
 use crate::{Action, Destination};
 use std::path::{Path, PathBuf};
 
+/// Implementation type for the directory step.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct InstallDirectory {
     path: PathBuf,
@@ -47,6 +49,23 @@ impl crate::InstallStep for InstallDirectory {
     }
 }
 
+/// An installation step that creates a directory. Any missing parent
+/// directories will be created as well. On Unix systems, the new directory will
+/// have mode 0755 (owner-writable, world-readable).
+///
+/// ## Uninstallation
+/// On uninstallation, the directory will be deleted *only if it is empty*. If
+/// the directory is not empty or cannot be deleted for other reasons, the
+/// uninstall step will return a warning instead of failing outright.
+///
+/// ## Example
+/// ```
+/// # use selfinstaller::{InstallStep, steps::directory};
+/// # let tmp = tempfile::TempDir::new().unwrap();
+/// # let dir_path = tmp.path().join("subdir1").join("subdir2");
+/// directory(&dir_path).install(&selfinstaller::Destination::System).unwrap();
+/// assert!(dir_path.exists());
+/// ```
 pub fn directory(path: impl Into<PathBuf>) -> InstallDirectory {
     let path = path.into();
     InstallDirectory { path }
@@ -91,6 +110,18 @@ mod tests {
             let metadata = std::fs::metadata(&path).unwrap();
             assert_eq!(metadata.permissions().mode() & 0o755, 0o755);
         }
+    }
+
+    #[test]
+    fn should_create_directory_and_parent() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("1").join("2").join("3").join("4");
+        let step = directory(path.clone());
+
+        let result = step.install(&Destination::System).unwrap();
+
+        assert_eq!(result, Action::Ok);
+        assert!(path.is_dir());
     }
 
     #[test]

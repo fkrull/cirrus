@@ -54,8 +54,8 @@ impl crate::InstallStep for InstallDirectory {
 /// have mode 0755 (owner-writable, world-readable).
 ///
 /// ## Uninstallation
-/// On uninstallation, the directory will be deleted *only if it is empty*. If
-/// the directory is not empty or cannot be deleted for other reasons, the
+/// On uninstallation, the directory will be deleted *only if it's empty*. If
+/// the directory isn't empty or can't be deleted for other reasons, the
 /// uninstall step will return a warning instead of failing outright.
 ///
 /// ## Example

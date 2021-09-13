@@ -1,12 +1,18 @@
+//! Installation step that installs a file.
+
 use crate::{Action, Destination};
 use std::{
     io::Write,
     path::{Path, PathBuf},
 };
 
+/// File content for a file installation. The biggest difference is that for
+/// text files, the full file content will be shown in the details display.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Contents {
+    /// Text-based file content. Will be written as UTF-8.
     Text(String),
+    /// Binary file content.
     Binary(Vec<u8>),
 }
 
@@ -35,6 +41,7 @@ impl<const N: usize> From<&[u8; N]> for Contents {
 }
 
 impl Contents {
+    /// Get the file content as a byte slice for writing.
     fn as_bytes(&self) -> &[u8] {
         match self {
             Contents::Text(text) => text.as_bytes(),
@@ -43,6 +50,7 @@ impl Contents {
     }
 }
 
+/// Implementation struct for file installation step.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct InstallFile {
     path: PathBuf,
@@ -121,6 +129,24 @@ impl crate::InstallStep for InstallFile {
     }
 }
 
+/// An installation step that installs a file into the file system. The file
+/// will not be marked as executable (e.g. on Unix systems). If a file with the
+/// name already exists, it will be replaced.
+///
+/// See also the [`executable()`] function to install an executable file.
+///
+/// ## Uninstallation
+/// The file will be removed. If it doesn't exist or can't be removed, the step
+/// will fail.
+///
+/// ## Example
+/// ```
+/// # use selfinstaller::{InstallStep, steps::file};
+/// # let tmp = tempfile::TempDir::new().unwrap();
+/// # let file_path = tmp.path().join("testfile");
+/// file(&file_path, "Hello!").install(&selfinstaller::Destination::System).unwrap();
+/// assert_eq!(&std::fs::read_to_string(file_path).unwrap(), "Hello!");
+/// ```
 pub fn file(path: impl Into<PathBuf>, contents: impl Into<Contents>) -> InstallFile {
     let path = path.into();
     let contents = contents.into();
@@ -131,6 +157,9 @@ pub fn file(path: impl Into<PathBuf>, contents: impl Into<Contents>) -> InstallF
     }
 }
 
+/// An installation step that installs an executable into the file system. This
+/// step acts very similar to [`file()`] but the file will be marked as executable
+/// depending on the system (e.g. on Unix the executable mode bit will be set).
 pub fn executable(path: impl Into<PathBuf>, contents: impl Into<Contents>) -> InstallFile {
     let path = path.into();
     let contents = contents.into();

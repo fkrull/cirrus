@@ -141,11 +141,12 @@ impl crate::InstallStep for InstallFile {
 ///
 /// ## Example
 /// ```
-/// # use selfinstaller::{InstallStep, steps::file};
-/// # let tmp = tempfile::TempDir::new().unwrap();
+/// # use selfinstaller::{Destination, InstallStep, steps::file};
+/// # let tmp = tempfile::TempDir::new()?;
 /// # let file_path = tmp.path().join("testfile");
-/// file(&file_path, "Hello!").install(&selfinstaller::Destination::System).unwrap();
-/// assert_eq!(&std::fs::read_to_string(file_path).unwrap(), "Hello!");
+/// file(&file_path, "Hello!").install(&Destination::System)?;
+/// assert_eq!(&std::fs::read_to_string(file_path)?, "Hello!");
+/// # Ok::<(), eyre::Report>(())
 /// ```
 pub fn file(path: impl Into<PathBuf>, contents: impl Into<Contents>) -> InstallFile {
     let path = path.into();

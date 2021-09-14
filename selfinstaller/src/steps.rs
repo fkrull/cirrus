@@ -1,3 +1,5 @@
+//! Default installation steps.
+
 pub mod directory;
 pub use directory::directory;
 pub mod file;

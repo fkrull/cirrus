@@ -60,11 +60,12 @@ impl crate::InstallStep for InstallDirectory {
 ///
 /// ## Example
 /// ```
-/// # use selfinstaller::{InstallStep, steps::directory};
-/// # let tmp = tempfile::TempDir::new().unwrap();
+/// # use selfinstaller::{Destination, InstallStep, steps::directory};
+/// # let tmp = tempfile::TempDir::new()?;
 /// # let dir_path = tmp.path().join("subdir1").join("subdir2");
-/// directory(&dir_path).install(&selfinstaller::Destination::System).unwrap();
+/// directory(&dir_path).install(&Destination::System)?;
 /// assert!(dir_path.exists());
+/// # Ok::<(), eyre::Report>(())
 /// ```
 pub fn directory(path: impl Into<PathBuf>) -> InstallDirectory {
     let path = path.into();

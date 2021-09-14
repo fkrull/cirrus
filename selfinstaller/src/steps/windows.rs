@@ -1,6 +1,9 @@
+//! Windows-specific installation steps.
+
 use crate::{Action, Destination};
 use std::path::PathBuf;
 
+/// Implementation struct for the Windows shortcut step.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Shortcut {
     target: PathBuf,
@@ -40,6 +43,22 @@ impl crate::InstallStep for Shortcut {
     }
 }
 
+/// Installation step to create a Windows shell shortcut (a `.lnk` file). The
+/// `.lnk` extension should be included in the file name.
+///
+/// ## Uninstallation
+/// The file at `path` will be removed.
+///
+/// ## Example
+/// ```
+/// # use selfinstaller::{Destination, InstallStep, steps::windows};
+/// # let tmp = tempfile::TempDir::new()?;
+/// # let link_path = tmp.path().join("test.lnk");
+/// windows::shortcut(&link_path, "C:/Windows/system32/notepad.exe", None)
+///   .install(&Destination::System)?;
+/// assert!(link_path.is_file());
+/// # Ok::<(), eyre::Report>(())
+/// ```
 pub fn shortcut(
     path: impl Into<PathBuf>,
     target: impl Into<PathBuf>,

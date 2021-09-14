@@ -1,6 +1,9 @@
+//! Installation steps that interact with systemd.
+
 use crate::{Action, Destination};
 use std::process::Command;
 
+/// systemd mode
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 enum Mode {
     System,
@@ -16,6 +19,7 @@ impl Mode {
     }
 }
 
+/// Implementation struct for enabling a systemd unit.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SystemdEnable {
     mode: Mode,
@@ -57,6 +61,7 @@ impl crate::InstallStep for SystemdEnable {
     }
 }
 
+/// Run systemctl with the given arguments either in system or user mode.
 fn run_systemctl<'a>(mode: Mode, args: impl IntoIterator<Item = &'a str>) -> eyre::Result<()> {
     let status = Command::new("systemctl")
         .arg(mode.arg())
@@ -70,6 +75,20 @@ fn run_systemctl<'a>(mode: Mode, args: impl IntoIterator<Item = &'a str>) -> eyr
     }
 }
 
+/// Create an installation step to enable a system-wide systemd unit. The unit
+/// will be started immediately (`--now`). If run with a non-system destination,
+/// installation and uninstallation for this step will do nothing. The daemon
+/// will be reloaded before enabling the unit files that were installed by a
+/// preceeding step can be used.
+///
+/// ## Uninstallation
+/// The unit will be disabled and stopped immediately.
+///
+/// ## Example
+/// ```no_run
+/// # use selfinstaller::{Destination, InstallStep, steps::systemd};
+/// systemd::enable("ssh.service").install(&Destination::System)?;
+/// # Ok::<(), eyre::Report>(())
 pub fn enable(unit: impl Into<String>) -> SystemdEnable {
     let unit = unit.into();
     SystemdEnable {
@@ -78,6 +97,20 @@ pub fn enable(unit: impl Into<String>) -> SystemdEnable {
     }
 }
 
+/// Create an installation step to enable a user-session systemd unit. The unit
+/// will be started immediately (`--now`). If run with a non-system destination,
+/// installation and uninstallation for this step will do nothing. The daemon
+/// will be reloaded before enabling the unit files that were installed by a
+/// preceeding step can be used.
+///
+/// ## Uninstallation
+/// The user-session unit will be disabled and stopped immediately.
+///
+/// ## Example
+/// ```no_run
+/// # use selfinstaller::{Destination, InstallStep, steps::systemd};
+/// systemd::enable_user("dbus.service").install(&Destination::System)?;
+/// # Ok::<(), eyre::Report>(())
 pub fn enable_user(unit: impl Into<String>) -> SystemdEnable {
     let unit = unit.into();
     SystemdEnable {

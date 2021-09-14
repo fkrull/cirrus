@@ -18,9 +18,9 @@ pub enum Command {
 
 #[derive(clap::Clap)]
 pub struct Install {
-    /// Shows the installation plan instead of running it
+    /// Shows detailed installation steps instead of installing anything
     #[clap(long)]
-    plan: bool,
+    details: bool,
 
     /// Installs into PATH instead of the filesystem
     #[clap(long, value_name = "PATH")]
@@ -70,7 +70,7 @@ fn self_installer() -> eyre::Result<SelfInstaller> {
 }
 
 fn install(installer: &mut SelfInstaller, args: Install) -> eyre::Result<()> {
-    if args.plan {
+    if args.details {
         print!("{}", installer.details());
     } else {
         installer.install(&Destination::from(args.destdir))?;

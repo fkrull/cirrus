@@ -314,3 +314,101 @@ impl<'a> Display for DisplayAsDetails<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod errors {
+        use super::*;
+
+        #[test]
+        fn should_format_error() {
+            let error = SingleError {
+                description: "error description".to_owned(),
+                index: 4,
+                error: eyre::eyre!("source error"),
+            };
+
+            assert_eq!(&format!("{}", error), "in [step #5] error description");
+        }
+
+        #[test]
+        fn should_format_multi_error() {
+            let error1 = SingleError {
+                description: "something went wrong".to_owned(),
+                index: 0,
+                error: eyre::eyre!("source error 1"),
+            };
+            let error2 = SingleError {
+                description: "something went more wrong".to_owned(),
+                index: 1,
+                error: eyre::eyre!("source error 2"),
+            };
+            let error = MultiErrors(vec![error1, error2]);
+
+            assert_eq!(
+                &format!("{}", error),
+                "in [step #1] something went wrong: source error 1\nin [step #2] something went more wrong: source error 2\n"
+            );
+        }
+    }
+
+    mod destination {
+        use super::*;
+
+        #[test]
+        fn system_should_return_path_unchanged() {
+            let p = Path::new("/super/path");
+            assert_eq!(&Destination::System.full_path(p), p);
+        }
+
+        #[test]
+        fn destdir_should_join_relative_path() {
+            let p = Path::new("relative/path");
+            let destdir = Path::new("/super/dir");
+            assert_eq!(
+                &Destination::DestDir(destdir.to_owned()).full_path(p),
+                Path::new("/super/dir/relative/path")
+            );
+        }
+
+        #[test]
+        fn destdir_should_join_path_with_root() {
+            let p = Path::new("/root/path");
+            let destdir = Path::new("/super/dir");
+            assert_eq!(
+                &Destination::DestDir(destdir.to_owned()).full_path(p),
+                Path::new("/super/dir/root/path")
+            );
+        }
+
+        #[test]
+        #[cfg(windows)]
+        fn destdir_should_join_path_with_prefix() {
+            let p = Path::new("C:temp");
+            let destdir = Path::new("/super/dir");
+            assert_eq!(
+                &Destination::DestDir(destdir.to_owned()).full_path(p),
+                Path::new("/super/dir/temp")
+            );
+        }
+
+        #[test]
+        #[cfg(windows)]
+        fn destdir_should_join_path_with_prefix_and_root() {
+            let p = Path::new("C:/Windows/Temp");
+            let destdir = Path::new("/super/dir");
+            assert_eq!(
+                &Destination::DestDir(destdir.to_owned()).full_path(p),
+                Path::new("/super/dir/Windows/Temp")
+            );
+        }
+
+        #[test]
+        fn test_is_system() {
+            assert!(Destination::System.is_system());
+            assert!(!Destination::DestDir(PathBuf::from("/")).is_system());
+        }
+    }
+}

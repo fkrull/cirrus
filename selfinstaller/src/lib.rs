@@ -8,10 +8,23 @@ use std::{
 
 pub mod steps;
 
+/// The action that was taken by an install or uninstall step.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Action {
+    /// The action completed successfully.
     Ok,
+
+    /// The action was skipped with the given reason string. This indicates that
+    /// no changes were made for a benign reason: the desired state was already
+    /// reached or the action simply didn't make sense for the given parameters
+    /// (for example, enabling a systemd unit while installing into a specific
+    /// directory).
     Skipped(String),
+
+    /// The action was completed with a warning. This is used for actions that
+    /// failed in some way, but where the failure wasn't severe enough to
+    /// justify an error. For example, deleting a directory that was created in
+    /// an install step may fail because it's not empty and return a warning.
     Warn(String),
 }
 
@@ -45,15 +58,23 @@ impl<'a> Display for UninstallDescription<'a> {
     }
 }
 
+/// An error in an installation step that caused the installation process to
+/// stop.
 #[derive(Debug, thiserror::Error)]
 #[error("in [step #{}] {description}", index + 1)]
 pub struct StepError {
+    /// A readable description of the error.
     pub description: String,
+
+    /// The position of the failed step in the installation.
     pub index: usize,
+
+    /// The source error that caused the failure.
     #[source]
     pub error: eyre::Report,
 }
 
+///
 #[derive(Debug, thiserror::Error)]
 pub struct StepErrors(Vec<StepError>);
 
@@ -209,6 +230,7 @@ impl SelfInstaller {
     }
 }
 
+/// Implementation struct for displaying all the steps of an installer.
 pub struct DisplayAsPlan<'a>(&'a SelfInstaller);
 
 impl<'a> Display for DisplayAsPlan<'a> {

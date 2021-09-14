@@ -82,7 +82,7 @@ fn main() -> eyre::Result<()> {
             installer()?.uninstall(&args.destdir.into())?;
         }
         Subcommand::Details(_) => {
-            print!("{}", installer()?.plan());
+            print!("{}", installer()?.details());
         }
     }
     Ok(())

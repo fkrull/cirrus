@@ -1,5 +1,5 @@
 //! Installation step that creates a directory.
-use crate::{Action, Destination};
+use crate::{Destination, Outcome};
 use std::path::{Path, PathBuf};
 
 /// Implementation type for the directory step.
@@ -31,17 +31,17 @@ impl crate::InstallStep for InstallDirectory {
         write!(f, "remove empty directory {}", self.path.display())
     }
 
-    fn install(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn install(&self, destination: &Destination) -> eyre::Result<Outcome> {
         let full_path = destination.full_path(&self.path);
         std::fs::create_dir_all(&full_path)?;
         self.update_permissions(&full_path)?;
-        Ok(Action::Ok)
+        Ok(Outcome::Ok)
     }
 
-    fn uninstall(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn uninstall(&self, destination: &Destination) -> eyre::Result<Outcome> {
         match std::fs::remove_dir(destination.full_path(&self.path)) {
-            Ok(_) => Ok(Action::Ok),
-            Err(error) => Ok(Action::Warn(format!(
+            Ok(_) => Ok(Outcome::Ok),
+            Err(error) => Ok(Outcome::Warn(format!(
                 "could not delete directory: {}",
                 error
             ))),
@@ -103,7 +103,7 @@ mod tests {
 
         let result = step.install(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(path.is_dir());
         #[cfg(unix)]
         {
@@ -121,7 +121,7 @@ mod tests {
 
         let result = step.install(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(path.is_dir());
     }
 
@@ -134,7 +134,7 @@ mod tests {
             .install(&Destination::DestDir(tmp.path().to_owned()))
             .unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(tmp.path().join("test/path").is_dir());
     }
 
@@ -147,7 +147,7 @@ mod tests {
 
         let result = step.uninstall(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(!path.exists());
     }
 
@@ -161,7 +161,7 @@ mod tests {
             .uninstall(&Destination::DestDir(tmp.path().to_owned()))
             .unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(!tmp.path().join("subdir").exists());
     }
 
@@ -175,7 +175,7 @@ mod tests {
 
         let result = step.uninstall(&Destination::System).unwrap();
 
-        assert!(matches!(result, Action::Warn(_)));
+        assert!(matches!(result, Outcome::Warn(_)));
         assert!(path.is_dir());
     }
 }

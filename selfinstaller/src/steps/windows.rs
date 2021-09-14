@@ -1,6 +1,6 @@
 //! Windows-specific installation steps.
 
-use crate::{Action, Destination};
+use crate::{Destination, Outcome};
 use std::path::PathBuf;
 
 /// Implementation struct for the Windows shortcut step.
@@ -29,17 +29,17 @@ impl crate::InstallStep for Shortcut {
         Ok(())
     }
 
-    fn install(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn install(&self, destination: &Destination) -> eyre::Result<Outcome> {
         let full_path = destination.full_path(&self.path);
         let mut link = mslnk::ShellLink::new(&self.target)?;
         link.set_arguments(self.args.clone());
         link.create_lnk(&full_path)?;
-        Ok(Action::Ok)
+        Ok(Outcome::Ok)
     }
 
-    fn uninstall(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn uninstall(&self, destination: &Destination) -> eyre::Result<Outcome> {
         std::fs::remove_file(destination.full_path(&self.path))?;
-        Ok(Action::Ok)
+        Ok(Outcome::Ok)
     }
 }
 
@@ -119,7 +119,7 @@ mod tests {
 
         let result = step.install(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         let metadata = std::fs::metadata(&path).unwrap();
         assert!(metadata.is_file());
     }
@@ -133,7 +133,7 @@ mod tests {
             .install(&Destination::DestDir(tmp.path().to_owned()))
             .unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         let metadata = std::fs::metadata(tmp.path().join("test.lnk")).unwrap();
         assert!(metadata.is_file());
     }
@@ -147,7 +147,7 @@ mod tests {
 
         let result = step.uninstall(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(!path.exists());
     }
 
@@ -162,7 +162,7 @@ mod tests {
             .uninstall(&Destination::DestDir(tmp.path().to_owned()))
             .unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(!path.exists());
     }
 }

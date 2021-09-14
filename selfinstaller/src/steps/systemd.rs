@@ -1,6 +1,6 @@
 //! Installation steps that interact with systemd.
 
-use crate::{Action, Destination};
+use crate::{Destination, Outcome};
 use std::process::Command;
 
 /// systemd mode
@@ -41,22 +41,22 @@ impl crate::InstallStep for SystemdEnable {
         }
     }
 
-    fn install(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn install(&self, destination: &Destination) -> eyre::Result<Outcome> {
         if destination.is_system() {
             run_systemctl(self.mode, ["daemon-reload"])?;
             run_systemctl(self.mode, ["enable", "--now", &self.unit])?;
-            Ok(Action::Ok)
+            Ok(Outcome::Ok)
         } else {
-            Ok(Action::Skipped("non-system destination".to_owned()))
+            Ok(Outcome::Skipped("non-system destination".to_owned()))
         }
     }
 
-    fn uninstall(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn uninstall(&self, destination: &Destination) -> eyre::Result<Outcome> {
         if destination.is_system() {
             run_systemctl(self.mode, ["disable", "--now", &self.unit])?;
-            Ok(Action::Ok)
+            Ok(Outcome::Ok)
         } else {
-            Ok(Action::Skipped("non-system destination".to_owned()))
+            Ok(Outcome::Skipped("non-system destination".to_owned()))
         }
     }
 }
@@ -190,7 +190,7 @@ mod tests {
 
         let result = step.install(&Destination::DestDir(PathBuf::new())).unwrap();
 
-        assert!(matches!(result, Action::Skipped(_)));
+        assert!(matches!(result, Outcome::Skipped(_)));
     }
 
     #[test]
@@ -201,6 +201,6 @@ mod tests {
             .uninstall(&Destination::DestDir(PathBuf::new()))
             .unwrap();
 
-        assert!(matches!(result, Action::Skipped(_)));
+        assert!(matches!(result, Outcome::Skipped(_)));
     }
 }

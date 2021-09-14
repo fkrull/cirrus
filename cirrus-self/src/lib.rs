@@ -71,7 +71,7 @@ fn self_installer() -> eyre::Result<SelfInstaller> {
 
 fn install(installer: &mut SelfInstaller, args: Install) -> eyre::Result<()> {
     if args.plan {
-        print!("{}", installer.plan());
+        print!("{}", installer.details());
     } else {
         installer.install(&Destination::from(args.destdir))?;
     }

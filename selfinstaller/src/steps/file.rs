@@ -1,6 +1,6 @@
 //! Installation step that installs a file.
 
-use crate::{Action, Destination};
+use crate::{Destination, Outcome};
 use std::{
     io::Write,
     path::{Path, PathBuf},
@@ -108,7 +108,7 @@ impl crate::InstallStep for InstallFile {
         Ok(())
     }
 
-    fn install(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn install(&self, destination: &Destination) -> eyre::Result<Outcome> {
         let full_path = destination.full_path(&self.path);
         let dir = full_path.parent().ok_or_else(|| {
             eyre::eyre!(
@@ -120,12 +120,12 @@ impl crate::InstallStep for InstallFile {
         tmp.write_all(self.contents.as_bytes())?;
         tmp.persist(&full_path)?;
         self.update_permissions(&full_path)?;
-        Ok(Action::Ok)
+        Ok(Outcome::Ok)
     }
 
-    fn uninstall(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn uninstall(&self, destination: &Destination) -> eyre::Result<Outcome> {
         std::fs::remove_file(destination.full_path(&self.path))?;
-        Ok(Action::Ok)
+        Ok(Outcome::Ok)
     }
 }
 
@@ -259,7 +259,7 @@ mod tests {
 
         let result = step.install(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert_eq!(&std::fs::read_to_string(&path).unwrap(), "text contents");
         #[cfg(unix)]
         {
@@ -277,7 +277,7 @@ mod tests {
 
         let result = step.install(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert_eq!(&std::fs::read(&path).unwrap(), b"binary contents");
         #[cfg(unix)]
         {
@@ -295,7 +295,7 @@ mod tests {
 
         let result = step.install(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert_eq!(&std::fs::read_to_string(&path).unwrap(), "echo test");
         #[cfg(unix)]
         {
@@ -315,7 +315,7 @@ mod tests {
             .install(&Destination::DestDir(tmp.path().to_owned()))
             .unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert_eq!(&std::fs::read_to_string(&path).unwrap(), "test file");
         #[cfg(unix)]
         {
@@ -334,7 +334,7 @@ mod tests {
 
         let result = step.uninstall(&Destination::System).unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(!path.exists());
     }
 
@@ -349,7 +349,7 @@ mod tests {
             .uninstall(&Destination::DestDir(tmp.path().to_owned()))
             .unwrap();
 
-        assert_eq!(result, Action::Ok);
+        assert_eq!(result, Outcome::Ok);
         assert!(!path.exists());
     }
 

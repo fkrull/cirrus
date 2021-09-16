@@ -318,6 +318,10 @@ impl<'a> Display for DisplayAsDetails<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        ops::Deref,
+        sync::{Arc, Mutex},
+    };
 
     mod errors {
         use super::*;
@@ -409,6 +413,200 @@ mod tests {
         fn test_is_system() {
             assert!(Destination::System.is_system());
             assert!(!Destination::DestDir(PathBuf::from("/")).is_system());
+        }
+    }
+
+    #[derive(Debug)]
+    struct TestInstallStep {
+        outcome: Outcome,
+        fail: bool,
+        installed: Mutex<u32>,
+        uninstalled: Mutex<u32>,
+        details: String,
+    }
+
+    impl Default for TestInstallStep {
+        fn default() -> Self {
+            TestInstallStep {
+                outcome: Outcome::Ok,
+                fail: false,
+                installed: Mutex::new(0),
+                uninstalled: Mutex::new(0),
+                details: "details".to_owned(),
+            }
+        }
+    }
+
+    impl InstallStep for TestInstallStep {
+        fn install_description(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "test install_description")
+        }
+
+        fn uninstall_description(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "test uninstall_description")
+        }
+
+        fn details(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "{}", self.details)
+        }
+
+        fn install(&self, _destination: &Destination) -> eyre::Result<Outcome> {
+            {
+                let mut val = self.installed.lock().unwrap();
+                *val = *val + 1;
+            }
+            if self.fail {
+                eyre::bail!("test error");
+            } else {
+                Ok(self.outcome.clone())
+            }
+        }
+
+        fn uninstall(&self, _destination: &Destination) -> eyre::Result<Outcome> {
+            {
+                let mut val = self.uninstalled.lock().unwrap();
+                *val = *val + 1;
+            }
+            if self.fail {
+                eyre::bail!("test error");
+            } else {
+                Ok(self.outcome.clone())
+            }
+        }
+    }
+
+    impl InstallStep for Arc<TestInstallStep> {
+        fn install_description(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            self.deref().install_description(f)
+        }
+
+        fn uninstall_description(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            self.deref().uninstall_description(f)
+        }
+
+        fn details(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            self.deref().details(f)
+        }
+
+        fn install(&self, destination: &Destination) -> eyre::Result<Outcome> {
+            self.deref().install(destination)
+        }
+
+        fn uninstall(&self, destination: &Destination) -> eyre::Result<Outcome> {
+            self.deref().uninstall(destination)
+        }
+    }
+
+    mod selfinstaller {
+        use super::*;
+
+        #[test]
+        fn test_details() {
+            let step1 = TestInstallStep {
+                details: "details1".to_owned(),
+                ..Default::default()
+            };
+            let step2 = TestInstallStep {
+                details: "details2".to_owned(),
+                ..Default::default()
+            };
+            let step3 = TestInstallStep {
+                details: "details3".to_owned(),
+                ..Default::default()
+            };
+            let installer = SelfInstaller::new()
+                .add_step(step1)
+                .add_step(step2)
+                .add_step(step3);
+
+            let details = format!("{}", installer.details());
+
+            assert_eq!(
+                details,
+                format!(
+                    "[{}] details1\n[{}] details2\n[{}] details3\n",
+                    "step #1".blue(),
+                    "step #2".blue(),
+                    "step #3".blue()
+                )
+            );
+        }
+
+        #[test]
+        fn test_install() {
+            let step1 = Arc::new(TestInstallStep::default());
+            let step2 = Arc::new(TestInstallStep::default());
+            let mut installer = SelfInstaller::new()
+                .add_step(step1.clone())
+                .add_step(step2.clone());
+
+            installer.install(&Destination::System).unwrap();
+
+            assert_eq!(*step1.installed.lock().unwrap(), 1);
+            assert_eq!(*step2.installed.lock().unwrap(), 1);
+            assert_eq!(*step1.uninstalled.lock().unwrap(), 0);
+            assert_eq!(*step2.uninstalled.lock().unwrap(), 0);
+        }
+
+        #[test]
+        fn test_install_error() {
+            let step1 = Arc::new(TestInstallStep {
+                fail: true,
+                ..TestInstallStep::default()
+            });
+            let step2 = Arc::new(TestInstallStep::default());
+            let mut installer = SelfInstaller::new()
+                .add_step(step1.clone())
+                .add_step(step2.clone());
+
+            let result = installer.install(&Destination::System);
+
+            assert!(result.is_err());
+            assert_eq!(*step1.installed.lock().unwrap(), 1);
+            assert_eq!(*step2.installed.lock().unwrap(), 0);
+        }
+
+        #[test]
+        fn test_uninstall() {
+            let step1 = Arc::new(TestInstallStep::default());
+            let step2 = Arc::new(TestInstallStep::default());
+            let mut installer = SelfInstaller::new()
+                .add_step(step1.clone())
+                .add_step(step2.clone());
+
+            installer.uninstall(&Destination::System).unwrap();
+
+            assert_eq!(*step1.installed.lock().unwrap(), 0);
+            assert_eq!(*step2.installed.lock().unwrap(), 0);
+            assert_eq!(*step1.uninstalled.lock().unwrap(), 1);
+            assert_eq!(*step2.uninstalled.lock().unwrap(), 1);
+        }
+
+        #[test]
+        fn test_uninstall_error() {
+            let step1 = Arc::new(TestInstallStep {
+                fail: true,
+                ..TestInstallStep::default()
+            });
+            let step2 = Arc::new(TestInstallStep::default());
+            let mut installer = SelfInstaller::new()
+                .add_step(step1.clone())
+                .add_step(step2.clone());
+
+            let result = installer.uninstall(&Destination::System);
+
+            assert!(result.is_err());
+            assert_eq!(*step1.uninstalled.lock().unwrap(), 1);
+            assert_eq!(*step2.uninstalled.lock().unwrap(), 1);
+        }
+
+        #[test]
+        fn test_selfinstaller_is_send() {
+            fn is_send<T: Send>() -> bool {
+                true
+            }
+
+            assert!(is_send::<SelfInstaller>())
         }
     }
 }

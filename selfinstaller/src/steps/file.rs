@@ -1,12 +1,18 @@
-use crate::{Action, Destination};
+//! Installation step that installs a file.
+
+use crate::{Destination, Outcome};
 use std::{
     io::Write,
     path::{Path, PathBuf},
 };
 
+/// File content for a file installation. The biggest difference is that for
+/// text files, the full file content will be shown in the details display.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Contents {
+    /// Text-based file content. Will be written as UTF-8.
     Text(String),
+    /// Binary file content.
     Binary(Vec<u8>),
 }
 
@@ -28,7 +34,14 @@ impl From<&[u8]> for Contents {
     }
 }
 
+impl<const N: usize> From<&[u8; N]> for Contents {
+    fn from(bytes: &[u8; N]) -> Self {
+        Contents::Binary(bytes.to_vec())
+    }
+}
+
 impl Contents {
+    /// Get the file content as a byte slice for writing.
     fn as_bytes(&self) -> &[u8] {
         match self {
             Contents::Text(text) => text.as_bytes(),
@@ -37,6 +50,7 @@ impl Contents {
     }
 }
 
+/// Implementation struct for file installation step.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct InstallFile {
     path: PathBuf,
@@ -94,7 +108,7 @@ impl crate::InstallStep for InstallFile {
         Ok(())
     }
 
-    fn install(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn install(&self, destination: &Destination) -> eyre::Result<Outcome> {
         let full_path = destination.full_path(&self.path);
         let dir = full_path.parent().ok_or_else(|| {
             eyre::eyre!(
@@ -106,15 +120,34 @@ impl crate::InstallStep for InstallFile {
         tmp.write_all(self.contents.as_bytes())?;
         tmp.persist(&full_path)?;
         self.update_permissions(&full_path)?;
-        Ok(Action::Ok)
+        Ok(Outcome::Ok)
     }
 
-    fn uninstall(&self, destination: &Destination) -> eyre::Result<Action> {
+    fn uninstall(&self, destination: &Destination) -> eyre::Result<Outcome> {
         std::fs::remove_file(destination.full_path(&self.path))?;
-        Ok(Action::Ok)
+        Ok(Outcome::Ok)
     }
 }
 
+/// An installation step that installs a file into the file system. The file
+/// will not be marked as executable (e.g. on Unix systems). If a file with the
+/// name already exists, it will be replaced.
+///
+/// See also the [`executable()`] function to install an executable file.
+///
+/// ## Uninstallation
+/// The file will be removed. If it doesn't exist or can't be removed, the step
+/// will fail.
+///
+/// ## Example
+/// ```
+/// # use selfinstaller::{Destination, InstallStep, steps::file};
+/// # let tmp = tempfile::TempDir::new()?;
+/// # let file_path = tmp.path().join("testfile");
+/// file(&file_path, "Hello!").install(&Destination::System)?;
+/// assert_eq!(&std::fs::read_to_string(file_path)?, "Hello!");
+/// # Ok::<(), eyre::Report>(())
+/// ```
 pub fn file(path: impl Into<PathBuf>, contents: impl Into<Contents>) -> InstallFile {
     let path = path.into();
     let contents = contents.into();
@@ -125,6 +158,9 @@ pub fn file(path: impl Into<PathBuf>, contents: impl Into<Contents>) -> InstallF
     }
 }
 
+/// An installation step that installs an executable into the file system. This
+/// step acts very similar to [`file()`] but the file will be marked as executable
+/// depending on the system (e.g. on Unix the executable mode bit will be set).
 pub fn executable(path: impl Into<PathBuf>, contents: impl Into<Contents>) -> InstallFile {
     let path = path.into();
     let contents = contents.into();
@@ -132,5 +168,200 @@ pub fn executable(path: impl Into<PathBuf>, contents: impl Into<Contents>) -> In
         path,
         contents,
         executable: true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{steps::testutil, InstallStep};
+
+    #[test]
+    fn should_create_contents_from_owned_string() {
+        let contents = Contents::from("string".to_owned());
+        assert_eq!(contents, Contents::Text("string".to_owned()));
+    }
+
+    #[test]
+    fn should_create_contents_from_borrowed_str() {
+        let contents = Contents::from("string");
+        assert_eq!(contents, Contents::Text("string".to_owned()));
+    }
+
+    #[test]
+    fn should_create_contents_from_byte_slice() {
+        let contents = Contents::from(&b"test"[..]);
+        assert_eq!(contents, Contents::Binary(b"test".to_vec()));
+    }
+
+    #[test]
+    fn should_create_contents_from_byte_array() {
+        let contents = Contents::from(b"test");
+        assert_eq!(contents, Contents::Binary(b"test".to_vec()));
+    }
+
+    #[test]
+    fn test_install_description_file() {
+        let step = file("/test/path", "contents");
+        assert_eq!(
+            &testutil::install_description(&step),
+            "install file /test/path"
+        );
+    }
+
+    #[test]
+    fn test_install_description_executable() {
+        let step = executable("/test/path.sh", "#!/bin/sh");
+        assert_eq!(
+            &testutil::install_description(&step),
+            "install executable file /test/path.sh"
+        );
+    }
+
+    #[test]
+    fn test_uninstall_description() {
+        let step = file("/test/path", "contents");
+        assert_eq!(
+            &testutil::uninstall_description(&step),
+            "remove file /test/path"
+        );
+    }
+
+    #[test]
+    fn test_details_text_file() {
+        let step = file("/test/file.txt", "text contents");
+        assert_eq!(
+            &testutil::details(&step),
+            "file /test/file.txt:\n  text contents\n"
+        );
+    }
+
+    #[test]
+    fn test_details_binary_file() {
+        let step = file("/test/file.bin", b"bytes");
+        assert_eq!(&testutil::details(&step), "file /test/file.bin: <binary>\n");
+    }
+
+    #[test]
+    fn test_details_executable() {
+        let step = executable("/file.exe", "#!/bin/sh");
+        assert_eq!(
+            &testutil::details(&step),
+            "executable /file.exe:\n  #!/bin/sh\n"
+        );
+    }
+
+    #[test]
+    fn should_create_text_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("test.txt");
+        let step = file(&path, "text contents");
+
+        let result = step.install(&Destination::System).unwrap();
+
+        assert_eq!(result, Outcome::Ok);
+        assert_eq!(&std::fs::read_to_string(&path).unwrap(), "text contents");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert_eq!(metadata.permissions().mode() & 0o644, 0o644);
+        }
+    }
+
+    #[test]
+    fn should_create_binary_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("test");
+        let step = file(&path, b"binary contents");
+
+        let result = step.install(&Destination::System).unwrap();
+
+        assert_eq!(result, Outcome::Ok);
+        assert_eq!(&std::fs::read(&path).unwrap(), b"binary contents");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert_eq!(metadata.permissions().mode() & 0o644, 0o644);
+        }
+    }
+
+    #[test]
+    fn should_create_executable() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("bin.sh");
+        let step = executable(&path, "echo test");
+
+        let result = step.install(&Destination::System).unwrap();
+
+        assert_eq!(result, Outcome::Ok);
+        assert_eq!(&std::fs::read_to_string(&path).unwrap(), "echo test");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert_eq!(metadata.permissions().mode() & 0o755, 0o755);
+        }
+    }
+
+    #[test]
+    fn should_create_file_in_destination() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("file.txt");
+        let step = file("/file.txt", "test file");
+
+        let result = step
+            .install(&Destination::DestDir(tmp.path().to_owned()))
+            .unwrap();
+
+        assert_eq!(result, Outcome::Ok);
+        assert_eq!(&std::fs::read_to_string(&path).unwrap(), "test file");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert_eq!(metadata.permissions().mode() & 0o644, 0o644);
+        }
+    }
+
+    #[test]
+    fn should_remove_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("test.txt");
+        std::fs::write(&path, "text contents").unwrap();
+        let step = file(&path, "text contents");
+
+        let result = step.uninstall(&Destination::System).unwrap();
+
+        assert_eq!(result, Outcome::Ok);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn should_remove_file_in_destination() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("test.txt");
+        std::fs::write(&path, "text contents").unwrap();
+        let step = file("test.txt", "text contents");
+
+        let result = step
+            .uninstall(&Destination::DestDir(tmp.path().to_owned()))
+            .unwrap();
+
+        assert_eq!(result, Outcome::Ok);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn should_not_remove_directory() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().join("test");
+        std::fs::create_dir(&path).unwrap();
+        let step = file("test", "text contents");
+
+        let result = step.uninstall(&Destination::DestDir(tmp.path().to_owned()));
+
+        assert!(result.is_err());
     }
 }

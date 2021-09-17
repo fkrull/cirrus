@@ -18,13 +18,17 @@ pub enum Command {
 
 #[derive(clap::Clap)]
 pub struct Install {
-    /// Shows the installation plan instead of running it
+    /// Shows detailed installation steps instead of installing anything
     #[clap(long)]
-    plan: bool,
+    details: bool,
 
     /// Installs into PATH instead of the filesystem
     #[clap(long, value_name = "PATH")]
     destdir: Option<PathBuf>,
+}
+
+fn replace_vars(template: &str, executable: &str) -> String {
+    template.replace("{{executable}}", executable)
 }
 
 fn current_exe() -> eyre::Result<String> {
@@ -38,14 +42,14 @@ fn current_exe() -> eyre::Result<String> {
 fn self_installer() -> eyre::Result<SelfInstaller> {
     use selfinstaller::steps::*;
 
+    static CIRRUS_DAEMON_VBS: &str = include_str!("resources/cirrus-daemon.vbs");
     let executable = current_exe()?;
     let startup_dir = windirs::known_folder_path(windirs::FolderId::Startup)?;
     Ok(SelfInstaller::new()
         .add_step(directory(&startup_dir))
-        .add_step(windows::shortcut(
-            startup_dir.join("Cirrus Daemon.lnk"),
-            &executable,
-            Some("daemon --supervisor"),
+        .add_step(file(
+            startup_dir.join("cirrus-daemon.vbs"),
+            replace_vars(CIRRUS_DAEMON_VBS, &executable),
         )))
 }
 
@@ -64,14 +68,14 @@ fn self_installer() -> eyre::Result<SelfInstaller> {
         .add_step(directory(&systemd_dir))
         .add_step(file(
             systemd_dir.join("cirrus.service"),
-            CIRRUS_SERVICE.replace("{{executable}}", &executable),
+            replace_vars(CIRRUS_SERVICE, &executable),
         ))
         .add_step(systemd::enable_user("cirrus.service")))
 }
 
 fn install(installer: &mut SelfInstaller, args: Install) -> eyre::Result<()> {
-    if args.plan {
-        print!("{}", installer.plan());
+    if args.details {
+        print!("{}", installer.details());
     } else {
         installer.install(&Destination::from(args.destdir))?;
     }

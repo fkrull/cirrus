@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Note that
 the version numbers are *not* semantic.
 
+## 1.3.1
+### Changed
+* Windows: switch back to building with `console` subsystem and using a VBS for autostart
+
 ## 1.3.0
 ### Added
 * Extended the `--restic` parameter with special values `system`, `bundled` and `system-then-bundled`.

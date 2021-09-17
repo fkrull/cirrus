@@ -168,6 +168,12 @@ impl Display for Destination {
     }
 }
 
+impl From<&Path> for Destination {
+    fn from(path: &Path) -> Self {
+        Destination::DestDir(path.to_path_buf())
+    }
+}
+
 impl From<Option<PathBuf>> for Destination {
     fn from(path: Option<PathBuf>) -> Self {
         path.map(Destination::DestDir)

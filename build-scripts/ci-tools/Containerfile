@@ -1,24 +1,38 @@
-FROM docker.io/library/debian:10
-# baseline tools
+FROM docker.io/library/debian:11
+# base tools
 RUN apt-get update && \
     apt-get install -y \
         build-essential \
+        buildah \
         curl \
         gnupg2 \
         gzip \
+        skopeo \
         tar \
         unzip
 
-# container tools
-RUN echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list && \
-    echo 'deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_10/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list && \
-    curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_10/Release.key | apt-key add - && \
-    apt-get update && \
-    apt-get install -y \
-        buildah \
-        skopeo
+# qemu-user-static
+COPY install-qemu.sh /
 
-# crosscompile environments
+ENV QEMU_ARM_URL=https://github.com/balena-io/qemu/releases/download/v6.0.0%2Bbalena1/qemu-6.0.0.balena1-arm.tar.gz
+ENV QEMU_ARM_SHA256=359c30fb422a18766642cdc634d575ca2d0b6d6d58bda0ec2e33b425c508194c
+RUN bash /install-qemu.sh $QEMU_ARM_URL $QEMU_ARM_SHA256 /usr/bin/qemu-arm-static
+
+ENV QEMU_AARCH64_URL=https://github.com/balena-io/qemu/releases/download/v6.0.0%2Bbalena1/qemu-6.0.0.balena1-aarch64.tar.gz
+ENV QEMU_AARCH64_SHA256=5db25cccb40ac7b1ca857653b883376b931d91b06ff34ffe70dcf6180bd07bb8
+RUN bash /install-qemu.sh $QEMU_AARCH64_URL $QEMU_AARCH64_SHA256 /usr/bin/qemu-aarch64-static
+
+# Rust
+ENV RUST_VERSION=1.55.0
+RUN curl https://sh.rustup.rs -sSf | \
+    CARGO_HOME=/usr/local/cargo sh -s -- \
+        -y \
+        --profile default \
+        --no-modify-path \
+        --default-toolchain $RUST_VERSION
+ENV PATH=/usr/local/cargo/bin:$PATH
+
+# crosscompile Linux
 COPY cross-buildroot.sh /
 RUN apt-get update && \
     apt-get install -y \
@@ -30,26 +44,7 @@ RUN apt-get update && \
     bash /cross-buildroot.sh armhf arm-linux-gnueabihf armv7-unknown-linux-gnueabihf && \
     bash /cross-buildroot.sh amd64 x86_64-linux-gnu x86_64-unknown-linux-gnu
 
-# qemu-user-static
-COPY install-qemu.sh /
-
-ENV QEMU_ARM_URL=https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-arm.tar.gz
-ENV QEMU_ARM_SHA256=ae0144b8b803ddb8620b7e6d5fd68e699a97e0e9c523d283ad54fcabc0e615f8
-RUN bash /install-qemu.sh $QEMU_ARM_URL $QEMU_ARM_SHA256 /usr/bin/qemu-arm-static
-
-ENV QEMU_AARCH64_URL=https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-aarch64.tar.gz
-ENV QEMU_AARCH64_SHA256=e98eed19f680ae0b7e5937204040653c3312ae414f89eaccddeeb706934a63e4
-RUN bash /install-qemu.sh $QEMU_AARCH64_URL $QEMU_AARCH64_SHA256 /usr/bin/qemu-aarch64-static
-
-# Rust
-ENV RUST_VERSION=1.54.0
-RUN curl https://sh.rustup.rs -sSf | \
-    CARGO_HOME=/usr/local/cargo sh -s -- -y --profile default --no-modify-path --default-toolchain $RUST_VERSION
-ENV PATH=/usr/local/cargo/bin:$PATH
-RUN rustup target add x86_64-unknown-linux-gnu && \
-    rustup target add armv7-unknown-linux-gnueabihf && \
-    rustup target add aarch64-unknown-linux-gnu && \
-    rustup target add x86_64-pc-windows-gnu && \
-    rustup target add x86_64-unknown-linux-musl && \
-    rustup target add armv7-unknown-linux-musleabihf && \
-    rustup target add aarch64-unknown-linux-musl
+# crosscompile Windows
+RUN apt-get update && \
+    apt-get install -y gcc-mingw-w64-x86-64 && \
+    rustup target add x86_64-pc-windows-gnu

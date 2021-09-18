@@ -19,7 +19,7 @@ members = [
 exclude = ["restigo"]
 
 [dependencies]
-cirrus-core = { path = "cirrus-core", features = ["keyring"] }
+cirrus-core = { path = "cirrus-core" }
 cirrus-actor = { path = "cirrus-actor" }
 cirrus-daemon = { path = "cirrus-daemon" }
 cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
@@ -42,4 +42,8 @@ version = "1.0.0"
 features = ["macros", "signal", "rt-multi-thread"]
 
 [features]
-default = []
+# This feature enables the CLI flag for bundled restic as well as the behavior to handle it; it does *NOT* actually
+# bundle restic on its own.
+bundled-restic-support = []
+
+default = ["cirrus-core/keyring", "cirrus-self", "cirrus-desktop-ui", "bundled-restic-support"]

@@ -38,7 +38,7 @@ test:
     - mkdir -p target
     - cargo fmt -- --check
     - cargo build -p build-scripts
-    - cargo test --workspace --all-features
+    - cargo test --workspace
     - cargo run -p build-scripts --bin get-build-version > target/build-version
     - cat target/build-version
   artifacts:
@@ -193,7 +193,7 @@ server:publish:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
       --target ${TARGET}
-      --features cirrus-desktop-ui,cirrus-self,restigo
+      --features restigo
   artifacts:
     paths:
       - public

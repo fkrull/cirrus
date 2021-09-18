@@ -18,7 +18,7 @@ fn system_restic() -> restic::CommandConfig {
     restic::CommandConfig::from_path(PathBuf::from("restic"))
 }
 
-#[cfg(not(feature = "restigo"))]
+#[cfg(all(feature = "bundled-restic-support", not(feature = "restigo")))]
 fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
     let current_exe = std::env::current_exe()?;
     let bundled_path = current_exe
@@ -44,10 +44,12 @@ fn restic_config(restic_arg: ResticArg) -> eyre::Result<restic::Config> {
             primary: system_restic(),
             fallback: None,
         },
+        #[cfg(feature = "bundled-restic-support")]
         ResticArg::Bundled => restic::Config {
             primary: bundled_restic()?,
             fallback: None,
         },
+        #[cfg(feature = "bundled-restic-support")]
         ResticArg::SystemThenBundled => restic::Config {
             primary: system_restic(),
             fallback: bundled_restic().ok(),

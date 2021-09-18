@@ -1,31 +1,15 @@
 FROM docker.io/library/debian:11
-# baseline tools
+# base tools
 RUN apt-get update && \
     apt-get install -y \
         build-essential \
+        buildah \
         curl \
         gnupg2 \
         gzip \
+        skopeo \
         tar \
         unzip
-
-# container tools
-RUN apt-get update && \
-    apt-get install -y \
-        buildah \
-        skopeo
-
-# crosscompile environments
-COPY cross-buildroot.sh /
-RUN apt-get update && \
-    apt-get install -y \
-        gcc-aarch64-linux-gnu \
-        gcc-arm-linux-gnueabihf \
-        gcc-mingw-w64-x86-64 \
-        && \
-    bash /cross-buildroot.sh arm64 aarch64-linux-gnu aarch64-unknown-linux-gnu && \
-    bash /cross-buildroot.sh armhf arm-linux-gnueabihf armv7-unknown-linux-gnueabihf && \
-    bash /cross-buildroot.sh amd64 x86_64-linux-gnu x86_64-unknown-linux-gnu
 
 # qemu-user-static
 COPY install-qemu.sh /
@@ -41,12 +25,26 @@ RUN bash /install-qemu.sh $QEMU_AARCH64_URL $QEMU_AARCH64_SHA256 /usr/bin/qemu-a
 # Rust
 ENV RUST_VERSION=1.55.0
 RUN curl https://sh.rustup.rs -sSf | \
-    CARGO_HOME=/usr/local/cargo sh -s -- -y --profile default --no-modify-path --default-toolchain $RUST_VERSION
+    CARGO_HOME=/usr/local/cargo sh -s -- \
+        -y \
+        --profile default \
+        --no-modify-path \
+        --default-toolchain $RUST_VERSION
 ENV PATH=/usr/local/cargo/bin:$PATH
-RUN rustup target add x86_64-unknown-linux-gnu && \
-    rustup target add armv7-unknown-linux-gnueabihf && \
-    rustup target add aarch64-unknown-linux-gnu && \
-    rustup target add x86_64-pc-windows-gnu && \
-    rustup target add x86_64-unknown-linux-musl && \
-    rustup target add armv7-unknown-linux-musleabihf && \
-    rustup target add aarch64-unknown-linux-musl
+
+# crosscompile Linux
+COPY cross-buildroot.sh /
+RUN apt-get update && \
+    apt-get install -y \
+        gcc-aarch64-linux-gnu \
+        gcc-arm-linux-gnueabihf \
+        gcc-mingw-w64-x86-64 \
+        && \
+    bash /cross-buildroot.sh arm64 aarch64-linux-gnu aarch64-unknown-linux-gnu && \
+    bash /cross-buildroot.sh armhf arm-linux-gnueabihf armv7-unknown-linux-gnueabihf && \
+    bash /cross-buildroot.sh amd64 x86_64-linux-gnu x86_64-unknown-linux-gnu
+
+# crosscompile Windows
+RUN apt-get update && \
+    apt-get install -y gcc-mingw-w64-x86-64 && \
+    rustup target add x86_64-pc-windows-gnu

@@ -5,6 +5,8 @@ DEB_ARCH=$1
 GCC_ARCH=$2
 RUST_ARCH=$3
 
+rustup target add $RUST_ARCH
+
 dpkg --add-architecture $DEB_ARCH
 apt-get update
 apt-get install -y \

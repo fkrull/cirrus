@@ -49,4 +49,4 @@ bundled-restic-support = []
 # Link all of restic so that restic can be run by running the main binary with a specific environment variable set.
 internal-restic = ["bundled-restic-support", "restigo"]
 
-default = ["cirrus-core/keyring", "cirrus-self", "cirrus-desktop-ui", "bundled-restic-support"]
+default = ["cirrus-core/keyring", "cirrus-self", "cirrus-desktop-ui"]

@@ -186,6 +186,7 @@ server:publish:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
       --target ${TARGET}
+      --features bundled-restic-support
       --download-restic
   artifacts:
     paths:

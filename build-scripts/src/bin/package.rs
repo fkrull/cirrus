@@ -42,6 +42,13 @@ fn main() -> eyre::Result<()> {
         )?;
     }
 
+    // get restic
+    let restic_target = restic_bin::TargetConfig::from_triple(&target)?;
+    restic_bin::download(
+        &restic_target,
+        tmp.path().join(restic_bin::restic_filename(&restic_target)),
+    )?;
+
     // build package
     mkdir_p("public")?;
     let pkg_filename = format!("cirrus_{}.zip", target);

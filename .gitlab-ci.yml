@@ -186,7 +186,7 @@ server:publish:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
       --target ${TARGET}
-      --features cirrus-desktop-ui,cirrus-self
+      --features cirrus-desktop-ui,cirrus-self,restigo
   artifacts:
     paths:
       - public

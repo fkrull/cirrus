@@ -18,6 +18,9 @@ struct Args {
     /// RUSTFLAGS to set for the build
     #[argh(option)]
     rustflags: Option<String>,
+    /// download and include the restic binary in the package
+    #[argh(switch)]
+    download_restic: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -43,11 +46,13 @@ fn main() -> eyre::Result<()> {
     }
 
     // get restic
-    let restic_target = restic_bin::TargetConfig::from_triple(&target)?;
-    restic_bin::download(
-        &restic_target,
-        tmp.path().join(restic_bin::restic_filename(&restic_target)),
-    )?;
+    if args.download_restic {
+        let restic_target = restic_bin::TargetConfig::from_triple(&target)?;
+        restic_bin::download(
+            &restic_target,
+            tmp.path().join(restic_bin::restic_filename(&restic_target)),
+        )?;
+    }
 
     // build package
     mkdir_p("public")?;

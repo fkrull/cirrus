@@ -187,6 +187,7 @@ server:publish:
       --version ${VERSION}
       --target ${TARGET}
       --features cirrus-desktop-ui,cirrus-self
+      --download-restic
   artifacts:
     paths:
       - public

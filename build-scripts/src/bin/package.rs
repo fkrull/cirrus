@@ -18,6 +18,9 @@ struct Args {
     /// RUSTFLAGS to set for the build
     #[argh(option)]
     rustflags: Option<String>,
+    /// download and include the restic binary in the package
+    #[argh(switch)]
+    download_restic: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -39,6 +42,15 @@ fn main() -> eyre::Result<()> {
         cp(
             format!("target/{}/release/cirrus{}", target, bin_ext),
             tmp.path().join(format!("cirrus{}", bin_ext)),
+        )?;
+    }
+
+    // get restic
+    if args.download_restic {
+        let restic_target = restic_bin::TargetConfig::from_triple(&target)?;
+        restic_bin::download(
+            &restic_target,
+            tmp.path().join(restic_bin::restic_filename(&restic_target)),
         )?;
     }
 

@@ -30,12 +30,12 @@ RUN apt-get update && \
 # qemu-user-static
 COPY install-qemu.sh /
 
-ENV QEMU_ARM_URL=https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-arm.tar.gz
-ENV QEMU_ARM_SHA256=ae0144b8b803ddb8620b7e6d5fd68e699a97e0e9c523d283ad54fcabc0e615f8
+ENV QEMU_ARM_URL=https://github.com/balena-io/qemu/releases/download/v6.0.0%2Bbalena1/qemu-6.0.0.balena1-arm.tar.gz
+ENV QEMU_ARM_SHA256=359c30fb422a18766642cdc634d575ca2d0b6d6d58bda0ec2e33b425c508194c
 RUN bash /install-qemu.sh $QEMU_ARM_URL $QEMU_ARM_SHA256 /usr/bin/qemu-arm-static
 
-ENV QEMU_AARCH64_URL=https://github.com/balena-io/qemu/releases/download/v4.0.0%2Bbalena2/qemu-4.0.0.balena2-aarch64.tar.gz
-ENV QEMU_AARCH64_SHA256=e98eed19f680ae0b7e5937204040653c3312ae414f89eaccddeeb706934a63e4
+ENV QEMU_AARCH64_URL=https://github.com/balena-io/qemu/releases/download/v6.0.0%2Bbalena1/qemu-6.0.0.balena1-aarch64.tar.gz
+ENV QEMU_AARCH64_SHA256=5db25cccb40ac7b1ca857653b883376b931d91b06ff34ffe70dcf6180bd07bb8
 RUN bash /install-qemu.sh $QEMU_AARCH64_URL $QEMU_AARCH64_SHA256 /usr/bin/qemu-aarch64-static
 
 # Rust

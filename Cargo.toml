@@ -18,7 +18,7 @@ members = [
 ]
 
 [dependencies]
-cirrus-core = { path = "cirrus-core", features = ["keyring"] }
+cirrus-core = { path = "cirrus-core" }
 cirrus-actor = { path = "cirrus-actor" }
 cirrus-daemon = { path = "cirrus-daemon" }
 cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
@@ -40,4 +40,4 @@ version = "1.0.0"
 features = ["macros", "signal", "rt-multi-thread"]
 
 [features]
-default = []
+default = ["cirrus-core/keyring", "cirrus-self", "cirrus-desktop-ui"]

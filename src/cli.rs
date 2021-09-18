@@ -41,27 +41,43 @@ impl std::fmt::Display for ConfigFile {
 #[derive(Debug)]
 pub enum ResticArg {
     System,
-    Bundled,
-    SystemThenBundled,
     Path(PathBuf),
+    #[cfg(feature = "bundled-restic-support")]
+    Bundled,
+    #[cfg(feature = "bundled-restic-support")]
+    SystemThenBundled,
+}
+
+impl ResticArg {
+    #[cfg(feature = "bundled-restic-support")]
+    const POSSIBLE_VALUES: &'static [&'static str] =
+        &["system", "bundled", "system-then-bundled", "<PATH>"];
+
+    #[cfg(not(feature = "bundled-restic-support"))]
+    const POSSIBLE_VALUES: &'static [&'static str] = &["system", "<PATH>"];
 }
 
 impl Default for ResticArg {
+    #[cfg(feature = "bundled-restic-support")]
     fn default() -> Self {
         ResticArg::SystemThenBundled
+    }
+
+    #[cfg(not(feature = "bundled-restic-support"))]
+    fn default() -> Self {
+        ResticArg::System
     }
 }
 
 impl From<&OsStr> for ResticArg {
     fn from(s: &OsStr) -> Self {
-        if s == OsStr::new("system") {
-            ResticArg::System
-        } else if s == OsStr::new("bundled") {
-            ResticArg::Bundled
-        } else if s == OsStr::new("system-then-bundled") {
-            ResticArg::SystemThenBundled
-        } else {
-            ResticArg::Path(PathBuf::from(s))
+        match s.to_str() {
+            Some("system") => ResticArg::System,
+            #[cfg(feature = "bundled-restic-support")]
+            Some("bundled") => ResticArg::Bundled,
+            #[cfg(feature = "bundled-restic-support")]
+            Some("system-then-bundled") => ResticArg::SystemThenBundled,
+            _ => ResticArg::Path(PathBuf::from(s)),
         }
     }
 }
@@ -70,9 +86,11 @@ impl std::fmt::Display for ResticArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
             ResticArg::System => write!(f, "system"),
-            ResticArg::Bundled => write!(f, "bundled"),
-            ResticArg::SystemThenBundled => write!(f, "system-then-bundled"),
             ResticArg::Path(path) => write!(f, "{}", path.display()),
+            #[cfg(feature = "bundled-restic-support")]
+            ResticArg::Bundled => write!(f, "bundled"),
+            #[cfg(feature = "bundled-restic-support")]
+            ResticArg::SystemThenBundled => write!(f, "system-then-bundled"),
         }
     }
 }
@@ -96,13 +114,15 @@ pub struct Cli {
     #[clap(long, env = "CIRRUS_CONFIG")]
     pub config_string: Option<String>,
 
-    /// Use the specific restic implementation.
-    /// Possible values:
-    /// "system": use only the system restic;
-    /// "bundled": use only the bundled restic build;
-    /// "system-then-bundled": first try the system restic, then the bundled restic;
-    /// <PATH>: use only the restic binary at PATH
-    #[clap(long, default_value_t, parse(from_os_str))]
+    /// Specify the restic binary to use; may either be the full path to a specific restic binary or
+    /// one of the special values.
+    #[clap(
+        long,
+        default_value_t,
+        value_name = "special value or PATH",
+        parse(from_os_str),
+        possible_values = ResticArg::POSSIBLE_VALUES
+    )]
     pub restic: ResticArg,
 
     #[clap(subcommand)]

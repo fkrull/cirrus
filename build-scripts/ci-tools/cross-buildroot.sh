@@ -16,7 +16,11 @@ ln -s libgcc_s.so.1 /lib/$GCC_ARCH/libgcc_s.so
 
 mkdir -p /.cargo
 cat >> /.cargo/config <<EOF
+[target.${RUST_ARCH}]
+linker = "${GCC_ARCH}-gcc"
+
 [target.${RUST_ARCH}.dbus]
 rustc-link-lib = ["dbus-1"]
+rustc-link-search = ["/lib/${GCC_ARCH}", "/usr/lib/${GCC_ARCH}"]
 
 EOF

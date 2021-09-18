@@ -52,7 +52,6 @@ package:linux:x86_64:
   variables:
     VERSION: $CIRRUS_VERSION
     TARGET: x86_64-unknown-linux-gnu
-    PACKAGE_RUSTFLAGS: -Clinker=x86_64-linux-gnu-gcc -L/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu
 
 package:linux:armv7:
   extends: .package
@@ -60,7 +59,6 @@ package:linux:armv7:
   variables:
     VERSION: $CIRRUS_VERSION
     TARGET: armv7-unknown-linux-gnueabihf
-    PACKAGE_RUSTFLAGS: -Clinker=arm-linux-gnueabihf-gcc -L/lib/arm-linux-gnueabihf -L/usr/lib/arm-linux-gnueabihf
 
 package:linux:aarch64:
   extends: .package
@@ -68,7 +66,6 @@ package:linux:aarch64:
   variables:
     VERSION: $CIRRUS_VERSION
     TARGET: aarch64-unknown-linux-gnu
-    PACKAGE_RUSTFLAGS: -Clinker=aarch64-linux-gnu-gcc -L/lib/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu
 
 package:windows:x86_64:
   extends: .package
@@ -191,7 +188,6 @@ server:publish:
       --version ${VERSION}
       --target ${TARGET}
       --features cirrus-desktop-ui,cirrus-self
-      --rustflags "${PACKAGE_RUSTFLAGS}"
   artifacts:
     paths:
       - public

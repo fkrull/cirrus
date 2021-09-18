@@ -1,6 +1,6 @@
 module atlas/git/fk/restigo
 
-go 1.13
+go 1.14
 
 require github.com/restic/restic v0.12.1
 

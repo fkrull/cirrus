@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+
+[build-dependencies]
+gobuild = "0.1.0-alpha.2"

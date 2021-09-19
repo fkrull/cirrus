@@ -5,6 +5,7 @@ RUN apt-get update && \
         buildah \
         curl \
         gnupg2 \
+        golang \
         gzip \
         skopeo \
         tar \

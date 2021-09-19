@@ -380,6 +380,7 @@ dependencies = [
  "dirs-next",
  "eyre",
  "hostname",
+ "restigo",
  "rpassword",
  "termcolor",
  "tokio",
@@ -1026,6 +1027,15 @@ name = "gimli"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
+
+[[package]]
+name = "gobuild"
+version = "0.1.0-alpha.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71e156a4ddbf3deb5e8116946c111413bd9a5679bdc1536c78a60618a7a9ac9e"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "hashbrown"
@@ -2031,6 +2041,13 @@ dependencies = [
  "thiserror",
  "ureq",
  "zip",
+]
+
+[[package]]
+name = "restigo"
+version = "0.1.0"
+dependencies = [
+ "gobuild",
 ]
 
 [[package]]

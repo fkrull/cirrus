@@ -4,6 +4,7 @@ variables:
   STORAGE_DRIVER: vfs
   BUILDAH_ISOLATION: chroot
   CARGO_HOME: ${CI_PROJECT_DIR}/cargo
+  GOPATH: ${CI_PROJECT_DIR}/go
 
 include:
   - template: 'Workflows/Branch-Pipelines.gitlab-ci.yml'
@@ -163,6 +164,9 @@ server:publish:
     - key: rust-cargo
       paths:
         - cargo/
+    - key: go
+      paths:
+        - go/
     - key: rust-target-shared
       paths:
         - target/
@@ -172,6 +176,9 @@ server:publish:
     - key: rust-cargo
       paths:
         - cargo/
+    - key: go
+      paths:
+        - go/
     - key: rust-target-${CI_JOB_NAME}
       paths:
         - target/
@@ -186,8 +193,7 @@ server:publish:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
       --target ${TARGET}
-      --features bundled-restic-support
-      --download-restic
+      --features internal-restic
   artifacts:
     paths:
       - public

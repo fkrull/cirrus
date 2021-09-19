@@ -48,15 +48,6 @@ pub enum ResticArg {
     SystemThenBundled,
 }
 
-impl ResticArg {
-    #[cfg(feature = "bundled-restic-support")]
-    const POSSIBLE_VALUES: &'static [&'static str] =
-        &["system", "bundled", "system-then-bundled", "<PATH>"];
-
-    #[cfg(not(feature = "bundled-restic-support"))]
-    const POSSIBLE_VALUES: &'static [&'static str] = &["system", "<PATH>"];
-}
-
 impl Default for ResticArg {
     #[cfg(feature = "bundled-restic-support")]
     fn default() -> Self {
@@ -114,14 +105,31 @@ pub struct Cli {
     #[clap(long, env = "CIRRUS_CONFIG")]
     pub config_string: Option<String>,
 
-    /// Specify the restic binary to use; may either be the full path to a specific restic binary or
-    /// one of the special values.
+    /// Set the restic binary to use.
+    /// Possible values:
+    /// "system": use the system restic;
+    /// <PATH>: use a specific restic binary
+    #[cfg(not(feature = "bundled-restic-support"))]
     #[clap(
         long,
         default_value_t,
         value_name = "special value or PATH",
-        parse(from_os_str),
-        possible_values = ResticArg::POSSIBLE_VALUES
+        parse(from_os_str)
+    )]
+    pub restic: ResticArg,
+
+    /// Set the restic binary to use.
+    /// Possible values:
+    /// "system": use the system restic;
+    /// "bundled": use the bundled restic build;
+    /// "system-then-bundled": first try the system restic, then the bundled restic;
+    /// <PATH>: use a specific restic binary
+    #[cfg(feature = "bundled-restic-support")]
+    #[clap(
+        long,
+        default_value_t,
+        value_name = "special value or PATH",
+        parse(from_os_str)
     )]
     pub restic: ResticArg,
 

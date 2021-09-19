@@ -1,9 +1,11 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-changed=go.mod");
     println!("cargo:rerun-if-changed=go.sum");
-    println!("cargo:rerun-if-changed=vendor/");
+    if Path::new("vendor").is_dir() {
+        println!("cargo:rerun-if-changed=vendor/");
+    }
 
     let is_msvc = std::env::var("TARGET").unwrap().ends_with("-msvc");
     if is_msvc {

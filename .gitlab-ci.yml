@@ -193,7 +193,8 @@ server:publish:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
       --target ${TARGET}
-      --features internal-restic
+      --features bundled-restic-support
+      --download-restic
   artifacts:
     paths:
       - public

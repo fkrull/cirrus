@@ -4,14 +4,11 @@ struct Args {}
 
 fn main() -> eyre::Result<()> {
     let changelog = std::fs::read_to_string("CHANGELOG.md")?;
-    let release_version = find_release_version(changelog.lines())
+    let version = find_release_version(changelog.lines())
         .ok_or_else(|| eyre::eyre!("failed to find release version in changelog file"))?;
-    let build_version = BuildVersion {
-        release: release_version.to_string(),
-        build_date: BuildDate::now(),
-    };
-    println!("CIRRUS_VERSION={}", build_version.version_string());
-    println!("CIRRUS_IMAGE_TAG={}", build_version.image_tag_string());
+    let build_date = BuildDate::now();
+    println!("VERSION={}", version);
+    println!("BUILD_NBUMBER={}", build_date.build_string());
     Ok(())
 }
 
@@ -55,22 +52,6 @@ impl BuildDate {
             "r{}{:02}{:02}.{:02}{:02}",
             self.year, self.month, self.day, self.hour, self.minute
         )
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-struct BuildVersion {
-    release: String,
-    build_date: BuildDate,
-}
-
-impl BuildVersion {
-    fn version_string(&self) -> String {
-        format!("{}+{}", self.release, self.build_date.build_string())
-    }
-
-    fn image_tag_string(&self) -> String {
-        format!("{}-{}", self.release, self.build_date.build_string())
     }
 }
 

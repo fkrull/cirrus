@@ -39,11 +39,11 @@ test:
     - cargo fmt -- --check
     - cargo build -p build-scripts
     - cargo test --workspace
-    - cargo run -p build-scripts --bin get-build-version > target/build-version
-    - cat target/build-version
+    - cargo run -p build-scripts --bin get-version > target/version
+    - cat target/version
   artifacts:
     reports:
-      dotenv: target/build-version
+      dotenv: target/version
     expire_in: 1 day
 
 # package steps
@@ -51,28 +51,24 @@ package:linux:x86_64:
   extends: .package
   stage: package
   variables:
-    VERSION: $CIRRUS_VERSION
     TARGET: x86_64-unknown-linux-gnu
 
 package:linux:armv7:
   extends: .package
   stage: package
   variables:
-    VERSION: $CIRRUS_VERSION
     TARGET: armv7-unknown-linux-gnueabihf
 
 package:linux:aarch64:
   extends: .package
   stage: package
   variables:
-    VERSION: $CIRRUS_VERSION
     TARGET: aarch64-unknown-linux-gnu
 
 package:windows:x86_64:
   extends: .package
   stage: package
   variables:
-    VERSION: $CIRRUS_VERSION
     TARGET: x86_64-pc-windows-gnu
 
 # server container images
@@ -83,7 +79,7 @@ server:linux:x86_64:
     - test
     - package:linux:x86_64
   variables:
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-amd64
+    TAG: ${VERSION}-${BUILD_NUMBER}-linux-amd64
     TARGET: x86_64-unknown-linux-gnu
 
 server:linux:armv7:
@@ -93,7 +89,7 @@ server:linux:armv7:
     - test
     - package:linux:armv7
   variables:
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm32v7
+    TAG: ${VERSION}-${BUILD_NUMBER}-linux-arm32v7
     TARGET: armv7-unknown-linux-gnueabihf
     QEMU_BINARY: /usr/bin/qemu-arm-static
 
@@ -104,7 +100,7 @@ server:linux:aarch64:
     - test
     - package:linux:aarch64
   variables:
-    TAG: ${CIRRUS_IMAGE_TAG}-linux-arm64v8
+    TAG: ${VERSION}-${BUILD_NUMBER}-linux-arm64v8
     TARGET: aarch64-unknown-linux-gnu
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
 
@@ -121,9 +117,9 @@ pages:
   script:
     - mkdir public/latest
     - mv public/*.zip public/latest/
-    - echo "$CIRRUS_VERSION" > public/latest/version
+    - echo "${VERSION}+${BUILD_NUMBER}" > public/latest/version
     - ls -l public/latest
-    - echo "$CIRRUS_VERSION"
+    - cat public/latest/version
   artifacts:
     paths:
       - public
@@ -138,18 +134,18 @@ server:publish:
     - server:linux:aarch64
   script:
     - buildah manifest create cirrus-manifest-list
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-amd64
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-arm32v7
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}-linux-arm64v8
+      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_NUMBER}-linux-amd64
+      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_NUMBER}-linux-arm32v7
+      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_NUMBER}-linux-arm64v8
     - buildah manifest push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
-      docker://registry.gitlab.com/fkrull/cirrus/server:${CIRRUS_IMAGE_TAG}
+      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_NUMBER}
     - buildah manifest push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
-    - echo "$CIRRUS_IMAGE_TAG"
+    - echo "${VERSION}-${BUILD_NUMBER}"
 
 
 # ----
@@ -192,6 +188,7 @@ server:publish:
   script:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
+      --build-number ${BUILD_NUMBER}
       --target ${TARGET}
       --features bundled-restic-support
       --download-restic

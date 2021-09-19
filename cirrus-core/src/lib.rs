@@ -7,6 +7,11 @@ pub const VERSION: Option<&'static str> = match option_env!("CIRRUS_VERSION") {
     _ => None,
 };
 
+pub const BUILD_NUMBER: Option<&'static str> = match option_env!("CIRRUS_BUILD_NUMBER") {
+    Some(v) if !v.is_empty() => Some(v),
+    _ => None,
+};
+
 pub const TARGET: Option<&'static str> = match option_env!("CIRRUS_TARGET") {
     Some(v) if !v.is_empty() => Some(v),
     _ => None,

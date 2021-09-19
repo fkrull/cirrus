@@ -9,9 +9,9 @@ struct Args {
     /// cirrus version
     #[argh(option)]
     version: String,
-    /// cirrus build number
+    /// cirrus build string
     #[argh(option)]
-    build_number: String,
+    build_string: String,
     /// rust target triple
     #[argh(option)]
     target: String,
@@ -38,7 +38,7 @@ fn main() -> eyre::Result<()> {
     {
         let _e1 = args.rustflags.as_ref().map(|s| pushenv("RUSTFLAGS", s));
         let _e2 = pushenv("CIRRUS_VERSION", &args.version);
-        let _e2 = pushenv("CIRRUS_BUILD_NUMBER", &args.build_number);
+        let _e2 = pushenv("CIRRUS_BUILD_STRING", &args.build_string);
         let _e3 = pushenv("CIRRUS_TARGET", &target);
 
         let features = args.features;

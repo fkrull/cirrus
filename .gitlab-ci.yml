@@ -79,7 +79,7 @@ server:linux:x86_64:
     - test
     - package:linux:x86_64
   variables:
-    TAG: ${VERSION}-${BUILD_NUMBER}-linux-amd64
+    TAG: ${VERSION}-${BUILD_STRING}-linux-amd64
     TARGET: x86_64-unknown-linux-gnu
 
 server:linux:armv7:
@@ -89,7 +89,7 @@ server:linux:armv7:
     - test
     - package:linux:armv7
   variables:
-    TAG: ${VERSION}-${BUILD_NUMBER}-linux-arm32v7
+    TAG: ${VERSION}-${BUILD_STRING}-linux-arm32v7
     TARGET: armv7-unknown-linux-gnueabihf
     QEMU_BINARY: /usr/bin/qemu-arm-static
 
@@ -100,7 +100,7 @@ server:linux:aarch64:
     - test
     - package:linux:aarch64
   variables:
-    TAG: ${VERSION}-${BUILD_NUMBER}-linux-arm64v8
+    TAG: ${VERSION}-${BUILD_STRING}-linux-arm64v8
     TARGET: aarch64-unknown-linux-gnu
     QEMU_BINARY: /usr/bin/qemu-aarch64-static
 
@@ -117,7 +117,7 @@ pages:
   script:
     - mkdir public/latest
     - mv public/*.zip public/latest/
-    - echo "${VERSION}+${BUILD_NUMBER}" > public/latest/version
+    - echo "${VERSION}+${BUILD_STRING}" > public/latest/version
     - ls -l public/latest
     - cat public/latest/version
   artifacts:
@@ -134,18 +134,18 @@ server:publish:
     - server:linux:aarch64
   script:
     - buildah manifest create cirrus-manifest-list
-      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_NUMBER}-linux-amd64
-      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_NUMBER}-linux-arm32v7
-      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_NUMBER}-linux-arm64v8
+      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_STRING}-linux-amd64
+      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_STRING}-linux-arm32v7
+      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_STRING}-linux-arm64v8
     - buildah manifest push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
-      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_NUMBER}
+      docker://registry.gitlab.com/fkrull/cirrus/server:${VERSION}-${BUILD_STRING}
     - buildah manifest push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-manifest-list
       docker://registry.gitlab.com/fkrull/cirrus/server:latest
-    - echo "${VERSION}-${BUILD_NUMBER}"
+    - echo "${VERSION}-${BUILD_STRING}"
 
 
 # ----
@@ -188,7 +188,7 @@ server:publish:
   script:
     - cargo run -p build-scripts --bin package --
       --version ${VERSION}
-      --build-number ${BUILD_NUMBER}
+      --build-number ${BUILD_STRING}
       --target ${TARGET}
       --features bundled-restic-support
       --download-restic

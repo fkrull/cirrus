@@ -8,7 +8,7 @@ fn main() -> eyre::Result<()> {
         .ok_or_else(|| eyre::eyre!("failed to find release version in changelog file"))?;
     let build_date = BuildDate::now();
     println!("VERSION={}", version);
-    println!("BUILD_NUMBER={}", build_date.build_string());
+    println!("BUILD_STRING={}", build_date.build_string());
     Ok(())
 }
 

@@ -63,13 +63,10 @@ pub fn config(config: &Config) -> eyre::Result<()> {
 }
 
 pub async fn version(restic: &Restic) -> eyre::Result<()> {
-    let build_info = cirrus_core::VERSION
-        .zip(cirrus_core::BUILD_NUMBER)
-        .zip(cirrus_core::TARGET);
-    if let Some(((version, build_number), target)) = build_info {
-        println!("cirrus: {} (build {}) on {}", version, build_number, target);
+    if let Some(version) = cirrus_core::VERSION {
+        println!("cirrus: {}", version);
     } else {
-        println!("cirrus: [untagged build]");
+        println!("cirrus: [untagged build]")
     }
 
     match restic.version_string().await {

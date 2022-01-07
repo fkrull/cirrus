@@ -1031,8 +1031,7 @@ checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
 [[package]]
 name = "gobuild"
 version = "0.1.0-alpha.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71e156a4ddbf3deb5e8116946c111413bd9a5679bdc1536c78a60618a7a9ac9e"
+source = "git+https://github.com/fkrull/gobuild.git?branch=extra_args#4cd5552458f832d26744d11d3f9a8274792727f6"
 dependencies = [
  "cc",
 ]

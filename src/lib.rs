@@ -72,7 +72,7 @@ pub async fn main() -> eyre::Result<()> {
         std::process::exit(1);
     }));
 
-    use clap::Clap as _;
+    use clap::Parser as _;
     let args: cli::Cli = cli::Cli::parse();
     let maybe_config = load_config(&args).await;
     let restic = restic::Restic::new(restic_config(args.restic)?);

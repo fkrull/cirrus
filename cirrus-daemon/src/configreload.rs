@@ -22,7 +22,7 @@ impl ConfigReloader {
         configreload_sink: Messages<ConfigReload>,
     ) -> eyre::Result<Self> {
         let self_ref = RefCell::new(self_ref);
-        let watcher = notify::immediate_watcher(move |ev| {
+        let watcher = notify::recommended_watcher(move |ev| {
             if let Err(err) = self_ref.borrow_mut().send(Message(ev)) {
                 error!("error sending config reload trigger message: {:?}", err);
             }

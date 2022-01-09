@@ -1,13 +1,13 @@
 use selfinstaller::{Destination, SelfInstaller};
 use std::path::PathBuf;
 
-#[derive(clap::Clap)]
+#[derive(clap::Parser)]
 pub struct Cli {
     #[clap(subcommand)]
     pub command: Command,
 }
 
-#[derive(clap::Clap)]
+#[derive(clap::Parser)]
 pub enum Command {
     /// Installs the daemon autostart files
     Install(Install),
@@ -16,7 +16,7 @@ pub enum Command {
     Uninstall,
 }
 
-#[derive(clap::Clap)]
+#[derive(clap::Parser)]
 pub struct Install {
     /// Shows detailed installation steps instead of installing anything
     #[clap(long)]

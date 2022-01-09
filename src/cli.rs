@@ -87,9 +87,8 @@ impl std::fmt::Display for ResticArg {
 }
 
 /// A configuration-driven backup program based on restic.
-#[derive(clap::Clap)]
+#[derive(clap::Parser)]
 #[clap(global_setting(clap::AppSettings::NoAutoVersion))]
-#[clap(global_setting(clap::AppSettings::DisableVersionForSubcommands))]
 pub struct Cli {
     /// Sets a custom configuration file path
     #[clap(
@@ -137,7 +136,7 @@ pub struct Cli {
     pub subcommand: Cmd,
 }
 
-#[derive(clap::Clap)]
+#[derive(clap::Parser)]
 pub enum Cmd {
     /// Runs the cirrus daemon
     Daemon(daemon::Cli),
@@ -165,7 +164,7 @@ pub enum Cmd {
 }
 
 pub mod daemon {
-    #[derive(clap::Clap)]
+    #[derive(clap::Parser)]
     pub struct Cli {
         /// Run the daemon under the built-in supervisor
         #[clap(long)]
@@ -174,7 +173,7 @@ pub mod daemon {
 }
 
 pub mod backup {
-    #[derive(clap::Clap)]
+    #[derive(clap::Parser)]
     pub struct Cli {
         /// The backup to run
         #[clap(name = "BACKUP")]
@@ -183,13 +182,13 @@ pub mod backup {
 }
 
 pub mod secret {
-    #[derive(clap::Clap)]
+    #[derive(clap::Parser)]
     pub struct Cli {
         #[clap(subcommand)]
         pub subcommand: Cmd,
     }
 
-    #[derive(clap::Clap)]
+    #[derive(clap::Parser)]
     pub enum Cmd {
         /// Sets a secret from the terminal
         Set(Set),
@@ -198,7 +197,7 @@ pub mod secret {
         List(List),
     }
 
-    #[derive(clap::Clap)]
+    #[derive(clap::Parser)]
     pub struct Set {
         /// Repository of the secret
         #[clap(name = "REPOSITORY")]
@@ -208,7 +207,7 @@ pub mod secret {
         pub secret: Option<String>,
     }
 
-    #[derive(clap::Clap)]
+    #[derive(clap::Parser)]
     pub struct List {
         /// Shows passwords in clear text
         #[clap(long)]
@@ -219,7 +218,7 @@ pub mod secret {
 pub mod restic {
     use std::ffi::OsString;
 
-    #[derive(clap::Clap)]
+    #[derive(clap::Parser)]
     #[clap(setting(clap::AppSettings::TrailingVarArg))]
     pub struct Cli {
         /// The cirrus repository to use with restic

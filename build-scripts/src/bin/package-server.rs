@@ -53,9 +53,9 @@ fn main() -> eyre::Result<()> {
 
 fn base_image(target: &str) -> eyre::Result<&str> {
     Ok(match target {
-        "x86_64-unknown-linux-gnu" => "docker.io/amd64/debian:10-slim",
-        "armv7-unknown-linux-gnueabihf" => "docker.io/arm32v7/debian:10-slim",
-        "aarch64-unknown-linux-gnu" => "docker.io/arm64v8/debian:10-slim",
+        "x86_64-unknown-linux-gnu" => "docker.io/amd64/debian:11-slim",
+        "armv7-unknown-linux-gnueabihf" => "docker.io/arm32v7/debian:11-slim",
+        "aarch64-unknown-linux-gnu" => "docker.io/arm64v8/debian:11-slim",
         _ => eyre::bail!("unknown target {}", target),
     })
 }

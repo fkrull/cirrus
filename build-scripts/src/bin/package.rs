@@ -1,7 +1,6 @@
 use std::path::Path;
 use tempfile::TempDir;
 use xshell::*;
-use zip::{write::FileOptions, ZipWriter};
 
 /// Build binaries and a package.
 #[derive(argh::FromArgs)]
@@ -60,9 +59,9 @@ fn main() -> eyre::Result<()> {
 
     // build package
     mkdir_p("public")?;
-    let pkg_filename = format!("cirrus_{}.zip", target);
+    let pkg_filename = format!("cirrus_{}.tar.xz", target);
     let pkg_path = Path::new("public").join(&pkg_filename);
-    package_zip(tmp.path(), &pkg_path)?;
+    package_tar_xz(tmp.path(), &pkg_path)?;
 
     Ok(())
 }
@@ -81,23 +80,16 @@ fn bin_ext(target: &str) -> eyre::Result<&'static str> {
     Ok(bin_ext)
 }
 
-fn package_zip(dir: &Path, dest: &Path) -> eyre::Result<()> {
-    use std::{fs::File, io::copy};
-
-    let mut zip = ZipWriter::new(File::create(dest)?);
-
-    for entry in read_dir(dir)? {
-        let mut f = File::open(&entry)?;
-        zip.start_file(
-            entry
-                .file_name()
-                .and_then(|f| f.to_str())
-                .ok_or_else(|| eyre::eyre!("non-UTF8 file name"))?,
-            FileOptions::default().unix_permissions(0o755),
-        )?;
-        copy(&mut f, &mut zip)?;
+fn package_tar_xz(dir: &Path, dest: &Path) -> eyre::Result<()> {
+    let mut xz = xz2::write::XzEncoder::new(std::fs::File::create(dest)?, 6);
+    {
+        let mut tar = tar::Builder::new(&mut xz);
+        for entry in read_dir(dir)? {
+            let filename = entry.file_name().ok_or_else(|| eyre::eyre!("not a file"))?;
+            tar.append_path_with_name(&entry, filename)?;
+        }
+        tar.finish()?;
     }
-
-    zip.finish()?;
+    xz.finish()?;
     Ok(())
 }

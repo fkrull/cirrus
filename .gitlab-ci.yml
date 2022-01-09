@@ -116,7 +116,7 @@ pages:
     - package:windows:x86_64
   script:
     - mkdir public/latest
-    - mv public/*.zip public/latest/
+    - mv public/*.tar.xz public/latest/
     - echo "${VERSION}+${BUILD_STRING}" > public/latest/version
     - ls -l public/latest
     - cat public/latest/version
@@ -206,7 +206,7 @@ server:publish:
     - cargo run -p build-scripts --bin package-server --
       --target ${TARGET}
       --qemu-binary "${QEMU_BINARY}"
-      public/cirrus_${TARGET}.zip
+      public/cirrus_${TARGET}.tar.xz
     - buildah push
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       cirrus-server-image

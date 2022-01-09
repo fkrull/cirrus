@@ -189,18 +189,19 @@ mod icons {
     fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {
         use png::{BitDepth, ColorType, Decoder};
 
-        let (info, mut reader) = Decoder::new(data).read_info()?;
+        let mut reader = Decoder::new(data).read_info()?;
+        let info = reader.info();
         if info.bit_depth != BitDepth::Eight {
             return Err(eyre::eyre!(
                 "unsupported PNG bit depth: {:?}",
                 info.bit_depth
             ));
         }
-        if info.color_type != ColorType::RGBA {
+        if info.color_type != ColorType::Rgba {
             return Err(eyre::eyre!("unsupported PNG format: {:?}", info.color_type));
         }
 
-        let mut data = vec![0u8; info.buffer_size()];
+        let mut data = vec![0u8; reader.output_buffer_size()];
         reader.next_frame(&mut data)?;
         let info = reader.info();
         rgba_to_argb(&mut data);

@@ -27,10 +27,7 @@ struct Args {
 
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
-
     let target = args.target;
-    let bin_ext = bin_ext(&target)?;
-
     let tmp = TempDir::new()?;
 
     // compile cirrus
@@ -42,9 +39,9 @@ fn main() -> eyre::Result<()> {
 
         let features = args.features;
         cmd!("cargo build --release --target={target} --features={features}").run()?;
-        cp(
-            format!("target/{}/release/cirrus{}", target, bin_ext),
-            tmp.path().join(format!("cirrus{}", bin_ext)),
+        copy_binary(
+            Path::new(&format!("target/{}/release/cirrus", target)),
+            &tmp.path().join("cirrus"),
         )?;
     }
 
@@ -66,18 +63,13 @@ fn main() -> eyre::Result<()> {
     Ok(())
 }
 
-fn bin_ext(target: &str) -> eyre::Result<&'static str> {
-    use std::str::FromStr;
-    use target_lexicon::{OperatingSystem, Triple};
-
-    let bin_ext = match Triple::from_str(target)
-        .map_err(|e| eyre::eyre!("{}", e))?
-        .operating_system
-    {
-        OperatingSystem::Windows => ".exe",
-        _ => "",
-    };
-    Ok(bin_ext)
+fn copy_binary(base_src: &Path, base_dst: &Path) -> xshell::Result<()> {
+    cp(base_src, base_dst).or_else(|_| {
+        cp(
+            base_src.with_extension("exe"),
+            base_dst.with_extension("exe"),
+        )
+    })
 }
 
 fn package_tar_xz(dir: &Path, dest: &Path) -> eyre::Result<()> {

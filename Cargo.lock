@@ -320,7 +320,6 @@ dependencies = [
  "eyre",
  "restic-bin",
  "tar",
- "target-lexicon",
  "tempfile",
  "time 0.3.5",
  "xshell",

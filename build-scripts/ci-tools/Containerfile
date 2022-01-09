@@ -23,7 +23,7 @@ ENV QEMU_AARCH64_SHA256=5db25cccb40ac7b1ca857653b883376b931d91b06ff34ffe70dcf618
 RUN bash /install-qemu.sh $QEMU_AARCH64_URL $QEMU_AARCH64_SHA256 /usr/bin/qemu-aarch64-static
 
 # Rust
-ENV RUST_VERSION=1.55.0
+ENV RUST_VERSION=1.57.0
 RUN curl https://sh.rustup.rs -sSf | \
     CARGO_HOME=/usr/local/cargo sh -s -- \
         -y \

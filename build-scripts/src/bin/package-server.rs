@@ -22,16 +22,22 @@ fn main() -> eyre::Result<()> {
     let qemu_args = qemu_build_args(qemu.as_ref());
     let image_arch = image_arch(&args.target)?;
     let binaries_tar = Path::new(&args.binaries_tar);
-    let context_path = binaries_tar.parent().ok_or_else(|| eyre::eyre!("no parent path"))?;
-    let tarball = binaries_tar.file_name().ok_or_else(|| eyre::eyre!("no file name"))?;
-    cmd!("buildah build
+    let context_path = binaries_tar
+        .parent()
+        .ok_or_else(|| eyre::eyre!("no parent path"))?;
+    let tarball = binaries_tar
+        .file_name()
+        .ok_or_else(|| eyre::eyre!("no file name"))?;
+    cmd!(
+        "buildah build
             {qemu_args...}
             --build-arg=IMAGE_ARCH={image_arch}
             --build-arg=TARBALL={tarball}
             --tag=cirrus-server-image
             --file=Containerfile
-            {context_path}")
-        .run()?;
+            {context_path}"
+    )
+    .run()?;
     Ok(())
 }
 

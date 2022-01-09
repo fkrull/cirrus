@@ -18,7 +18,10 @@ fn main() {
     gobuild::Build::new()
         .file("main.go")
         .env("GOCACHE", out_dir.join("go-cache"))
-        .ldflags(format!("-X 'github.com/restic/restic/cmd/restic.version={}'", RESTIC_VERSION))
+        .ldflags(format!(
+            "-X 'github.com/restic/restic/cmd/restic.version={}'",
+            RESTIC_VERSION
+        ))
         .trim_paths(true)
         .compile("restigo");
 }

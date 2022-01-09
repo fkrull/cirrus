@@ -2083,9 +2083,9 @@ checksum = "2386b4ebe91c2f7f51082d4cefa145d030e33a1842a96b12e4885cc3c01f7a55"
 
 [[package]]
 name = "owo-colors"
-version = "2.1.0"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a61765925aec40abdb23812a3a1a01fafc6ffb9da22768b2ce665a9e84e527c"
+checksum = "20448fd678ec04e6ea15bbe0476874af65e98a01515d667aa49f1434dc44ebf4"
 
 [[package]]
 name = "parking"
@@ -2553,7 +2553,7 @@ dependencies = [
  "argh",
  "eyre",
  "mslnk",
- "owo-colors 2.1.0",
+ "owo-colors 3.2.0",
  "tempfile",
  "thiserror",
 ]

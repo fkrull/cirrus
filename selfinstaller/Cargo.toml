@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 eyre = "0.6.5"
-owo-colors = "2.0.0"
+owo-colors = "3.2.0"
 tempfile = "3.2.0"
 thiserror = "1.0.26"
 

@@ -20,24 +20,26 @@ async fn setup_daemon_logger() -> eyre::Result<()> {
     use tracing::Level;
     use tracing_subscriber::{
         filter::LevelFilter,
-        fmt::{format::FmtSpan, layer, time::ChronoLocal},
+        fmt::{format::FmtSpan, layer, time::LocalTime},
         layer::SubscriberExt,
         util::SubscriberInitExt,
         Registry,
     };
 
-    const TIME_FORMAT: &str = "%Y-%m-%d %H:%M:%S%Z";
+    let time_format = time::macros::format_description!(
+        "[year]-[month]-[day] [hour repr:24]:[minute]:[second][offset_hour sign:mandatory]:[offset_minute]"
+    );
 
     let stdout_layer = layer()
         .with_ansi(true)
         .with_target(false)
-        .with_timer(ChronoLocal::with_format(String::from(TIME_FORMAT)));
+        .with_timer(LocalTime::new(time_format));
 
     let data_dir = data_dir().await?;
     let file_layer = layer()
         .with_ansi(false)
         .with_span_events(FmtSpan::CLOSE)
-        .with_timer(ChronoLocal::with_format(String::from(TIME_FORMAT)))
+        .with_timer(LocalTime::new(time_format))
         .with_writer(move || tracing_appender::rolling::never(&data_dir, "cirrus.log"));
 
     Registry::default()

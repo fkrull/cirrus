@@ -67,7 +67,7 @@ impl StatusIcon {
 }
 
 fn check_session_dbus_connection() -> eyre::Result<()> {
-    dbus::blocking::Connection::new_session()?;
+    zbus::blocking::Connection::session()?;
     Ok(())
 }
 

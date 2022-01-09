@@ -18,8 +18,10 @@ struct Args {
 
 fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
-    let qemu = args.qemu_binary.filter(|s| !s.is_empty());
-    let qemu_args = qemu_build_args(qemu.as_ref());
+    let qemu = args
+        .qemu_binary
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(no_qemu);
     let image_arch = image_arch(&args.target)?;
     let binaries_tar = Path::new(&args.binaries_tar);
     let context_path = binaries_tar
@@ -30,9 +32,9 @@ fn main() -> eyre::Result<()> {
         .ok_or_else(|| eyre::eyre!("no file name"))?;
     cmd!(
         "buildah build-using-dockerfile
-            {qemu_args...}
             --build-arg=IMAGE_ARCH={image_arch}
             --build-arg=TARBALL={tarball}
+            --volume={qemu}:/qemu:z,ro
             --tag=cirrus-server-image
             --file=Containerfile
             {context_path}"
@@ -50,13 +52,7 @@ fn image_arch(target: &str) -> eyre::Result<&str> {
     })
 }
 
-fn qemu_build_args(qemu_binary: Option<&String>) -> Vec<String> {
-    if let Some(qemu_binary) = qemu_binary {
-        vec![
-            format!("--volume={}:/qemu", qemu_binary),
-            "--build-arg=QEMU=/qemu".to_owned(),
-        ]
-    } else {
-        vec!["--build-arg=QEMU=".to_owned()]
-    }
+fn no_qemu() -> String {
+    const CARGO_MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
+    format!("{}/no-qemu.sh", CARGO_MANIFEST_DIR)
 }

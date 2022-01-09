@@ -1,15 +1,11 @@
 ARG IMAGE_ARCH
 FROM docker.io/${IMAGE_ARCH}/debian:11-slim
 # qemu binary must be mounted into build container
-ARG QEMU
-RUN $QEMU apt-get update && \
-    $QEMU apt-get install --no-install-recommends -y \
-        ca-certificates \
-        libdbus-1-3 \
-        openssh-client \
-    && \
-    $QEMU apt-get clean && \
-    $QEMU rm -rf /var/lib/apt
+RUN ["/qemu", "--execve", "/bin/sh", "-c", \
+     "apt-get update && \
+      apt-get install --no-install-recommends -y ca-certificates libdbus-1-3 openssh-client && \
+      apt-get clean && \
+      rm -rf /var/lib/apt"]
 
 ARG TARBALL
 ADD --chown=root:root $TARBALL /usr/local/bin

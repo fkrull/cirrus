@@ -12,7 +12,7 @@ RUN $QEMU apt-get update && \
     $QEMU rm -rf /var/lib/apt
 
 ARG TARBALL
-ADD --chown=root:root --chmod=0755 $TARBALL /usr/local/bin
+ADD --chown=root:root $TARBALL /usr/local/bin
 
 ENV XDG_CONFIG_HOME=/config
 ENV XDG_DATA_HOME=/data/data

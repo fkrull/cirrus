@@ -29,7 +29,7 @@ fn main() -> eyre::Result<()> {
         .file_name()
         .ok_or_else(|| eyre::eyre!("no file name"))?;
     cmd!(
-        "buildah build
+        "buildah build-using-dockerfile
             {qemu_args...}
             --build-arg=IMAGE_ARCH={image_arch}
             --build-arg=TARBALL={tarball}

@@ -68,6 +68,8 @@ impl Workdir {
             &dir.path().join(exe_name(Self::TARGET_BINARY_NAME)),
         )
         .unwrap();
+        // TODO: problem with "text file busy" on Linux; is there some sort of race?
+        std::thread::sleep(std::time::Duration::from_millis(50));
         Self { dir }
     }
 

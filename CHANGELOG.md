@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Note that
 the version numbers are *not* semantic.
 
+## 1.3.3
+### Added
+* New backup setting `exclude-larger-than`
+
 ## 1.3.2
 ### Changed
 * Packages are now tar.xz instead of zip

@@ -106,6 +106,8 @@ pub struct Definition {
     #[serde(default)]
     pub exclude_caches: bool,
     #[serde(default)]
+    pub exclude_larger_than: Option<String>,
+    #[serde(default)]
     pub extra_args: Vec<String>,
     #[serde(default)]
     pub disable_triggers: bool,

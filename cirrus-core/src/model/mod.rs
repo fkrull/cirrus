@@ -132,6 +132,7 @@ mod tests {
                 "/.cache"
             ]
             exclude-caches = true
+            exclude-larger-than = "1G"
             extra-args = ["--one-file-system"]
 
             # look I don't remember cron syntax
@@ -179,6 +180,7 @@ mod tests {
                             backup::Exclude("/.cache".to_string()),
                         ],
                         exclude_caches: true,
+                        exclude_larger_than: Some("1G".to_string()),
                         disable_triggers: false,
                         extra_args: vec!["--one-file-system".to_string()],
                         triggers: vec![
@@ -197,6 +199,7 @@ mod tests {
                         path: backup::Path("/srv".to_string()),
                         excludes: vec![],
                         exclude_caches: false,
+                        exclude_larger_than: None,
                         disable_triggers: true,
                         extra_args: vec![],
                         triggers: vec![]

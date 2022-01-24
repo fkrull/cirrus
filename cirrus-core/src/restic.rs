@@ -144,6 +144,10 @@ impl Restic {
         if definition.exclude_caches {
             args.push("--exclude-caches".to_owned());
         }
+        if let Some(exclude_larger_than) = &definition.exclude_larger_than {
+            args.push("--exclude-larger-than".to_owned());
+            args.push(exclude_larger_than.clone());
+        }
         for arg in &definition.extra_args {
             args.push(arg.clone());
         }

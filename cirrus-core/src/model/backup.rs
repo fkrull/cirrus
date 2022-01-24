@@ -103,13 +103,13 @@ pub struct Definition {
     pub path: Path,
     #[serde(default)]
     pub excludes: Vec<Exclude>,
-    #[serde(default)]
+    #[serde(default, alias = "exclude_caches")]
     pub exclude_caches: bool,
-    #[serde(default)]
+    #[serde(default, alias = "exclude_larger_than")]
     pub exclude_larger_than: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "extra_args")]
     pub extra_args: Vec<String>,
-    #[serde(default)]
+    #[serde(default, alias = "disable_triggers")]
     pub disable_triggers: bool,
     #[serde(default)]
     pub triggers: Vec<Trigger>,

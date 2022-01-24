@@ -8,6 +8,9 @@ the version numbers are *not* semantic.
 ### Added
 * New backup setting `exclude-larger-than`
 
+### Changed
+* Support both `-` and `_` as word separator in setting names.
+
 ## 1.3.2
 ### Changed
 * Packages are now tar.xz instead of zip

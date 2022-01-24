@@ -4,9 +4,17 @@ use std::collections::HashMap;
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Secret {
-    FromEnvVar { env_var: String },
-    FromOsKeyring { keyring: String },
-    FromToml { toml: String, key: String },
+    FromEnvVar {
+        #[serde(rename = "env-var", alias = "env_var")]
+        env_var: String,
+    },
+    FromOsKeyring {
+        keyring: String,
+    },
+    FromToml {
+        toml: String,
+        key: String,
+    },
 }
 
 impl Secret {

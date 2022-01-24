@@ -115,14 +115,14 @@ mod tests {
             r#"
             [repositories.local]
             url = "/srv/restic-repo"
-            password = { env_var = "LOCAL_PASSWORD" }
+            password = { env-var = "LOCAL_PASSWORD" }
 
             [repositories.sftp]
             url = "sftp:user@host:repo/path"
-            password = { env_var = "SSH_PASSWORD" }
+            password = { env-var = "SSH_PASSWORD" }
             
             [repositories.sftp.secrets.UNUSED_SECRET]
-            env_var = "SECRET_ENV"
+            env-var = "SECRET_ENV"
 
             [backups.home]
             repository = "local"
@@ -202,6 +202,55 @@ mod tests {
                         exclude_larger_than: None,
                         disable_triggers: true,
                         extra_args: vec![],
+                        triggers: vec![]
+                    },
+                }),
+                source: None,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn should_support_underscores_instead_of_dashes_in_settings() -> eyre::Result<()> {
+        let input: toml::Value = toml::from_str(
+            //language=TOML
+            r#"
+            [repositories.test]
+            url = "/url"
+            password = { env_var = "var" }
+
+            [backups.test]
+            repository = "test"
+            path = "/"
+            exclude_caches = true
+            exclude_larger_than = "1G"
+            extra_args = [""]
+            disable_triggers = true
+            "#,
+        )?;
+
+        let config: Config = input.try_into()?;
+
+        assert_eq!(
+            config,
+            Config {
+                repositories: Repositories(hashmap! {
+                    repo::Name("test".to_string()) => repo::Definition {
+                        url: repo::Url("/url".to_string()),
+                        password: repo::Secret::FromEnvVar { env_var: "var".to_string() },
+                        secrets: HashMap::new(),
+                    },
+                }),
+                backups: Backups(hashmap! {
+                    backup::Name("test".to_string()) => backup::Definition {
+                        repository: repo::Name("test".to_string()),
+                        path: backup::Path("/".to_string()),
+                        excludes: vec![],
+                        exclude_caches: true,
+                        exclude_larger_than: Some("1G".to_string()),
+                        disable_triggers: true,
+                        extra_args: vec!["".to_string()],
                         triggers: vec![]
                     },
                 }),

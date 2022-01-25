@@ -31,7 +31,7 @@ hostname = "0.3.1"
 rpassword = "5.0.0"
 termcolor = "1.1.0"
 toml = "0.5.6"
-color-eyre = "0.5.6"
+color-eyre = "0.6.0"
 dirs-next = "2.0.0"
 tracing = "0.1.23"
 tracing-subscriber = { version = "0.3.5", default-features = false, features = ["fmt", "ansi", "registry", "local-time", "tracing-log"] }
@@ -40,7 +40,7 @@ time = { version = "0.3.5", features = ["macros"] }
 
 [dependencies.tokio]
 version = "1.0.0"
-features = ["macros", "signal", "rt-multi-thread"]
+features = ["signal", "rt-multi-thread"]
 
 [features]
 # This feature enables the CLI flag for bundled restic as well as the behavior to handle it; it does *NOT* actually

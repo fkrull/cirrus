@@ -1,12 +1,17 @@
 use super::{DayOfWeek, Schedule, WallTime};
+use crate::WallTimeOutOfRange;
 use enumset::EnumSet;
+use nom::bytes::complete::tag_no_case;
+use nom::character::complete::digit1;
+use nom::combinator::{map_res, opt};
+use nom::sequence::{pair, preceded, separated_pair};
 use nom::{
     branch::alt,
     bytes::complete::is_a,
     character::complete::{alpha1, char, multispace0, multispace1},
     combinator::{eof, map, peek, value},
     sequence::{delimited, terminated},
-    Finish, IResult,
+    Finish, IResult, Parser,
 };
 use std::collections::HashSet;
 
@@ -17,6 +22,12 @@ pub struct TokenizeError(nom::error::ErrorKind);
 pub enum ParseError {
     #[error("error tokenizing '{0}': {}", (.1).0.description())]
     TokenizeError(String, TokenizeError),
+    #[error("invalid number '{0}'")]
+    InvalidNumber(String),
+    #[error(transparent)]
+    WalltimeOutOfRange(#[from] WallTimeOutOfRange),
+    #[error("parser error at '{0}': {}", (.1).description())]
+    ParseError(String, nom::error::ErrorKind),
 }
 
 pub fn parse(time_spec: &str, day_spec: &str) -> Result<Schedule, ParseError> {
@@ -26,11 +37,64 @@ pub fn parse(time_spec: &str, day_spec: &str) -> Result<Schedule, ParseError> {
 }
 
 fn parse_time_spec(s: &str) -> Result<HashSet<WallTime>, ParseError> {
-    todo!()
+    match single_time_spec(s).finish() {
+        Ok((x, y)) => {
+            let mut s = HashSet::new();
+            s.insert(y);
+            Ok(s)
+        }
+        Err(error) => Err(ParseError::ParseError(error.input.to_owned(), error.code)),
+    }
 }
 
 fn parse_day_spec(s: &str) -> Result<EnumSet<DayOfWeek>, ParseError> {
     todo!()
+}
+
+fn single_time_spec(input: &str) -> IResult<&str, WallTime> {
+    map_res(
+        preceded(
+            multispace0,
+            pair(
+                pair(digit1, opt(preceded(char(':'), digit1))),
+                opt(alt((keyword("am"), keyword("pm")))),
+            ),
+        ),
+        to_wall_time,
+    )(input)
+}
+
+fn to_wall_time(args: ((&str, Option<&str>), Option<&str>)) -> Result<WallTime, ParseError> {
+    let ((hour, minute), suffix) = args;
+    let hour = hour
+        .parse::<u32>()
+        .map_err(|_| ParseError::InvalidNumber(hour.to_owned()))?;
+    let minute = match minute {
+        Some(minute) => minute
+            .parse::<u32>()
+            .map_err(|_| ParseError::InvalidNumber(minute.to_owned()))?,
+        None => 0,
+    };
+    let hour = hour
+        + match suffix {
+            Some(x) if x.eq_ignore_ascii_case("pm") => 12,
+            _ => 0,
+        };
+    Ok(WallTime::new(hour, minute)?)
+}
+
+fn keyword<'b, 'a: 'b>(keyword: &'b str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str> + 'b {
+    let x = terminated(
+        preceded(multispace0, tag_no_case(keyword)),
+        peek(word_separator),
+    );
+    x
+}
+
+fn ws_before<'a, O>(
+    p: impl FnMut(&'a str) -> IResult<&'a str, O>,
+) -> impl FnMut(&'a str) -> IResult<&'a str, O> {
+    preceded(multispace0, p)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

@@ -1,5 +1,11 @@
 use super::{DayOfWeek, Schedule, WallTime};
 use enumset::EnumSet;
+use nom::branch::alt;
+use nom::bytes::complete::is_a;
+use nom::character::complete::{alpha1, char, digit1, multispace1};
+use nom::character::streaming::multispace0;
+use nom::combinator::{map, peek, value};
+use nom::sequence::{delimited, pair, preceded, terminated};
 use nom::IResult;
 use std::collections::HashSet;
 
@@ -12,12 +18,39 @@ pub fn parse(time_spec: &str, day_spec: &str) -> Result<Schedule, ParseError> {
     Ok(Schedule { times, days })
 }
 
-pub fn parse_time_spec(s: &str) -> Result<HashSet<WallTime>, ParseError> {
+fn parse_time_spec(s: &str) -> Result<HashSet<WallTime>, ParseError> {
     todo!()
 }
 
-pub fn parse_day_spec(s: &str) -> Result<EnumSet<DayOfWeek>, ParseError> {
+fn parse_day_spec(s: &str) -> Result<EnumSet<DayOfWeek>, ParseError> {
     todo!()
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum Token<'a> {
+    Word(&'a str),
+    TimeString(&'a str),
+    Comma,
+}
+
+fn token(input: &str) -> IResult<&str, Token> {
+    delimited(multispace0, alt((word, time_string, comma)), multispace0)(input)
+}
+
+fn word(input: &str) -> IResult<&str, Token> {
+    map(terminated(alpha1, peek(word_separator)), Token::Word)(input)
+}
+
+fn word_separator(input: &str) -> IResult<&str, ()> {
+    alt((value((), char(',')), value((), multispace1)))(input)
+}
+
+fn time_string(input: &str) -> IResult<&str, Token> {
+    map(is_a("1234567890:"), Token::TimeString)(input)
+}
+
+fn comma(input: &str) -> IResult<&str, Token> {
+    value(Token::Comma, char(','))(input)
 }
 
 #[cfg(test)]
@@ -127,6 +160,48 @@ mod tests {
             let result = parse_time_spec("    15:29   \n\t  ");
 
             assert_eq!(result.unwrap(), hashset![WallTime::new(15, 29).unwrap()]);
+        }
+    }
+
+    mod token {
+        use super::*;
+
+        #[test]
+        fn should_tokenize_word() {
+            let result = token("  word rest");
+
+            assert_eq!(result.unwrap(), ("rest", Token::Word("word")));
+        }
+
+        #[test]
+        fn should_tokenize_time_string() {
+            let result = token("  15:32:32:1:000:1 rest");
+
+            assert_eq!(
+                result.unwrap(),
+                ("rest", Token::TimeString("15:32:32:1:000:1"))
+            );
+        }
+
+        #[test]
+        fn should_tokenize_single_comma() {
+            let result = token("  ,,");
+
+            assert_eq!(result.unwrap(), (",", Token::Comma));
+        }
+
+        #[test]
+        fn should_tokenize_word_terminated_by_comma() {
+            let result = token("abc,def");
+
+            assert_eq!(result.unwrap(), (",def", Token::Word("abc")));
+        }
+
+        #[test]
+        fn should_tokenize_time_string_terminated_by_word() {
+            let result = token("5:30pm");
+
+            assert_eq!(result.unwrap(), ("pm", Token::TimeString("5:30")));
         }
     }
 }

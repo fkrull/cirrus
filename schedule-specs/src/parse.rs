@@ -1,16 +1,23 @@
 use super::{DayOfWeek, Schedule, WallTime};
 use enumset::EnumSet;
-use nom::branch::alt;
-use nom::bytes::complete::is_a;
-use nom::character::complete::{alpha1, char, digit1, multispace1};
-use nom::character::streaming::multispace0;
-use nom::combinator::{map, peek, value};
-use nom::sequence::{delimited, pair, preceded, terminated};
-use nom::IResult;
+use nom::{
+    branch::alt,
+    bytes::complete::is_a,
+    character::complete::{alpha1, char, multispace0, multispace1},
+    combinator::{eof, map, peek, value},
+    sequence::{delimited, terminated},
+    Finish, IResult,
+};
 use std::collections::HashSet;
 
+#[derive(Debug)]
+pub struct TokenizeError(nom::error::ErrorKind);
+
 #[derive(Debug, thiserror::Error)]
-pub enum ParseError {}
+pub enum ParseError {
+    #[error("error tokenizing '{0}': {}", (.1).0.description())]
+    TokenizeError(String, TokenizeError),
+}
 
 pub fn parse(time_spec: &str, day_spec: &str) -> Result<Schedule, ParseError> {
     let times = parse_time_spec(time_spec)?;
@@ -31,6 +38,31 @@ enum Token<'a> {
     Word(&'a str),
     TimeString(&'a str),
     Comma,
+    None,
+}
+
+fn tokenize<'a>(input: &'a str, tokens: &mut [Token<'a>]) -> Result<&'a str, ParseError> {
+    let mut input = input;
+    for idx in 0..tokens.len() {
+        if input.is_empty() {
+            tokens[idx] = Token::None;
+            break;
+        }
+        match token(input).finish() {
+            Ok((remaining, token)) => {
+                input = remaining;
+                tokens[idx] = token;
+            }
+            Err(error) => {
+                return Err(ParseError::TokenizeError(
+                    error.input.to_owned(),
+                    TokenizeError(error.code),
+                ));
+            }
+        }
+    }
+
+    Ok(input)
 }
 
 fn token(input: &str) -> IResult<&str, Token> {
@@ -42,7 +74,7 @@ fn word(input: &str) -> IResult<&str, Token> {
 }
 
 fn word_separator(input: &str) -> IResult<&str, ()> {
-    alt((value((), char(',')), value((), multispace1)))(input)
+    alt((value((), char(',')), value((), multispace1), value((), eof)))(input)
 }
 
 fn time_string(input: &str) -> IResult<&str, Token> {
@@ -160,6 +192,38 @@ mod tests {
             let result = parse_time_spec("    15:29   \n\t  ");
 
             assert_eq!(result.unwrap(), hashset![WallTime::new(15, 29).unwrap()]);
+        }
+    }
+
+    mod tokenize {
+        use super::*;
+
+        #[test]
+        fn should_tokenize() {
+            let mut tokens = [Token::None; 6];
+            let result = tokenize("  at 12:33pm, and noon", &mut tokens);
+
+            assert_eq!(result.unwrap(), "");
+            assert_eq!(
+                &tokens,
+                &[
+                    Token::Word("at"),
+                    Token::TimeString("12:33"),
+                    Token::Word("pm"),
+                    Token::Comma,
+                    Token::Word("and"),
+                    Token::Word("noon")
+                ]
+            );
+        }
+
+        #[test]
+        fn should_tokenize_missing() {
+            let mut tokens = [Token::Comma; 3];
+            let result = tokenize("word", &mut tokens);
+
+            assert_eq!(result.unwrap(), "");
+            assert_eq!(&tokens, &[Token::Word("word"), Token::None, Token::Comma,]);
         }
     }
 

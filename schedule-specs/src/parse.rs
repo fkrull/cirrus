@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-
+use super::{DayOfWeek, TimeSpec, TimeSpecOutOfRange};
 use enumset::EnumSet;
 use nom::{
     branch::alt,
@@ -11,8 +10,7 @@ use nom::{
     sequence::{pair, preceded, terminated},
     Finish, IResult,
 };
-
-use super::{DayOfWeek, Schedule, TimeSpec, TimeSpecOutOfRange};
+use std::collections::HashSet;
 
 #[derive(Debug, PartialEq, Eq)]
 enum SyntaxErrorKind {
@@ -114,17 +112,18 @@ impl ParseError {
     }
 }
 
-pub fn parse(times_string: &str, days_string: &str) -> Result<Schedule, ParseError> {
-    let times = parse_times(times_string)?;
-    let days = parse_days(days_string)?;
-    Ok(Schedule { times, days })
-}
-
-fn parse_times(times_string: &str) -> Result<HashSet<TimeSpec>, ParseError> {
+pub fn parse_at_spec(times_string: &str) -> Result<HashSet<TimeSpec>, ParseError> {
     let (_, times) = terminated(time_specs, pair(multispace0, eof))(times_string)
         .finish()
         .map_err(ParseError::times_error)?;
     Ok(times)
+}
+
+pub fn parse_every_spec(days_string: &str) -> Result<EnumSet<DayOfWeek>, ParseError> {
+    let (_, days) = terminated(days_spec, pair(multispace0, eof))(days_string)
+        .finish()
+        .map_err(ParseError::days_error)?;
+    Ok(days)
 }
 
 fn time_specs(input: &str) -> IResult<&str, HashSet<TimeSpec>, NomError> {
@@ -153,13 +152,6 @@ fn to_time_spec(args: ((u32, Option<u32>), Option<&str>)) -> Result<TimeSpec, Ti
     let is_pm = matches!(suffix, Some(s) if s.eq_ignore_ascii_case("pm"));
     let hour = hour + if is_pm { 12 } else { 0 };
     Ok(TimeSpec::new(hour, minute)?)
-}
-
-fn parse_days(days_string: &str) -> Result<EnumSet<DayOfWeek>, ParseError> {
-    let (_, days) = terminated(days_spec, pair(multispace0, eof))(days_string)
-        .finish()
-        .map_err(ParseError::days_error)?;
-    Ok(days)
 }
 
 fn days_spec(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {
@@ -242,54 +234,9 @@ fn word_separator(input: &str) -> IResult<&str, (), NomError> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use maplit::hashset;
     use nom::error::ErrorKind;
-
-    use super::*;
-
-    #[test]
-    fn should_parse_time_spec_and_day_spec_into_schedule() {
-        let result = parse("15:00 and 4:30", "weekday except monday and Friday");
-
-        assert_eq!(
-            result.unwrap(),
-            Schedule {
-                times: hashset![TimeSpec::new(15, 0).unwrap(), TimeSpec::new(4, 30).unwrap()],
-                days: DayOfWeek::Tuesday | DayOfWeek::Wednesday | DayOfWeek::Thursday
-            }
-        );
-    }
-
-    #[test]
-    fn should_not_create_schedule_from_invalid_time_spec() {
-        let result = parse("nope", "day");
-
-        assert_eq!(
-            result.unwrap_err(),
-            ParseError::InvalidTimesSpec(
-                "nope".to_owned(),
-                SyntaxError(SyntaxErrorKind::Nom(ErrorKind::Digit))
-            )
-        );
-    }
-
-    #[test]
-    fn should_not_create_schedule_from_invalid_day_spec() {
-        let result = parse("12", "nope");
-
-        assert_eq!(
-            result.unwrap_err(),
-            ParseError::InvalidDaysSpec(
-                "nope".to_owned(),
-                SyntaxError(SyntaxErrorKind::MultiContext(vec![
-                    "list of days",
-                    "'day'",
-                    "'weekday'",
-                    "'weekend'"
-                ]))
-            )
-        );
-    }
 
     mod syntax_error {
         use super::*;
@@ -338,61 +285,61 @@ mod tests {
         }
     }
 
-    mod parse_time_spec {
+    mod parse_at_spec {
         use super::*;
 
         #[test]
         fn should_parse_24h_time() {
-            let result = parse_times("15:23");
+            let result = parse_at_spec("15:23");
 
             assert_eq!(result.unwrap(), hashset![TimeSpec::new(15, 23).unwrap()]);
         }
 
         #[test]
         fn should_parse_am_time_without_separator() {
-            let result = parse_times("4:39am");
+            let result = parse_at_spec("4:39am");
 
             assert_eq!(result.unwrap(), hashset![TimeSpec::new(4, 39).unwrap()]);
         }
 
         #[test]
         fn should_parse_am_time_with_separator() {
-            let result = parse_times("6:09 am");
+            let result = parse_at_spec("6:09 am");
 
             assert_eq!(result.unwrap(), hashset![TimeSpec::new(6, 9).unwrap()]);
         }
 
         #[test]
         fn should_parse_pm_time_without_separator() {
-            let result = parse_times("1:7pm");
+            let result = parse_at_spec("1:7pm");
 
             assert_eq!(result.unwrap(), hashset![TimeSpec::new(13, 7).unwrap()]);
         }
 
         #[test]
         fn should_parse_pm_time_with_separator() {
-            let result = parse_times("9:44 pm");
+            let result = parse_at_spec("9:44 pm");
 
             assert_eq!(result.unwrap(), hashset![TimeSpec::new(21, 44).unwrap()]);
         }
 
         #[test]
         fn should_parse_24h_time_without_minutes() {
-            let result = parse_times("18");
+            let result = parse_at_spec("18");
 
             assert_eq!(result.unwrap(), hashset![TimeSpec::new(18, 0).unwrap()]);
         }
 
         #[test]
         fn should_parse_12h_time_without_minutes() {
-            let result = parse_times("7 pm");
+            let result = parse_at_spec("7 pm");
 
             assert_eq!(result.unwrap(), hashset![TimeSpec::new(19, 0).unwrap()]);
         }
 
         #[test]
         fn should_parse_multiple_times() {
-            let result = parse_times("1am, 2am and 6:12, and 19:59,20:00,20:01 and 11:59 pm");
+            let result = parse_at_spec("1am, 2am and 6:12, and 19:59,20:00,20:01 and 11:59 pm");
 
             assert_eq!(
                 result.unwrap(),
@@ -410,14 +357,14 @@ mod tests {
 
         #[test]
         fn should_ignore_leading_and_trailing_whitespace() {
-            let result = parse_times("    15:29   \n\t  ");
+            let result = parse_at_spec("    15:29   \n\t  ");
 
             assert_eq!(result.unwrap(), hashset![TimeSpec::new(15, 29).unwrap()]);
         }
 
         #[test]
         fn should_not_parse_invalid_keyword() {
-            let result = parse_times("11:59pm or now");
+            let result = parse_at_spec("11:59pm or now");
 
             assert_eq!(
                 result.unwrap_err(),
@@ -430,7 +377,7 @@ mod tests {
 
         #[test]
         fn should_not_parse_out_of_range_time() {
-            let result = parse_times("25:69");
+            let result = parse_at_spec("25:69");
 
             assert_eq!(
                 result.unwrap_err(),
@@ -445,7 +392,7 @@ mod tests {
 
         #[test]
         fn should_not_parse_time_without_hours() {
-            let result = parse_times(":10");
+            let result = parse_at_spec(":10");
 
             assert_eq!(
                 result.unwrap_err(),
@@ -458,7 +405,7 @@ mod tests {
 
         #[test]
         fn should_not_parse_lone_comma() {
-            let result = parse_times(", and more");
+            let result = parse_at_spec(", and more");
 
             assert_eq!(
                 result.unwrap_err(),
@@ -471,7 +418,7 @@ mod tests {
 
         #[test]
         fn should_not_parse_lone_and() {
-            let result = parse_times("and");
+            let result = parse_at_spec("and");
 
             assert_eq!(
                 result.unwrap_err(),
@@ -484,7 +431,7 @@ mod tests {
 
         #[test]
         fn should_not_parse_lone_pm() {
-            let result = parse_times("pm");
+            let result = parse_at_spec("pm");
 
             assert_eq!(
                 result.unwrap_err(),
@@ -496,33 +443,33 @@ mod tests {
         }
     }
 
-    mod parse_day_spec {
+    mod parse_every_spec {
         use super::*;
 
         #[test]
         fn should_parse_single_day() {
-            let result = parse_days("  Monday   ");
+            let result = parse_every_spec("  Monday   ");
 
             assert_eq!(result.unwrap(), DayOfWeek::Monday);
         }
 
         #[test]
         fn should_parse_multiple_days_with_comma() {
-            let result = parse_days("tuesday, wednesday");
+            let result = parse_every_spec("tuesday, wednesday");
 
             assert_eq!(result.unwrap(), DayOfWeek::Tuesday | DayOfWeek::Wednesday);
         }
 
         #[test]
         fn should_parse_multiple_days_with_and() {
-            let result = parse_days("Friday and Saturday");
+            let result = parse_every_spec("Friday and Saturday");
 
             assert_eq!(result.unwrap(), DayOfWeek::Friday | DayOfWeek::Saturday);
         }
 
         #[test]
         fn should_parse_multiple_days_with_comma_and_and() {
-            let result = parse_days("Sunday, and Monday, and Thursday");
+            let result = parse_every_spec("Sunday, and Monday, and Thursday");
 
             assert_eq!(
                 result.unwrap(),
@@ -532,21 +479,21 @@ mod tests {
 
         #[test]
         fn should_parse_weekday_set() {
-            let result = parse_days("weekday");
+            let result = parse_every_spec("weekday");
 
             assert_eq!(result.unwrap(), DayOfWeek::weekdays());
         }
 
         #[test]
         fn should_parse_weekend_set() {
-            let result = parse_days("weekend");
+            let result = parse_every_spec("weekend");
 
             assert_eq!(result.unwrap(), DayOfWeek::weekend());
         }
 
         #[test]
         fn should_parse_set_subtracting_day() {
-            let result = parse_days("weekday except Wednesday");
+            let result = parse_every_spec("weekday except Wednesday");
 
             assert_eq!(
                 result.unwrap(),
@@ -556,7 +503,7 @@ mod tests {
 
         #[test]
         fn should_parse_set_subtracting_multiple_days() {
-            let result = parse_days("weekday except Monday, and Friday");
+            let result = parse_every_spec("weekday except Monday, and Friday");
 
             assert_eq!(
                 result.unwrap(),
@@ -566,7 +513,7 @@ mod tests {
 
         #[test]
         fn should_not_parse_invalid_keyword() {
-            let result = parse_days("YESTERDAY");
+            let result = parse_every_spec("YESTERDAY");
 
             assert_eq!(
                 result.unwrap_err(),
@@ -584,7 +531,7 @@ mod tests {
 
         #[test]
         fn should_not_parse_digits() {
-            let result = parse_days("1st");
+            let result = parse_every_spec("1st");
 
             assert_eq!(
                 result.unwrap_err(),
@@ -602,7 +549,7 @@ mod tests {
 
         #[test]
         fn should_not_parse_initial_comma() {
-            let result = parse_days(", Monday");
+            let result = parse_every_spec(", Monday");
 
             assert_eq!(
                 result.unwrap_err(),

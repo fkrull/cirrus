@@ -2,8 +2,10 @@ use super::{DayOfWeek, Schedule, WallTime};
 use crate::WallTimeOutOfRange;
 use enumset::EnumSet;
 use nom::bytes::complete::tag_no_case;
-use nom::character::complete::digit1;
+use nom::character::complete::{digit1, u32};
 use nom::combinator::{map_res, opt};
+use nom::error::context;
+use nom::multi::separated_list1;
 use nom::sequence::{pair, preceded, separated_pair};
 use nom::{
     branch::alt,
@@ -16,18 +18,59 @@ use nom::{
 use std::collections::HashSet;
 
 #[derive(Debug)]
-pub struct TokenizeError(nom::error::ErrorKind);
+enum SyntaxError {
+    Nom(nom::error::ErrorKind),
+    ExpectedChar(char),
+    Context(&'static str),
+    WallTimeOutOfRange(WallTimeOutOfRange),
+}
+
+struct NomError<'a>(&'a str, SyntaxError);
+
+impl<'a> nom::error::ParseError<&'a str> for NomError<'a> {
+    fn from_error_kind(input: &'a str, kind: nom::error::ErrorKind) -> Self {
+        NomError(input, SyntaxError::Nom(kind))
+    }
+
+    fn append(_input: &'a str, _kind: nom::error::ErrorKind, other: Self) -> Self {
+        other
+    }
+
+    fn from_char(input: &'a str, c: char) -> Self {
+        NomError(input, SyntaxError::ExpectedChar(c))
+    }
+}
+
+impl<'a> nom::error::ContextError<&'a str> for NomError<'a> {
+    fn add_context(input: &'a str, ctx: &'static str, _other: Self) -> Self {
+        NomError(input, SyntaxError::Context(ctx))
+    }
+}
+
+impl<'a> nom::error::FromExternalError<&'a str, WallTimeOutOfRange> for NomError<'a> {
+    fn from_external_error(
+        input: &'a str,
+        _kind: nom::error::ErrorKind,
+        e: WallTimeOutOfRange,
+    ) -> Self {
+        NomError(input, SyntaxError::WallTimeOutOfRange(e))
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
-pub enum ParseError {
-    #[error("error tokenizing '{0}': {}", (.1).0.description())]
-    TokenizeError(String, TokenizeError),
-    #[error("invalid number '{0}'")]
-    InvalidNumber(String),
-    #[error(transparent)]
-    WalltimeOutOfRange(#[from] WallTimeOutOfRange),
-    #[error("parser error at '{0}': {}", (.1).description())]
-    ParseError(String, nom::error::ErrorKind),
+#[error("halp")]
+pub struct ParseError {
+    input: String,
+    error: SyntaxError,
+}
+
+impl<'a> From<NomError<'a>> for ParseError {
+    fn from(error: NomError) -> Self {
+        ParseError {
+            input: error.0.to_owned(),
+            error: error.1,
+        }
+    }
 }
 
 pub fn parse(time_spec: &str, day_spec: &str) -> Result<Schedule, ParseError> {
@@ -36,27 +79,29 @@ pub fn parse(time_spec: &str, day_spec: &str) -> Result<Schedule, ParseError> {
     Ok(Schedule { times, days })
 }
 
-fn parse_time_spec(s: &str) -> Result<HashSet<WallTime>, ParseError> {
-    match single_time_spec(s).finish() {
-        Ok((x, y)) => {
-            let mut s = HashSet::new();
-            s.insert(y);
-            Ok(s)
-        }
-        Err(error) => Err(ParseError::ParseError(error.input.to_owned(), error.code)),
-    }
+fn parse_time_spec(spec: &str) -> Result<HashSet<WallTime>, ParseError> {
+    let (_, wall_times) = terminated(time_spec, eof)(spec).finish()?;
+    Ok(HashSet::from_iter(wall_times))
 }
 
 fn parse_day_spec(s: &str) -> Result<EnumSet<DayOfWeek>, ParseError> {
     todo!()
 }
 
-fn single_time_spec(input: &str) -> IResult<&str, WallTime> {
+fn time_spec(input: &str) -> IResult<&str, Vec<WallTime>, NomError> {
+    delimited(
+        multispace0,
+        separated_list1(segment_separator, wall_time),
+        multispace0,
+    )(input)
+}
+
+fn wall_time(input: &str) -> IResult<&str, WallTime, NomError> {
     map_res(
         preceded(
             multispace0,
             pair(
-                pair(digit1, opt(preceded(char(':'), digit1))),
+                pair(u32, opt(preceded(char(':'), u32))),
                 opt(alt((keyword("am"), keyword("pm")))),
             ),
         ),
@@ -64,89 +109,39 @@ fn single_time_spec(input: &str) -> IResult<&str, WallTime> {
     )(input)
 }
 
-fn to_wall_time(args: ((&str, Option<&str>), Option<&str>)) -> Result<WallTime, ParseError> {
+fn to_wall_time(args: ((u32, Option<u32>), Option<&str>)) -> Result<WallTime, WallTimeOutOfRange> {
     let ((hour, minute), suffix) = args;
-    let hour = hour
-        .parse::<u32>()
-        .map_err(|_| ParseError::InvalidNumber(hour.to_owned()))?;
-    let minute = match minute {
-        Some(minute) => minute
-            .parse::<u32>()
-            .map_err(|_| ParseError::InvalidNumber(minute.to_owned()))?,
-        None => 0,
-    };
-    let hour = hour
-        + match suffix {
-            Some(x) if x.eq_ignore_ascii_case("pm") => 12,
-            _ => 0,
-        };
+    let minute = minute.unwrap_or(0);
+    let is_pm = matches!(suffix, Some(s) if s.eq_ignore_ascii_case("pm"));
+    let hour = hour + if is_pm { 12 } else { 0 };
     Ok(WallTime::new(hour, minute)?)
 }
 
-fn keyword<'b, 'a: 'b>(keyword: &'b str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str> + 'b {
-    let x = terminated(
-        preceded(multispace0, tag_no_case(keyword)),
-        peek(word_separator),
-    );
-    x
+fn segment_separator(input: &str) -> IResult<&str, (), NomError> {
+    preceded(
+        multispace0,
+        alt((
+            value((), pair(char(','), keyword("and"))),
+            value((), char(',')),
+            value((), keyword("and")),
+        )),
+    )(input)
 }
 
-fn ws_before<'a, O>(
-    p: impl FnMut(&'a str) -> IResult<&'a str, O>,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O> {
-    preceded(multispace0, p)
+fn keyword<'a>(
+    keyword: &'static str,
+) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str, NomError> {
+    context(
+        keyword,
+        terminated(
+            preceded(multispace0, tag_no_case(keyword)),
+            peek(word_separator),
+        ),
+    )
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Token<'a> {
-    Word(&'a str),
-    TimeString(&'a str),
-    Comma,
-    None,
-}
-
-fn tokenize<'a>(input: &'a str, tokens: &mut [Token<'a>]) -> Result<&'a str, ParseError> {
-    let mut input = input;
-    for idx in 0..tokens.len() {
-        if input.is_empty() {
-            tokens[idx] = Token::None;
-            break;
-        }
-        match token(input).finish() {
-            Ok((remaining, token)) => {
-                input = remaining;
-                tokens[idx] = token;
-            }
-            Err(error) => {
-                return Err(ParseError::TokenizeError(
-                    error.input.to_owned(),
-                    TokenizeError(error.code),
-                ));
-            }
-        }
-    }
-
-    Ok(input)
-}
-
-fn token(input: &str) -> IResult<&str, Token> {
-    delimited(multispace0, alt((word, time_string, comma)), multispace0)(input)
-}
-
-fn word(input: &str) -> IResult<&str, Token> {
-    map(terminated(alpha1, peek(word_separator)), Token::Word)(input)
-}
-
-fn word_separator(input: &str) -> IResult<&str, ()> {
+fn word_separator(input: &str) -> IResult<&str, (), NomError> {
     alt((value((), char(',')), value((), multispace1), value((), eof)))(input)
-}
-
-fn time_string(input: &str) -> IResult<&str, Token> {
-    map(is_a("1234567890:"), Token::TimeString)(input)
-}
-
-fn comma(input: &str) -> IResult<&str, Token> {
-    value(Token::Comma, char(','))(input)
 }
 
 #[cfg(test)]
@@ -257,79 +252,26 @@ mod tests {
 
             assert_eq!(result.unwrap(), hashset![WallTime::new(15, 29).unwrap()]);
         }
-    }
-
-    mod tokenize {
-        use super::*;
 
         #[test]
-        fn should_tokenize() {
-            let mut tokens = [Token::None; 6];
-            let result = tokenize("  at 12:33pm, and noon", &mut tokens);
+        fn should_not_parse_invalid_spec() {
+            let result = parse_time_spec("11:59pm or now");
 
-            assert_eq!(result.unwrap(), "");
-            assert_eq!(
-                &tokens,
-                &[
-                    Token::Word("at"),
-                    Token::TimeString("12:33"),
-                    Token::Word("pm"),
-                    Token::Comma,
-                    Token::Word("and"),
-                    Token::Word("noon")
-                ]
-            );
+            assert!(matches!(dbg!(result), Err(_)));
         }
 
         #[test]
-        fn should_tokenize_missing() {
-            let mut tokens = [Token::Comma; 3];
-            let result = tokenize("word", &mut tokens);
+        fn should_not_parse_out_of_range_time() {
+            let result = parse_time_spec("25:69");
 
-            assert_eq!(result.unwrap(), "");
-            assert_eq!(&tokens, &[Token::Word("word"), Token::None, Token::Comma,]);
-        }
-    }
-
-    mod token {
-        use super::*;
-
-        #[test]
-        fn should_tokenize_word() {
-            let result = token("  word rest");
-
-            assert_eq!(result.unwrap(), ("rest", Token::Word("word")));
+            assert!(matches!(dbg!(result), Err(_)));
         }
 
         #[test]
-        fn should_tokenize_time_string() {
-            let result = token("  15:32:32:1:000:1 rest");
+        fn should_not_parse_invalid_numbers() {
+            let result = parse_time_spec("1e5");
 
-            assert_eq!(
-                result.unwrap(),
-                ("rest", Token::TimeString("15:32:32:1:000:1"))
-            );
-        }
-
-        #[test]
-        fn should_tokenize_single_comma() {
-            let result = token("  ,,");
-
-            assert_eq!(result.unwrap(), (",", Token::Comma));
-        }
-
-        #[test]
-        fn should_tokenize_word_terminated_by_comma() {
-            let result = token("abc,def");
-
-            assert_eq!(result.unwrap(), (",def", Token::Word("abc")));
-        }
-
-        #[test]
-        fn should_tokenize_time_string_terminated_by_word() {
-            let result = token("5:30pm");
-
-            assert_eq!(result.unwrap(), ("pm", Token::TimeString("5:30")));
+            assert!(matches!(dbg!(result), Err(_)));
         }
     }
 }

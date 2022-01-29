@@ -24,6 +24,10 @@ impl DayOfWeek {
         use DayOfWeek::*;
         Saturday | Sunday
     }
+
+    pub fn all_days() -> EnumSet<DayOfWeek> {
+        DayOfWeek::weekdays() | DayOfWeek::weekend()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]

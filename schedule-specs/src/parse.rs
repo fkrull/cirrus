@@ -185,6 +185,7 @@ fn map_group_of_days(args: (EnumSet<DayOfWeek>, Option<EnumSet<DayOfWeek>>)) -> 
 
 fn day_group_keyword(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {
     alt((
+        context("'day'", value(DayOfWeek::all_days(), keyword("day"))),
         context(
             "'weekday'",
             value(DayOfWeek::weekdays(), keyword("weekday")),
@@ -282,6 +283,7 @@ mod tests {
                 "nope".to_owned(),
                 SyntaxError(SyntaxErrorKind::MultiContext(vec![
                     "list of days",
+                    "'day'",
                     "'weekday'",
                     "'weekend'"
                 ]))
@@ -572,6 +574,7 @@ mod tests {
                     "YESTERDAY".to_owned(),
                     SyntaxError(SyntaxErrorKind::MultiContext(vec![
                         "list of days",
+                        "'day'",
                         "'weekday'",
                         "'weekend'"
                     ]))
@@ -589,6 +592,7 @@ mod tests {
                     "1st".to_owned(),
                     SyntaxError(SyntaxErrorKind::MultiContext(vec![
                         "list of days",
+                        "'day'",
                         "'weekday'",
                         "'weekend'"
                     ]))
@@ -606,6 +610,7 @@ mod tests {
                     ", Monday".to_owned(),
                     SyntaxError(SyntaxErrorKind::MultiContext(vec![
                         "list of days",
+                        "'day'",
                         "'weekday'",
                         "'weekend'"
                     ]))

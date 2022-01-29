@@ -66,18 +66,20 @@ impl<'a> nom::error::FromExternalError<&'a str, WallTimeOutOfRange> for NomError
 }
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
-#[error("Parsing error at '{input}: {error}'")]
-pub struct ParseError {
-    input: String,
-    error: SyntaxError,
+pub enum ParseError {
+    #[error("invalid time specification at '{0}: {1}'")]
+    InvalidTimeSpec(String, SyntaxError),
+    #[error("invalid days specification at '{0}: {1}'")]
+    InvalidDaySpec(String, SyntaxError),
 }
 
-impl<'a> From<NomError<'a>> for ParseError {
-    fn from(error: NomError) -> Self {
-        ParseError {
-            input: error.0.to_owned(),
-            error: error.1,
-        }
+impl ParseError {
+    fn from_time_spec_error(error: NomError) -> Self {
+        ParseError::InvalidTimeSpec(error.0.to_owned(), error.1)
+    }
+
+    fn from_day_spec_error(error: NomError) -> Self {
+        ParseError::InvalidDaySpec(error.0.to_owned(), error.1)
     }
 }
 
@@ -88,19 +90,16 @@ pub fn parse(time_spec: &str, day_spec: &str) -> Result<Schedule, ParseError> {
 }
 
 fn parse_time_spec(spec: &str) -> Result<HashSet<WallTime>, ParseError> {
-    let (_, wall_times) = terminated(time_spec, eof)(spec).finish()?;
-    Ok(HashSet::from_iter(wall_times))
+    let (_, wall_times) = terminated(time_spec, pair(multispace0, eof))(spec)
+        .finish()
+        .map_err(ParseError::from_time_spec_error)?;
+    Ok(wall_times)
 }
 
-fn parse_day_spec(s: &str) -> Result<EnumSet<DayOfWeek>, ParseError> {
-    todo!()
-}
-
-fn time_spec(input: &str) -> IResult<&str, Vec<WallTime>, NomError> {
-    delimited(
-        multispace0,
-        separated_list1(segment_separator, wall_time),
-        multispace0,
+fn time_spec(input: &str) -> IResult<&str, HashSet<WallTime>, NomError> {
+    map(
+        preceded(multispace0, separated_list1(segment_separator, wall_time)),
+        HashSet::from_iter,
     )(input)
 }
 
@@ -123,6 +122,64 @@ fn to_wall_time(args: ((u32, Option<u32>), Option<&str>)) -> Result<WallTime, Wa
     let is_pm = matches!(suffix, Some(s) if s.eq_ignore_ascii_case("pm"));
     let hour = hour + if is_pm { 12 } else { 0 };
     Ok(WallTime::new(hour, minute)?)
+}
+
+fn parse_day_spec(spec: &str) -> Result<EnumSet<DayOfWeek>, ParseError> {
+    let (_, days) = terminated(day_spec, pair(multispace0, eof))(spec)
+        .finish()
+        .map_err(ParseError::from_day_spec_error)?;
+    Ok(days)
+}
+
+fn day_spec(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {
+    alt((days_of_week, day_set_expression))(input)
+}
+
+fn day_set_expression(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {
+    map(
+        pair(day_set, opt(preceded(keyword("except"), days_of_week))),
+        map_day_set,
+    )(input)
+}
+
+fn map_day_set(args: (EnumSet<DayOfWeek>, Option<EnumSet<DayOfWeek>>)) -> EnumSet<DayOfWeek> {
+    match args {
+        (day_set, Some(days_to_remove)) => day_set - days_to_remove,
+        (day_set, None) => day_set,
+    }
+}
+
+fn day_set(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {
+    alt((
+        keyword_with_value("weekday", DayOfWeek::weekdays()),
+        keyword_with_value("weekend", DayOfWeek::weekend()),
+    ))(input)
+}
+
+fn days_of_week(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {
+    map(
+        preceded(multispace0, separated_list1(segment_separator, day_of_week)),
+        |days| days.into_iter().collect(),
+    )(input)
+}
+
+fn day_of_week(input: &str) -> IResult<&str, DayOfWeek, NomError> {
+    alt((
+        keyword_with_value("monday", DayOfWeek::Monday),
+        keyword_with_value("tuesday", DayOfWeek::Tuesday),
+        keyword_with_value("wednesday", DayOfWeek::Wednesday),
+        keyword_with_value("thursday", DayOfWeek::Thursday),
+        keyword_with_value("friday", DayOfWeek::Friday),
+        keyword_with_value("saturday", DayOfWeek::Saturday),
+        keyword_with_value("sunday", DayOfWeek::Sunday),
+    ))(input)
+}
+
+fn keyword_with_value<'a, T: Clone>(
+    k: &'static str,
+    v: T,
+) -> impl FnMut(&'a str) -> IResult<&'a str, T, NomError> {
+    value(v, keyword(k))
 }
 
 fn segment_separator(input: &str) -> IResult<&str, (), NomError> {
@@ -156,6 +213,7 @@ fn word_separator(input: &str) -> IResult<&str, (), NomError> {
 mod tests {
     use super::*;
     use maplit::hashset;
+    use nom::error::ErrorKind;
 
     #[test]
     fn should_parse_time_spec_and_day_spec_into_schedule() {
@@ -174,14 +232,20 @@ mod tests {
     fn should_not_create_schedule_from_invalid_time_spec() {
         let result = parse("nope", "day");
 
-        todo!();
+        assert_eq!(
+            result.unwrap_err(),
+            ParseError::InvalidTimeSpec("nope".to_owned(), SyntaxError::Nom(ErrorKind::Digit))
+        );
     }
 
     #[test]
     fn should_not_create_schedule_from_invalid_day_spec() {
         let result = parse("12", "nope");
 
-        todo!();
+        assert_eq!(
+            result.unwrap_err(),
+            ParseError::InvalidDaySpec("nope".to_owned(), SyntaxError::Nom(ErrorKind::Digit))
+        );
     }
 
     mod syntax_error {
@@ -303,15 +367,12 @@ mod tests {
         }
 
         #[test]
-        fn should_not_parse_invalid_keywird() {
+        fn should_not_parse_invalid_keyword() {
             let result = parse_time_spec("11:59pm or now");
 
             assert_eq!(
                 result.unwrap_err(),
-                ParseError {
-                    input: "or now".to_owned(),
-                    error: SyntaxError::Nom(ErrorKind::Eof)
-                }
+                ParseError::InvalidTimeSpec("or now".to_owned(), SyntaxError::Nom(ErrorKind::Eof))
             );
         }
 
@@ -321,10 +382,10 @@ mod tests {
 
             assert_eq!(
                 result.unwrap_err(),
-                ParseError {
-                    input: "25:69".to_owned(),
-                    error: SyntaxError::WallTimeOutOfRange(WallTimeOutOfRange::HourOutOfRange(25))
-                }
+                ParseError::InvalidTimeSpec(
+                    "25:69".to_owned(),
+                    SyntaxError::WallTimeOutOfRange(WallTimeOutOfRange::HourOutOfRange(25))
+                )
             );
         }
 
@@ -334,10 +395,7 @@ mod tests {
 
             assert_eq!(
                 result.unwrap_err(),
-                ParseError {
-                    input: ":10".to_owned(),
-                    error: SyntaxError::Nom(ErrorKind::Digit)
-                }
+                ParseError::InvalidTimeSpec(":10".to_owned(), SyntaxError::Nom(ErrorKind::Digit))
             );
         }
 
@@ -347,10 +405,10 @@ mod tests {
 
             assert_eq!(
                 result.unwrap_err(),
-                ParseError {
-                    input: ", and more".to_owned(),
-                    error: SyntaxError::Nom(ErrorKind::Digit)
-                }
+                ParseError::InvalidTimeSpec(
+                    ", and more".to_owned(),
+                    SyntaxError::Nom(ErrorKind::Digit)
+                )
             );
         }
 
@@ -360,10 +418,7 @@ mod tests {
 
             assert_eq!(
                 result.unwrap_err(),
-                ParseError {
-                    input: "and".to_owned(),
-                    error: SyntaxError::Nom(ErrorKind::Digit)
-                }
+                ParseError::InvalidTimeSpec("and".to_owned(), SyntaxError::Nom(ErrorKind::Digit))
             );
         }
 
@@ -373,10 +428,110 @@ mod tests {
 
             assert_eq!(
                 result.unwrap_err(),
-                ParseError {
-                    input: "pm".to_owned(),
-                    error: SyntaxError::Nom(ErrorKind::Digit)
-                }
+                ParseError::InvalidTimeSpec("pm".to_owned(), SyntaxError::Nom(ErrorKind::Digit))
+            );
+        }
+    }
+
+    mod parse_day_spec {
+        use super::*;
+        use nom::error::ErrorKind;
+
+        #[test]
+        fn should_parse_single_day() {
+            let result = parse_day_spec("  Monday   ");
+
+            assert_eq!(result.unwrap(), DayOfWeek::Monday);
+        }
+
+        #[test]
+        fn should_parse_multiple_days_with_comma() {
+            let result = parse_day_spec("tuesday, wednesday");
+
+            assert_eq!(result.unwrap(), DayOfWeek::Tuesday | DayOfWeek::Wednesday);
+        }
+
+        #[test]
+        fn should_parse_multiple_days_with_and() {
+            let result = parse_day_spec("Friday and Saturday");
+
+            assert_eq!(result.unwrap(), DayOfWeek::Friday | DayOfWeek::Saturday);
+        }
+
+        #[test]
+        fn should_parse_multiple_days_with_comma_and_and() {
+            let result = parse_day_spec("Sunday, and Monday, and Thursday");
+
+            assert_eq!(
+                result.unwrap(),
+                DayOfWeek::Sunday | DayOfWeek::Monday | DayOfWeek::Thursday
+            );
+        }
+
+        #[test]
+        fn should_parse_weekday_set() {
+            let result = parse_day_spec("weekday");
+
+            assert_eq!(result.unwrap(), DayOfWeek::weekdays());
+        }
+
+        #[test]
+        fn should_parse_weekend_set() {
+            let result = parse_day_spec("weekend");
+
+            assert_eq!(result.unwrap(), DayOfWeek::weekend());
+        }
+
+        #[test]
+        fn should_parse_set_subtracting_day() {
+            let result = parse_day_spec("weekday except Wednesday");
+
+            assert_eq!(
+                result.unwrap(),
+                DayOfWeek::weekdays() - DayOfWeek::Wednesday
+            );
+        }
+
+        #[test]
+        fn should_parse_set_subtracting_multiple_days() {
+            let result = parse_day_spec("weekday except Monday, and Friday");
+
+            assert_eq!(
+                result.unwrap(),
+                DayOfWeek::weekdays() - DayOfWeek::Monday - DayOfWeek::Friday
+            );
+        }
+
+        #[test]
+        fn should_not_parse_invalid_keyword() {
+            let result = parse_day_spec("YESTERDAY");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError::InvalidDaySpec(
+                    "YESTERDAY".to_owned(),
+                    SyntaxError::Nom(ErrorKind::Eof)
+                )
+            );
+        }
+
+        #[test]
+        fn should_not_parse_digits() {
+            let result = parse_day_spec("1st");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError::InvalidDaySpec("1st".to_owned(), SyntaxError::Nom(ErrorKind::Eof))
+            );
+        }
+
+        #[test]
+        fn should_not_parse_initial_comma() {
+            let result = parse_day_spec(", Monday");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError::InvalidDaySpec(", Monday".to_owned(), SyntaxError::Nom(ErrorKind::Eof))
             );
         }
     }

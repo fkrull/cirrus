@@ -17,6 +17,7 @@ enum SyntaxError {
     Nom(nom::error::ErrorKind),
     ExpectedChar(char),
     Context(&'static str),
+    MultiContext(Vec<&'static str>),
     WallTimeOutOfRange(WallTimeOutOfRange),
 }
 
@@ -27,7 +28,8 @@ impl std::fmt::Display for SyntaxError {
             SyntaxError::Nom(nom::error::ErrorKind::Digit) => write!(f, "expected digit"),
             SyntaxError::Nom(kind) => write!(f, "{:?}", kind),
             SyntaxError::ExpectedChar(c) => write!(f, "expected '{}'", c),
-            SyntaxError::Context(ctx) => write!(f, "expected keyword '{}'", ctx),
+            SyntaxError::Context(ctx) => write!(f, "expected {}", ctx),
+            SyntaxError::MultiContext(words) => write!(f, "expected one of {}", words.join(", ")),
             SyntaxError::WallTimeOutOfRange(e) => write!(f, "{}", e),
         }
     }
@@ -46,6 +48,24 @@ impl<'a> nom::error::ParseError<&'a str> for NomError<'a> {
 
     fn from_char(input: &'a str, c: char) -> Self {
         NomError(input, SyntaxError::ExpectedChar(c))
+    }
+
+    fn or(self, other: Self) -> Self {
+        let syntax_error = match (self.1, other.1) {
+            (SyntaxError::Context(word1), SyntaxError::Context(word2)) => {
+                SyntaxError::MultiContext(vec![word1, word2])
+            }
+            (SyntaxError::MultiContext(mut words), SyntaxError::Context(word)) => {
+                words.push(word);
+                SyntaxError::MultiContext(words)
+            }
+            (SyntaxError::Context(word), SyntaxError::MultiContext(mut words)) => {
+                words.insert(0, word);
+                SyntaxError::MultiContext(words)
+            }
+            (_, other) => other,
+        };
+        NomError(other.0, syntax_error)
     }
 }
 
@@ -151,15 +171,24 @@ fn map_day_set(args: (EnumSet<DayOfWeek>, Option<EnumSet<DayOfWeek>>)) -> EnumSe
 
 fn day_set(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {
     alt((
-        keyword_with_value("weekday", DayOfWeek::weekdays()),
-        keyword_with_value("weekend", DayOfWeek::weekend()),
+        context(
+            "'weekday'",
+            keyword_with_value("weekday", DayOfWeek::weekdays()),
+        ),
+        context(
+            "'weekend'",
+            keyword_with_value("weekend", DayOfWeek::weekend()),
+        ),
     ))(input)
 }
 
 fn days_of_week(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {
-    map(
-        preceded(multispace0, separated_list1(segment_separator, day_of_week)),
-        |days| days.into_iter().collect(),
+    context(
+        "list of days",
+        map(
+            preceded(multispace0, separated_list1(segment_separator, day_of_week)),
+            |days| days.into_iter().collect(),
+        ),
     )(input)
 }
 
@@ -196,12 +225,9 @@ fn segment_separator(input: &str) -> IResult<&str, (), NomError> {
 fn keyword<'a>(
     keyword: &'static str,
 ) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str, NomError> {
-    context(
-        keyword,
-        terminated(
-            preceded(multispace0, tag_no_case(keyword)),
-            peek(word_separator),
-        ),
+    terminated(
+        preceded(multispace0, tag_no_case(keyword)),
+        peek(word_separator),
     )
 }
 
@@ -244,7 +270,10 @@ mod tests {
 
         assert_eq!(
             result.unwrap_err(),
-            ParseError::InvalidDaySpec("nope".to_owned(), SyntaxError::Nom(ErrorKind::Digit))
+            ParseError::InvalidDaySpec(
+                "nope".to_owned(),
+                SyntaxError::MultiContext(vec!["list of days", "'weekday'", "'weekend'"])
+            )
         );
     }
 
@@ -274,10 +303,17 @@ mod tests {
         }
 
         #[test]
-        fn should_format_ctx() {
-            let result = SyntaxError::Context("monday").to_string();
+        fn should_format_context() {
+            let result = SyntaxError::Context("time spec").to_string();
 
-            assert_eq!(&result, "expected keyword 'monday'");
+            assert_eq!(&result, "expected time spec");
+        }
+
+        #[test]
+        fn should_format_multi_context() {
+            let result = SyntaxError::MultiContext(vec!["list of days", "'weekday'"]).to_string();
+
+            assert_eq!(&result, "expected one of list of days, 'weekday'");
         }
 
         #[test]
@@ -510,7 +546,7 @@ mod tests {
                 result.unwrap_err(),
                 ParseError::InvalidDaySpec(
                     "YESTERDAY".to_owned(),
-                    SyntaxError::Nom(ErrorKind::Eof)
+                    SyntaxError::MultiContext(vec!["list of days", "'weekday'", "'weekend'"])
                 )
             );
         }
@@ -521,7 +557,10 @@ mod tests {
 
             assert_eq!(
                 result.unwrap_err(),
-                ParseError::InvalidDaySpec("1st".to_owned(), SyntaxError::Nom(ErrorKind::Eof))
+                ParseError::InvalidDaySpec(
+                    "1st".to_owned(),
+                    SyntaxError::MultiContext(vec!["list of days", "'weekday'", "'weekend'"])
+                )
             );
         }
 
@@ -531,7 +570,10 @@ mod tests {
 
             assert_eq!(
                 result.unwrap_err(),
-                ParseError::InvalidDaySpec(", Monday".to_owned(), SyntaxError::Nom(ErrorKind::Eof))
+                ParseError::InvalidDaySpec(
+                    ", Monday".to_owned(),
+                    SyntaxError::MultiContext(vec!["list of days", "'weekday'", "'weekend'"])
+                )
             );
         }
     }

@@ -1,28 +1,36 @@
-use super::{DayOfWeek, Schedule, WallTime};
-use crate::WallTimeOutOfRange;
+use super::{DayOfWeek, Schedule, WallTime, WallTimeOutOfRange};
 use enumset::EnumSet;
-use nom::bytes::complete::tag_no_case;
-use nom::character::complete::{digit1, u32};
-use nom::combinator::{map_res, opt};
-use nom::error::context;
-use nom::multi::separated_list1;
-use nom::sequence::{pair, preceded, separated_pair};
 use nom::{
     branch::alt,
-    bytes::complete::is_a,
-    character::complete::{alpha1, char, multispace0, multispace1},
-    combinator::{eof, map, peek, value},
-    sequence::{delimited, terminated},
+    bytes::complete::{is_a, tag_no_case},
+    character::complete::{alpha1, char, digit1, multispace0, multispace1, u32},
+    combinator::{eof, map, map_res, opt, peek, value},
+    error::context,
+    multi::separated_list1,
+    sequence::{delimited, pair, preceded, separated_pair, terminated},
     Finish, IResult, Parser,
 };
 use std::collections::HashSet;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum SyntaxError {
     Nom(nom::error::ErrorKind),
     ExpectedChar(char),
     Context(&'static str),
     WallTimeOutOfRange(WallTimeOutOfRange),
+}
+
+impl std::fmt::Display for SyntaxError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            SyntaxError::Nom(nom::error::ErrorKind::Eof) => write!(f, "expected end-of-input"),
+            SyntaxError::Nom(nom::error::ErrorKind::Digit) => write!(f, "expected digit"),
+            SyntaxError::Nom(kind) => write!(f, "{:?}", kind),
+            SyntaxError::ExpectedChar(c) => write!(f, "expected '{}'", c),
+            SyntaxError::Context(ctx) => write!(f, "expected keyword '{}'", ctx),
+            SyntaxError::WallTimeOutOfRange(e) => write!(f, "{}", e),
+        }
+    }
 }
 
 struct NomError<'a>(&'a str, SyntaxError);
@@ -57,8 +65,8 @@ impl<'a> nom::error::FromExternalError<&'a str, WallTimeOutOfRange> for NomError
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("halp")]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+#[error("Parsing error at '{input}: {error}'")]
 pub struct ParseError {
     input: String,
     error: SyntaxError,
@@ -176,8 +184,49 @@ mod tests {
         todo!();
     }
 
+    mod syntax_error {
+        use super::*;
+        use nom::error::ErrorKind;
+
+        #[test]
+        fn should_format_eof() {
+            let result = SyntaxError::Nom(ErrorKind::Eof).to_string();
+
+            assert_eq!(&result, "expected end-of-input");
+        }
+
+        #[test]
+        fn should_format_digits() {
+            let result = SyntaxError::Nom(ErrorKind::Digit).to_string();
+
+            assert_eq!(&result, "expected digit");
+        }
+
+        #[test]
+        fn should_format_error_kind() {
+            let result = SyntaxError::Nom(ErrorKind::Alpha).to_string();
+
+            assert_eq!(&result, "Alpha");
+        }
+
+        #[test]
+        fn should_format_ctx() {
+            let result = SyntaxError::Context("monday").to_string();
+
+            assert_eq!(&result, "expected keyword 'monday'");
+        }
+
+        #[test]
+        fn should_format_expected_char() {
+            let result = SyntaxError::ExpectedChar(',').to_string();
+
+            assert_eq!(&result, "expected ','");
+        }
+    }
+
     mod parse_time_spec {
         use super::*;
+        use nom::error::ErrorKind;
 
         #[test]
         fn should_parse_24h_time() {
@@ -254,24 +303,81 @@ mod tests {
         }
 
         #[test]
-        fn should_not_parse_invalid_spec() {
+        fn should_not_parse_invalid_keywird() {
             let result = parse_time_spec("11:59pm or now");
 
-            assert!(matches!(dbg!(result), Err(_)));
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError {
+                    input: "or now".to_owned(),
+                    error: SyntaxError::Nom(ErrorKind::Eof)
+                }
+            );
         }
 
         #[test]
         fn should_not_parse_out_of_range_time() {
             let result = parse_time_spec("25:69");
 
-            assert!(matches!(dbg!(result), Err(_)));
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError {
+                    input: "25:69".to_owned(),
+                    error: SyntaxError::WallTimeOutOfRange(WallTimeOutOfRange::HourOutOfRange(25))
+                }
+            );
         }
 
         #[test]
-        fn should_not_parse_invalid_numbers() {
-            let result = parse_time_spec("1e5");
+        fn should_not_parse_time_without_hours() {
+            let result = parse_time_spec(":10");
 
-            assert!(matches!(dbg!(result), Err(_)));
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError {
+                    input: ":10".to_owned(),
+                    error: SyntaxError::Nom(ErrorKind::Digit)
+                }
+            );
+        }
+
+        #[test]
+        fn should_not_parse_lone_comma() {
+            let result = parse_time_spec(", and more");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError {
+                    input: ", and more".to_owned(),
+                    error: SyntaxError::Nom(ErrorKind::Digit)
+                }
+            );
+        }
+
+        #[test]
+        fn should_not_parse_lone_and() {
+            let result = parse_time_spec("and");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError {
+                    input: "and".to_owned(),
+                    error: SyntaxError::Nom(ErrorKind::Digit)
+                }
+            );
+        }
+
+        #[test]
+        fn should_not_parse_lone_pm() {
+            let result = parse_time_spec("pm");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError {
+                    input: "pm".to_owned(),
+                    error: SyntaxError::Nom(ErrorKind::Digit)
+                }
+            );
         }
     }
 }

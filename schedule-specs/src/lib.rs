@@ -26,7 +26,7 @@ impl DayOfWeek {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum WallTimeOutOfRange {
     #[error("hour value {0} out of range [0,23]")]
     HourOutOfRange(u32),

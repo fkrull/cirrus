@@ -2,6 +2,8 @@ use enumset::EnumSet;
 use std::collections::HashSet;
 
 pub mod parse;
+#[cfg(feature = "serde")]
+mod serde;
 
 #[derive(Debug, Hash, enumset::EnumSetType)]
 pub enum DayOfWeek {
@@ -65,9 +67,53 @@ impl TimeSpec {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(::serde::Deserialize, ::serde::Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "serde::ScheduleSerde", into = "serde::ScheduleSerde")
+)]
 pub struct Schedule {
-    pub days: EnumSet<DayOfWeek>,
-    pub times: HashSet<TimeSpec>,
+    days: EnumSet<DayOfWeek>,
+    times: HashSet<TimeSpec>,
+    every_spec: Option<String>,
+    at_spec: String,
+}
+
+impl Schedule {
+    pub fn from_time(at_spec: impl Into<String>) -> Result<Schedule, parse::ParseError> {
+        Schedule::_from_time(at_spec.into())
+    }
+
+    fn _from_time(at_spec: String) -> Result<Schedule, parse::ParseError> {
+        let times = parse::parse_at_spec(&at_spec)?;
+        Ok(Schedule {
+            days: DayOfWeek::all_days(),
+            times,
+            every_spec: None,
+            at_spec,
+        })
+    }
+
+    pub fn from_time_and_days(
+        at_spec: impl Into<String>,
+        every_spec: impl Into<String>,
+    ) -> Result<Schedule, parse::ParseError> {
+        Schedule::_from_time_and_days(at_spec.into(), every_spec.into())
+    }
+
+    fn _from_time_and_days(
+        at_spec: String,
+        every_spec: String,
+    ) -> Result<Schedule, parse::ParseError> {
+        let times = parse::parse_at_spec(&at_spec)?;
+        let days = parse::parse_every_spec(&every_spec)?;
+        Ok(Schedule {
+            days,
+            times,
+            every_spec: Some(every_spec),
+            at_spec,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -115,6 +161,41 @@ mod tests {
                 result,
                 Err(TimeSpecOutOfRange::MinuteOutOfRange(60))
             ));
+        }
+    }
+
+    mod schedule {
+        use super::*;
+        use maplit::hashset;
+
+        #[test]
+        fn should_parse_time() {
+            let result = Schedule::from_time("14:30 and 5 am\n");
+
+            assert_eq!(
+                result.unwrap(),
+                Schedule {
+                    days: DayOfWeek::all_days(),
+                    times: hashset![TimeSpec::new(14, 30).unwrap(), TimeSpec::new(5, 0).unwrap()],
+                    every_spec: None,
+                    at_spec: "14:30 and 5 am\n".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn should_parse_time_and_days() {
+            let result = Schedule::from_time_and_days("6pm", "monday, and thursday");
+
+            assert_eq!(
+                result.unwrap(),
+                Schedule {
+                    days: DayOfWeek::Monday | DayOfWeek::Thursday,
+                    times: hashset![TimeSpec::new(18, 0).unwrap()],
+                    every_spec: Some("monday, and thursday".to_string()),
+                    at_spec: "6pm".to_string()
+                }
+            );
         }
     }
 }

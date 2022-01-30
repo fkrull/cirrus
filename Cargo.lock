@@ -2551,6 +2551,8 @@ dependencies = [
  "enumset",
  "maplit",
  "nom",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

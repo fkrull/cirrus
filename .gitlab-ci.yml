@@ -2,7 +2,7 @@ image: registry.gitlab.com/fkrull/cirrus/ci-tools:latest
 
 variables:
   STORAGE_DRIVER: vfs
-  #BUILDAH_ISOLATION: chroot
+  BUILDAH_ISOLATION: chroot
   CARGO_HOME: ${CI_PROJECT_DIR}/cargo
   GOPATH: ${CI_PROJECT_DIR}/go
 

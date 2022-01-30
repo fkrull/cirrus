@@ -2,7 +2,6 @@ use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
 use std::sync::Arc;
 
 pub mod configreload;
-pub mod daemon_config;
 pub mod job;
 pub mod job_queues;
 pub mod scheduler;

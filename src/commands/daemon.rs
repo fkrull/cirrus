@@ -56,19 +56,9 @@ async fn run_daemon(
 ) -> eyre::Result<()> {
     setup_daemon_logger().await?;
 
-    let restic_version = restic.version_string().await.unwrap_or_else(|e| {
-        warn!("failed to query restic version: {}", e);
-        "<unknown restic version>".to_string()
-    });
-
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
     let config = Arc::new(config);
-    #[allow(unused_variables)]
-    let daemon_config = Arc::new(daemon_config::DaemonConfig {
-        versions: daemon_config::Versions { restic_version },
-        ..Default::default()
-    });
 
     // declare actors
     let jobqueues = cirrus_actor::new();
@@ -83,11 +73,7 @@ async fn run_daemon(
     let desktop_ui = {
         let desktop_ui_builder = cirrus_actor::new();
         let desktop_ui_ref = desktop_ui_builder.actor_ref();
-        match cirrus_desktop_ui::DesktopUi::new(
-            daemon_config.clone(),
-            config.clone(),
-            job_sink.clone(),
-        ) {
+        match cirrus_desktop_ui::DesktopUi::new(config.clone(), job_sink.clone()) {
             Ok(desktop_ui) => {
                 jobstatus_sink = jobstatus_sink.also_to(desktop_ui_ref.clone());
                 configreload_sink = configreload_sink.also_to(desktop_ui_ref);
@@ -119,6 +105,10 @@ async fn run_daemon(
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
     info!("instance name: {}", instance_name);
+    match restic.version_string().await {
+        Ok(restic_version) => info!("restic version: {}", restic_version),
+        Err(e) => warn!("failed to query restic version: {}", e),
+    }
     info!("running forever...");
 
     tokio::spawn(async move { jobqueues.run().await.unwrap() });

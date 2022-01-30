@@ -1,6 +1,6 @@
 use cirrus_actor::Messages;
 use cirrus_core::model::Config;
-use cirrus_daemon::{configreload::ConfigReload, daemon_config::DaemonConfig, job};
+use cirrus_daemon::{configreload::ConfigReload, job};
 use std::sync::Arc;
 
 mod status_icon;
@@ -8,25 +8,15 @@ mod status_icon;
 #[derive(Debug)]
 pub struct DesktopUi {
     config: Arc<Config>,
-    daemon_config: Arc<DaemonConfig>,
     job_sink: Messages<job::Job>,
-    status_icon: Option<status_icon::StatusIcon>,
+    status_icon: status_icon::StatusIcon,
 }
 
 impl DesktopUi {
-    pub fn new(
-        daemon_config: Arc<DaemonConfig>,
-        config: Arc<Config>,
-        job_sink: Messages<job::Job>,
-    ) -> eyre::Result<Self> {
-        let status_icon = if daemon_config.desktop.status_icon {
-            Some(status_icon::StatusIcon::new()?)
-        } else {
-            None
-        };
+    pub fn new(config: Arc<Config>, job_sink: Messages<job::Job>) -> eyre::Result<Self> {
+        let status_icon = status_icon::StatusIcon::new()?;
         Ok(Self {
             config,
-            daemon_config,
             job_sink,
             status_icon,
         })
@@ -35,19 +25,13 @@ impl DesktopUi {
     fn handle_job_status_change(&mut self, ev: job::StatusChange) -> eyre::Result<()> {
         match ev.new_status {
             job::Status::Started => {
-                if let Some(status_icon) = &mut self.status_icon {
-                    status_icon.job_started(&ev.job)?;
-                }
+                self.status_icon.job_started(&ev.job)?;
             }
             job::Status::FinishedSuccessfully => {
-                if let Some(status_icon) = &mut self.status_icon {
-                    status_icon.job_succeeded(&ev.job)?;
-                }
+                self.status_icon.job_succeeded(&ev.job)?;
             }
             job::Status::FinishedWithError => {
-                if let Some(status_icon) = &mut self.status_icon {
-                    status_icon.job_failed(&ev.job)?;
-                }
+                self.status_icon.job_failed(&ev.job)?;
             }
             _ => {}
         }
@@ -56,9 +40,7 @@ impl DesktopUi {
 
     fn handle_config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
         self.config = new_config;
-        if let Some(status_icon) = &mut self.status_icon {
-            status_icon.config_reloaded(self.config.clone())?;
-        }
+        self.status_icon.config_reloaded(self.config.clone())?;
         Ok(())
     }
 }
@@ -95,10 +77,8 @@ impl cirrus_actor::Actor for DesktopUi {
     }
 
     async fn on_start(&mut self) -> Result<(), Self::Error> {
-        if let Some(status_icon) = &mut self.status_icon {
-            let model = status_icon::Model::new(self.config.clone(), self.job_sink.clone());
-            status_icon.start(model)?;
-        }
+        let model = status_icon::Model::new(self.config.clone(), self.job_sink.clone());
+        self.status_icon.start(model)?;
         Ok(())
     }
 }

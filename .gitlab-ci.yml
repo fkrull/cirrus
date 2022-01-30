@@ -2,7 +2,7 @@ image: registry.gitlab.com/fkrull/cirrus/ci-tools:latest
 
 variables:
   STORAGE_DRIVER: vfs
-  BUILDAH_ISOLATION: chroot
+  #BUILDAH_ISOLATION: chroot
   CARGO_HOME: ${CI_PROJECT_DIR}/cargo
   GOPATH: ${CI_PROJECT_DIR}/go
 
@@ -22,6 +22,10 @@ tools:ci-tools-image:
   stage: tools
   image: quay.io/buildah/stable
   when: manual
+  before_script:
+    - df -h
+    - df -hi
+    - du -d2 -h /var/lib/containers/storage/vfs*
   script:
     - buildah build-using-dockerfile
       --squash
@@ -34,7 +38,7 @@ tools:ci-tools-image:
   after_script:
     - df -h
     - df -hi
-    - du -d1 -h /var/lib/containers/storage/vfs/dir
+    - du -d2 -h /var/lib/containers/storage/vfs*
 
 test:
   extends: .shared-cache

@@ -2,6 +2,8 @@ use enumset::EnumSet;
 use std::collections::HashSet;
 
 pub mod parse;
+#[cfg(feature = "time")]
+mod schedule;
 #[cfg(feature = "serde")]
 mod serde;
 

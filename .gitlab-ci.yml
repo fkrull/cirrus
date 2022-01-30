@@ -33,6 +33,7 @@ tools:ci-tools-image:
       --context "${CI_PROJECT_DIR}/build-scripts/ci-tools"
       --dockerfile "${CI_PROJECT_DIR}/build-scripts/ci-tools/Containerfile"
       --destination registry.gitlab.com/fkrull/cirrus/ci-tools:latest
+      --single-snapshot
 
 test:
   extends: .shared-cache

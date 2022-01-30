@@ -20,16 +20,20 @@ stages:
 # ----
 tools:ci-tools-image:
   stage: tools
-  image: quay.io/buildah/stable
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [ "" ]
   when: manual
   script:
-    - buildah build-using-dockerfile
-      -t ci-tools
-      build-scripts/ci-tools
-    - buildah push
-      --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
-      ci-tools
-      docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
+    - mkdir -p /kaniko/.docker
+    - echo 
+      "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}"
+      > /kaniko/.docker/config.json
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}/build-scripts/ci-tools"
+      --dockerfile "${CI_PROJECT_DIR}/build-scripts/ci-tools/Containerfile"
+      --destination registry.gitlab.com/fkrull/cirrus/ci-tools:latest
+      --single-snapshot
 
 test:
   extends: .shared-cache

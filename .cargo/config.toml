@@ -1,0 +1,6 @@
+[build]
+# getting the local timezone can have a data race with setenv if called simultaneously in multiple threads
+# see https://github.com/chronotope/chrono/issues/499 and https://github.com/time-rs/time/issues/293
+# we only use set_env in tests and kinda want local time for log messages and scheduling,
+# so we explicitly take the risk here
+rustflags = ["--cfg=unsound_local_offset"]

@@ -1,26 +1,17 @@
 use super::Schedule;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct ScheduleSerde {
+pub(crate) struct ScheduleDto {
     at: String,
     every: Option<String>,
 }
 
-impl From<Schedule> for ScheduleSerde {
-    fn from(schedule: Schedule) -> Self {
-        ScheduleSerde {
-            at: schedule.at_spec,
-            every: schedule.every_spec,
-        }
-    }
-}
-
-impl TryFrom<ScheduleSerde> for Schedule {
+impl TryFrom<ScheduleDto> for Schedule {
     type Error = crate::parse::ParseError;
 
-    fn try_from(serde_value: ScheduleSerde) -> Result<Self, Self::Error> {
+    fn try_from(serde_value: ScheduleDto) -> Result<Self, Self::Error> {
         match serde_value.every {
             None => Schedule::from_time(serde_value.at),
             Some(every) => Schedule::from_time_and_days(serde_value.at, every),

@@ -68,14 +68,15 @@ impl TimeSpec {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(::serde::Deserialize, ::serde::Serialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "serde::ScheduleSerde", into = "serde::ScheduleSerde")
-)]
+#[cfg_attr(feature = "serde", serde(try_from = "serde::ScheduleDto"))]
 pub struct Schedule {
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     days: EnumSet<DayOfWeek>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     times: HashSet<TimeSpec>,
+    #[cfg_attr(feature = "serde", serde(rename(serialize = "every")))]
     every_spec: Option<String>,
+    #[cfg_attr(feature = "serde", serde(rename(serialize = "at")))]
     at_spec: String,
 }
 

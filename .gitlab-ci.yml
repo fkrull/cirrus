@@ -31,6 +31,10 @@ tools:ci-tools-image:
       --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD
       ci-tools
       docker://registry.gitlab.com/fkrull/cirrus/ci-tools:latest
+  after_script:
+    - df -h
+    - df -hi
+    - du -d1 -h /var/lib/containers/storage/vfs/dir
 
 test:
   extends: .shared-cache

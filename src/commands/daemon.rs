@@ -30,10 +30,7 @@ async fn setup_daemon_logger() -> eyre::Result<()> {
         "[year]-[month]-[day] [hour repr:24]:[minute]:[second][offset_hour sign:mandatory]:[offset_minute]"
     );
 
-    let stdout_layer = layer()
-        .with_ansi(true)
-        .with_target(false)
-        .with_timer(LocalTime::new(time_format));
+    let stdout_layer = layer().with_ansi(true).with_target(false).without_time();
 
     let data_dir = data_dir().await?;
     let file_layer = layer()

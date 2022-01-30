@@ -17,9 +17,6 @@ struct Args {
     /// cargo features for cirrus
     #[argh(option, default = "String::new()")]
     features: String,
-    /// RUSTFLAGS to set for the build
-    #[argh(option)]
-    rustflags: Option<String>,
     /// download and include the restic binary in the package
     #[argh(switch)]
     download_restic: bool,
@@ -32,8 +29,7 @@ fn main() -> eyre::Result<()> {
 
     // compile cirrus
     {
-        let _e1 = args.rustflags.as_ref().map(|s| pushenv("RUSTFLAGS", s));
-        let _e2 = pushenv("CIRRUS_VERSION", &args.version);
+        let _e1 = pushenv("CIRRUS_VERSION", &args.version);
         let _e2 = pushenv("CIRRUS_BUILD_STRING", &args.build_string);
         let _e3 = pushenv("CIRRUS_TARGET", &target);
 

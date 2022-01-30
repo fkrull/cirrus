@@ -25,7 +25,6 @@ tools:ci-tools-image:
   before_script:
     - df -h
     - df -hi
-    - du -d2 -h /var/lib/containers/storage/vfs*
   script:
     - buildah build-using-dockerfile
       --squash

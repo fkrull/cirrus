@@ -24,6 +24,7 @@ tools:ci-tools-image:
   when: manual
   script:
     - buildah build-using-dockerfile
+      --squash
       -t ci-tools
       build-scripts/ci-tools
     - buildah push

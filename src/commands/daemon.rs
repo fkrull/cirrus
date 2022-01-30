@@ -6,11 +6,11 @@ use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
 use tracing::{info, warn};
 
-async fn data_dir() -> eyre::Result<PathBuf> {
+async fn cache_dir() -> eyre::Result<PathBuf> {
     use dirs_next as dirs;
 
-    let data_dir = dirs::data_dir()
-        .ok_or_else(|| eyre::eyre!("failed to get data dir path"))?
+    let data_dir = dirs::cache_dir()
+        .ok_or_else(|| eyre::eyre!("failed to get cache dir path"))?
         .join("cirrus");
     tokio::fs::create_dir_all(&data_dir).await?;
     Ok(data_dir)
@@ -32,12 +32,12 @@ async fn setup_daemon_logger() -> eyre::Result<()> {
 
     let stdout_layer = layer().with_ansi(true).with_target(false).without_time();
 
-    let data_dir = data_dir().await?;
+    let log_file_dir = cache_dir().await?;
     let file_layer = layer()
         .with_ansi(false)
         .with_span_events(FmtSpan::CLOSE)
         .with_timer(LocalTime::new(time_format))
-        .with_writer(move || tracing_appender::rolling::never(&data_dir, "cirrus.log"));
+        .with_writer(move || tracing_appender::rolling::never(&log_file_dir, "cirrus.log"));
 
     Registry::default()
         .with(LevelFilter::from(Level::INFO))

@@ -10,7 +10,7 @@ use nom::{
     sequence::{pair, preceded, terminated},
     Finish, IResult,
 };
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 #[derive(Debug, PartialEq, Eq)]
 enum SyntaxErrorKind {
@@ -112,7 +112,7 @@ impl ParseError {
     }
 }
 
-pub fn parse_at_spec(times_string: &str) -> Result<HashSet<TimeSpec>, ParseError> {
+pub fn parse_at_spec(times_string: &str) -> Result<BTreeSet<TimeSpec>, ParseError> {
     let (_, times) = terminated(time_specs, pair(multispace0, eof))(times_string)
         .finish()
         .map_err(ParseError::times_error)?;
@@ -126,10 +126,10 @@ pub fn parse_every_spec(days_string: &str) -> Result<EnumSet<DayOfWeek>, ParseEr
     Ok(days)
 }
 
-fn time_specs(input: &str) -> IResult<&str, HashSet<TimeSpec>, NomError> {
+fn time_specs(input: &str) -> IResult<&str, BTreeSet<TimeSpec>, NomError> {
     map(
         separated_list1(list_item_separator, time_spec),
-        HashSet::from_iter,
+        BTreeSet::from_iter,
     )(input)
 }
 
@@ -235,7 +235,7 @@ fn word_separator(input: &str) -> IResult<&str, (), NomError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use maplit::hashset;
+    use maplit::btreeset;
     use nom::error::ErrorKind;
 
     mod syntax_error {
@@ -292,49 +292,49 @@ mod tests {
         fn should_parse_24h_time() {
             let result = parse_at_spec("15:23");
 
-            assert_eq!(result.unwrap(), hashset![TimeSpec::new(15, 23).unwrap()]);
+            assert_eq!(result.unwrap(), btreeset![TimeSpec::new(15, 23).unwrap()]);
         }
 
         #[test]
         fn should_parse_am_time_without_separator() {
             let result = parse_at_spec("4:39am");
 
-            assert_eq!(result.unwrap(), hashset![TimeSpec::new(4, 39).unwrap()]);
+            assert_eq!(result.unwrap(), btreeset![TimeSpec::new(4, 39).unwrap()]);
         }
 
         #[test]
         fn should_parse_am_time_with_separator() {
             let result = parse_at_spec("6:09 am");
 
-            assert_eq!(result.unwrap(), hashset![TimeSpec::new(6, 9).unwrap()]);
+            assert_eq!(result.unwrap(), btreeset![TimeSpec::new(6, 9).unwrap()]);
         }
 
         #[test]
         fn should_parse_pm_time_without_separator() {
             let result = parse_at_spec("1:7pm");
 
-            assert_eq!(result.unwrap(), hashset![TimeSpec::new(13, 7).unwrap()]);
+            assert_eq!(result.unwrap(), btreeset![TimeSpec::new(13, 7).unwrap()]);
         }
 
         #[test]
         fn should_parse_pm_time_with_separator() {
             let result = parse_at_spec("9:44 pm");
 
-            assert_eq!(result.unwrap(), hashset![TimeSpec::new(21, 44).unwrap()]);
+            assert_eq!(result.unwrap(), btreeset![TimeSpec::new(21, 44).unwrap()]);
         }
 
         #[test]
         fn should_parse_24h_time_without_minutes() {
             let result = parse_at_spec("18");
 
-            assert_eq!(result.unwrap(), hashset![TimeSpec::new(18, 0).unwrap()]);
+            assert_eq!(result.unwrap(), btreeset![TimeSpec::new(18, 0).unwrap()]);
         }
 
         #[test]
         fn should_parse_12h_time_without_minutes() {
             let result = parse_at_spec("7 pm");
 
-            assert_eq!(result.unwrap(), hashset![TimeSpec::new(19, 0).unwrap()]);
+            assert_eq!(result.unwrap(), btreeset![TimeSpec::new(19, 0).unwrap()]);
         }
 
         #[test]
@@ -343,7 +343,7 @@ mod tests {
 
             assert_eq!(
                 result.unwrap(),
-                hashset![
+                btreeset![
                     TimeSpec::new(1, 0).unwrap(),
                     TimeSpec::new(2, 0).unwrap(),
                     TimeSpec::new(6, 12).unwrap(),
@@ -359,7 +359,7 @@ mod tests {
         fn should_ignore_leading_and_trailing_whitespace() {
             let result = parse_at_spec("    15:29   \n\t  ");
 
-            assert_eq!(result.unwrap(), hashset![TimeSpec::new(15, 29).unwrap()]);
+            assert_eq!(result.unwrap(), btreeset![TimeSpec::new(15, 29).unwrap()]);
         }
 
         #[test]

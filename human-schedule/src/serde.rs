@@ -59,7 +59,7 @@ mod tests {
     mod deserialize {
         use super::*;
         use crate::{DayOfWeek, TimeSpec};
-        use maplit::hashset;
+        use maplit::btreeset;
         use serde_json::json;
 
         #[test]
@@ -73,7 +73,7 @@ mod tests {
                 result.unwrap(),
                 Schedule {
                     days: DayOfWeek::all_days(),
-                    times: hashset![TimeSpec::new(16, 33).unwrap()],
+                    times: btreeset![TimeSpec::new(16, 33).unwrap()],
                     every_spec: None,
                     at_spec: "4:33 pm".to_string()
                 }
@@ -92,7 +92,7 @@ mod tests {
                 result.unwrap(),
                 Schedule {
                     days: DayOfWeek::weekdays() - DayOfWeek::Wednesday,
-                    times: hashset![TimeSpec::new(17, 59).unwrap()],
+                    times: btreeset![TimeSpec::new(17, 59).unwrap()],
                     every_spec: Some("weekday except Wednesday".to_string()),
                     at_spec: "17:59".to_string()
                 }

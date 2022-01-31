@@ -1,5 +1,5 @@
 use enumset::EnumSet;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 pub mod parse;
 #[cfg(feature = "time")]
@@ -42,7 +42,7 @@ pub enum TimeSpecOutOfRange {
     MinuteOutOfRange(u32),
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct TimeSpec {
     hour: u32,
     minute: u32,
@@ -75,7 +75,7 @@ pub struct Schedule {
     #[cfg_attr(feature = "serde", serde(skip_serializing))]
     days: EnumSet<DayOfWeek>,
     #[cfg_attr(feature = "serde", serde(skip_serializing))]
-    times: HashSet<TimeSpec>,
+    times: BTreeSet<TimeSpec>,
     #[cfg_attr(feature = "serde", serde(rename(serialize = "every")))]
     every_spec: Option<String>,
     #[cfg_attr(feature = "serde", serde(rename(serialize = "at")))]
@@ -169,7 +169,7 @@ mod tests {
 
     mod schedule {
         use super::*;
-        use maplit::hashset;
+        use maplit::btreeset;
 
         #[test]
         fn should_parse_time() {
@@ -179,7 +179,7 @@ mod tests {
                 result.unwrap(),
                 Schedule {
                     days: DayOfWeek::all_days(),
-                    times: hashset![TimeSpec::new(14, 30).unwrap(), TimeSpec::new(5, 0).unwrap()],
+                    times: btreeset![TimeSpec::new(14, 30).unwrap(), TimeSpec::new(5, 0).unwrap()],
                     every_spec: None,
                     at_spec: "14:30 and 5 am\n".to_string()
                 }
@@ -194,7 +194,7 @@ mod tests {
                 result.unwrap(),
                 Schedule {
                     days: DayOfWeek::Monday | DayOfWeek::Thursday,
-                    times: hashset![TimeSpec::new(18, 0).unwrap()],
+                    times: btreeset![TimeSpec::new(18, 0).unwrap()],
                     every_spec: Some("monday, and thursday".to_string()),
                     at_spec: "6pm".to_string()
                 }

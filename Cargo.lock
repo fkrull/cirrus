@@ -321,7 +321,7 @@ dependencies = [
  "restic-bin",
  "tar",
  "tempfile",
- "time 0.3.6",
+ "time 0.3.7",
  "xshell",
  "xz2",
 ]
@@ -444,7 +444,7 @@ dependencies = [
  "restigo",
  "rpassword",
  "termcolor",
- "time 0.3.6",
+ "time 0.3.7",
  "tokio",
  "toml",
  "tracing",
@@ -478,6 +478,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "time 0.3.7",
  "tokio",
  "tokio-stream",
  "toml",
@@ -489,12 +490,12 @@ name = "cirrus-daemon"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "chrono",
  "cirrus-actor",
  "cirrus-core",
  "eyre",
  "futures",
  "notify",
+ "time 0.3.7",
  "tokio",
  "tracing",
  "tracing-futures",
@@ -2844,9 +2845,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8d54b9298e05179c335de2b9645d061255bcd5155f843b3e328d2cfe0a5b413"
+checksum = "004cbc98f30fa233c61a38bc77e96a9106e65c88f2d3bef182ae952027e5753d"
 dependencies = [
  "itoa",
  "libc",
@@ -2943,7 +2944,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94571df2eae3ed4353815ea5a90974a594a1792d8782ff2cbcc9392d1101f366"
 dependencies = [
  "crossbeam-channel",
- "time 0.3.6",
+ "time 0.3.7",
  "tracing-subscriber",
 ]
 
@@ -3007,7 +3008,7 @@ dependencies = [
  "ansi_term",
  "sharded-slab",
  "thread_local",
- "time 0.3.6",
+ "time 0.3.7",
  "tracing-core",
  "tracing-log",
 ]

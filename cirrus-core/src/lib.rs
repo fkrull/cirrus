@@ -1,6 +1,7 @@
 pub mod model;
 pub mod restic;
 pub mod secrets;
+pub mod trigger;
 
 const fn filter_empty(s: Option<&str>) -> Option<&str> {
     match s {

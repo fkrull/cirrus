@@ -139,7 +139,7 @@ mod tests {
             # look I don't remember cron syntax
             [[backups.home.triggers]]
             cron = "2 * *"
-            timezone = "Europe/Berlin"
+            timezone = "utc"
             [[backups.home.triggers]]
             cron = "1 * *"
 
@@ -187,7 +187,7 @@ mod tests {
                         triggers: vec![
                             trigger::Trigger::Cron(trigger::cron::Cron {
                                 cron: "2 * *".to_string(),
-                                timezone: trigger::cron::Timezone::Other("Europe/Berlin".to_string())
+                                timezone: trigger::cron::Timezone::Utc,
                             }),
                            trigger::Trigger::Cron(trigger::cron::Cron {
                                 cron: "1 * *".to_string(),

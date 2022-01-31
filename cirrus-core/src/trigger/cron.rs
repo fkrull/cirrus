@@ -1,11 +1,11 @@
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use std::convert::TryFrom;
 use time::OffsetDateTime;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Timezone {
     Utc,
     Local,
-    Other(String),
 }
 
 impl Serialize for Timezone {
@@ -16,7 +16,6 @@ impl Serialize for Timezone {
         let ser = match self {
             Timezone::Utc => "utc",
             Timezone::Local => "local",
-            Timezone::Other(s) => s,
         };
         serializer.serialize_str(ser)
     }
@@ -34,6 +33,10 @@ impl Timezone {
 
 struct TimezoneVisitor;
 
+impl TimezoneVisitor {
+    const EXPECTED: [&'static str; 2] = ["utc", "local"];
+}
+
 impl<'de> de::Visitor<'de> for TimezoneVisitor {
     type Value = Timezone;
 
@@ -45,16 +48,14 @@ impl<'de> de::Visitor<'de> for TimezoneVisitor {
     where
         E: de::Error,
     {
-        let tz = Timezone::match_tz(s).unwrap_or_else(|| Timezone::Other(s.to_string()));
-        Ok(tz)
+        Timezone::match_tz(s).ok_or_else(|| E::unknown_variant(s, &TimezoneVisitor::EXPECTED))
     }
 
     fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        let tz = Timezone::match_tz(&v).unwrap_or_else(|| Timezone::Other(v));
-        Ok(tz)
+        Timezone::match_tz(&v).ok_or_else(|| E::unknown_variant(&v, &TimezoneVisitor::EXPECTED))
     }
 }
 
@@ -101,7 +102,6 @@ fn time_to_chrono(time: OffsetDateTime) -> chrono::DateTime<chrono::Utc> {
 
 fn chrono_to_time(chrono: chrono::DateTime<chrono::Utc>) -> OffsetDateTime {
     use chrono::{Datelike, Timelike};
-    use std::convert::TryFrom;
 
     time::Date::from_calendar_date(
         chrono.year(),
@@ -133,10 +133,6 @@ impl Cron {
                 timezone: Timezone::Local,
             } => cron_parser::parse(cron, &after.with_timezone(&chrono::Local))?
                 .with_timezone(&chrono::Utc),
-            Cron {
-                timezone: Timezone::Other(_),
-                ..
-            } => return Err(eyre::eyre!("arbitrary timezones aren't supported")),
         };
         Ok(chrono_to_time(next))
     }
@@ -163,12 +159,6 @@ mod tests {
         }
 
         #[test]
-        fn should_deserialize_other_timezone() {
-            let tz: Timezone = serde_json::from_str(r#""Antarctica/Troll""#).unwrap();
-            assert_eq!(tz, Timezone::Other("Antarctica/Troll".to_string()));
-        }
-
-        #[test]
         fn should_serialize_utc_timezone() {
             let s = serde_json::to_string(&Timezone::Utc).unwrap();
             assert_eq!(&s, r#""utc""#);
@@ -178,13 +168,6 @@ mod tests {
         fn should_serialize_local_timezone() {
             let s = serde_json::to_string(&Timezone::Local).unwrap();
             assert_eq!(&s, r#""local""#);
-        }
-
-        #[test]
-        fn should_serialize_other_timezone() {
-            let s =
-                serde_json::to_string(&Timezone::Other("Africa/Casablanca".to_string())).unwrap();
-            assert_eq!(&s, r#""Africa/Casablanca""#);
         }
     }
 

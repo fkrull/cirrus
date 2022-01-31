@@ -1,5 +1,6 @@
 use cirrus_core::{model, restic::Restic, secrets::Secrets};
 use std::sync::Arc;
+use time::OffsetDateTime;
 
 mod backup;
 pub use backup::*;
@@ -90,7 +91,7 @@ impl Spec {
 #[derive(Debug, Clone)]
 pub struct StatusChange {
     pub job: Job,
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub timestamp: OffsetDateTime,
     pub new_status: Status,
 }
 
@@ -98,7 +99,7 @@ impl StatusChange {
     pub(crate) fn new(job: Job, new_status: Status) -> Self {
         StatusChange {
             job,
-            timestamp: chrono::Utc::now(),
+            timestamp: OffsetDateTime::now_utc(),
             new_status,
         }
     }

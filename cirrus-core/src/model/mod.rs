@@ -106,6 +106,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::trigger;
     use maplit::hashmap;
 
     #[test]
@@ -138,7 +139,7 @@ mod tests {
             # look I don't remember cron syntax
             [[backups.home.triggers]]
             cron = "2 * *"
-            timezone = "Europe/Berlin"
+            timezone = "utc"
             [[backups.home.triggers]]
             cron = "1 * *"
 
@@ -184,14 +185,14 @@ mod tests {
                         disable_triggers: false,
                         extra_args: vec!["--one-file-system".to_string()],
                         triggers: vec![
-                            backup::Trigger::Cron {
+                            trigger::Trigger::Cron(trigger::cron::Cron {
                                 cron: "2 * *".to_string(),
-                                timezone: backup::Timezone::Other("Europe/Berlin".to_string())
-                            },
-                            backup::Trigger::Cron {
+                                timezone: trigger::cron::Timezone::Utc,
+                            }),
+                           trigger::Trigger::Cron(trigger::cron::Cron {
                                 cron: "1 * *".to_string(),
-                                timezone: backup::Timezone::Local
-                            },
+                                timezone: trigger::cron::Timezone::Local
+                            }),
                         ]
                     },
                     backup::Name("srv".to_string()) => backup::Definition {

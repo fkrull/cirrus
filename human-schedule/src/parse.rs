@@ -100,6 +100,8 @@ pub enum ParseError {
     InvalidTimesSpec(String, SyntaxError),
     #[error("invalid days specification at '{0}: {}'", (.1).0)]
     InvalidDaysSpec(String, SyntaxError),
+    #[error("set of days is empty: '{0}'")]
+    EmptyDaysSet(String),
 }
 
 impl ParseError {
@@ -123,7 +125,11 @@ pub fn parse_every_spec(days_string: &str) -> Result<EnumSet<DayOfWeek>, ParseEr
     let (_, days) = terminated(days_spec, pair(multispace0, eof))(days_string)
         .finish()
         .map_err(ParseError::days_error)?;
-    Ok(days)
+    if !days.is_empty() {
+        Ok(days)
+    } else {
+        Err(ParseError::EmptyDaysSet(days_string.to_owned()))
+    }
 }
 
 fn time_specs(input: &str) -> IResult<&str, BTreeSet<TimeSpec>, NomError> {
@@ -441,6 +447,19 @@ mod tests {
                 )
             );
         }
+
+        #[test]
+        fn should_not_parse_empty_string() {
+            let result = parse_at_spec("");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError::InvalidTimesSpec(
+                    "".to_owned(),
+                    SyntaxError(SyntaxErrorKind::Nom(ErrorKind::Digit))
+                )
+            );
+        }
     }
 
     mod parse_every_spec {
@@ -562,6 +581,34 @@ mod tests {
                         "'weekend'"
                     ]))
                 )
+            );
+        }
+
+        #[test]
+        fn should_not_parse_empty_string() {
+            let result = parse_every_spec("");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError::InvalidDaysSpec(
+                    "".to_owned(),
+                    SyntaxError(SyntaxErrorKind::MultiContext(vec![
+                        "list of days",
+                        "'day'",
+                        "'weekday'",
+                        "'weekend'"
+                    ]))
+                )
+            );
+        }
+
+        #[test]
+        fn should_not_empty_set_of_days() {
+            let result = parse_every_spec("weekend except Saturday and Sunday");
+
+            assert_eq!(
+                result.unwrap_err(),
+                ParseError::EmptyDaysSet("weekend except Saturday and Sunday".to_owned(),)
             );
         }
     }

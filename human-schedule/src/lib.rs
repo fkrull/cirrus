@@ -68,7 +68,7 @@ impl TimeSpec {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(try_from = "serde::ScheduleDto"))]
 pub struct Schedule {
@@ -89,6 +89,7 @@ impl Schedule {
 
     fn _from_time(at_spec: String) -> Result<Schedule, parse::ParseError> {
         let times = parse::parse_at_spec(&at_spec)?;
+        assert!(!times.is_empty());
         Ok(Schedule {
             days: DayOfWeek::all_days(),
             times,
@@ -109,7 +110,9 @@ impl Schedule {
         every_spec: String,
     ) -> Result<Schedule, parse::ParseError> {
         let times = parse::parse_at_spec(&at_spec)?;
+        assert!(!times.is_empty());
         let days = parse::parse_every_spec(&every_spec)?;
+        assert!(!days.is_empty());
         Ok(Schedule {
             days,
             times,

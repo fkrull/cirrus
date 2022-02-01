@@ -12,13 +12,5 @@ exclude_caches = true
 excludes = ["target"]
 
 [[backups.test.triggers]]
-cron = "* * * * *"
-
-[backups.target]
-repository = "test"
-path = "target"
-exclude_caches = true
-excludes = ["test-repo"]
-
-[[backups.target.triggers]]
-cron = "5 * * * *"
+at = "0:00 and 6:00 and 12:00 and 18:00"
+every = "day"

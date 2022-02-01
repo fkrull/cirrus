@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Note that
 the version numbers are *not* semantic.
 
+## 1.4.0
+### Added
+* New DSL for specifying backup schedules.
+
+### Removed
+* Cron expression syntax for backup schedules.
+
 ## 1.3.3
 ### Added
 * New backup setting `exclude-larger-than`

@@ -107,8 +107,8 @@ impl Config {
 mod tests {
     use super::*;
     use crate::trigger;
-    use human_schedule::Schedule;
     use maplit::hashmap;
+    use schedule_dsl::Schedule;
 
     #[test]
     fn should_parse_complex_config() -> eyre::Result<()> {

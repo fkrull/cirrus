@@ -58,7 +58,7 @@ mod tests {
 
     mod definition {
         use super::*;
-        use human_schedule::Schedule;
+        use schedule_dsl::Schedule;
         use time::format_description::well_known::Rfc3339;
         use time::{PrimitiveDateTime, UtcOffset};
 

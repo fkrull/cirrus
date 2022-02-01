@@ -1,5 +1,5 @@
 [package]
-name = "human-schedule"
+name = "schedule-dsl"
 version = "0.1.0"
 edition = "2021"
 

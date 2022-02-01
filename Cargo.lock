@@ -470,11 +470,11 @@ dependencies = [
  "cron-parser",
  "eyre",
  "futures",
- "human-schedule",
  "keyring",
  "log",
  "maplit",
  "pin-project",
+ "schedule-dsl",
  "serde",
  "serde_json",
  "tempfile",
@@ -1485,19 +1485,6 @@ dependencies = [
  "libc",
  "match_cfg",
  "winapi",
-]
-
-[[package]]
-name = "human-schedule"
-version = "0.1.0"
-dependencies = [
- "enumset",
- "maplit",
- "nom",
- "serde",
- "serde_json",
- "thiserror",
- "time 0.3.7",
 ]
 
 [[package]]
@@ -2557,6 +2544,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "schedule-dsl"
+version = "0.1.0"
+dependencies = [
+ "enumset",
+ "maplit",
+ "nom",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time 0.3.7",
 ]
 
 [[package]]

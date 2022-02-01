@@ -10,7 +10,7 @@ pub struct NextSchedule(pub PrimitiveDateTime);
 #[serde(untagged)]
 pub enum Trigger {
     Cron(cron::Cron),
-    Schedule(human_schedule::Schedule),
+    Schedule(schedule_dsl::Schedule),
 }
 
 impl Trigger {
@@ -41,6 +41,7 @@ impl Trigger {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use schedule_dsl::Schedule;
     use serde_json::json;
 
     #[test]
@@ -85,7 +86,7 @@ mod tests {
 
         assert_eq!(
             result.unwrap(),
-            Trigger::Schedule(human_schedule::Schedule::from_time("12:30").unwrap())
+            Trigger::Schedule(Schedule::from_time("12:30").unwrap())
         );
     }
 
@@ -99,9 +100,7 @@ mod tests {
 
         assert_eq!(
             result.unwrap(),
-            Trigger::Schedule(
-                human_schedule::Schedule::from_time_and_days("6am", "Tuesday").unwrap()
-            )
+            Trigger::Schedule(Schedule::from_time_and_days("6am", "Tuesday").unwrap())
         );
     }
 }

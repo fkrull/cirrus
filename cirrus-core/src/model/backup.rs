@@ -72,7 +72,7 @@ mod tests {
         #[test]
         fn should_get_next_schedule_from_a_single_trigger() {
             let definition = Definition {
-                triggers: vec![Trigger::Schedule(Schedule::from_time("14:00").unwrap())],
+                triggers: vec![Trigger(Schedule::from_time("14:00").unwrap())],
                 ..Default::default()
             };
 
@@ -91,8 +91,8 @@ mod tests {
         fn should_get_first_next_schedule_from_first_trigger() {
             let definition = Definition {
                 triggers: vec![
-                    Trigger::Schedule(Schedule::from_time("16:00").unwrap()),
-                    Trigger::Schedule(Schedule::from_time("17:00").unwrap()),
+                    Trigger(Schedule::from_time("16:00").unwrap()),
+                    Trigger(Schedule::from_time("17:00").unwrap()),
                 ],
                 ..Default::default()
             };
@@ -112,8 +112,8 @@ mod tests {
         fn should_get_first_next_schedule_from_second_trigger() {
             let definition = Definition {
                 triggers: vec![
-                    Trigger::Schedule(Schedule::from_time("18:00").unwrap()),
-                    Trigger::Schedule(Schedule::from_time("17:00").unwrap()),
+                    Trigger(Schedule::from_time("18:00").unwrap()),
+                    Trigger(Schedule::from_time("17:00").unwrap()),
                 ],
                 ..Default::default()
             };

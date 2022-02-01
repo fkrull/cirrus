@@ -185,10 +185,10 @@ mod tests {
                         disable_triggers: false,
                         extra_args: vec!["--one-file-system".to_string()],
                         triggers: vec![
-                            trigger::Trigger::Schedule(
+                            trigger::Trigger(
                                 Schedule::from_time_and_days("16:00", "weekday").unwrap()
                             ),
-                            trigger::Trigger::Schedule(Schedule::from_time("4am").unwrap()),
+                            trigger::Trigger(Schedule::from_time("4am").unwrap()),
                         ]
                     },
                     backup::Name("srv".to_string()) => backup::Definition {

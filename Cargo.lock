@@ -470,6 +470,7 @@ dependencies = [
  "cron-parser",
  "eyre",
  "futures",
+ "human-schedule",
  "keyring",
  "log",
  "maplit",

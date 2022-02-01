@@ -1,7 +1,9 @@
 use crate::job;
 use cirrus_actor::{Actor, Messages};
 use cirrus_core::model;
+use cirrus_core::trigger::NextSchedule;
 use std::{collections::HashMap, sync::Arc, time::Duration};
+use time::PrimitiveDateTime;
 use tracing::info;
 
 const SCHEDULE_INTERVAL: Duration = Duration::from_secs(30);
@@ -27,7 +29,8 @@ impl Scheduler {
     fn run_schedules(&mut self) -> eyre::Result<()> {
         use crate::job::BackupSpec;
 
-        let now = time::OffsetDateTime::now_utc();
+        let now = time::OffsetDateTime::now_local()?;
+        let now_local = PrimitiveDateTime::new(now.date(), now.time());
         let backups_to_schedule = self
             .config
             .backups
@@ -41,7 +44,7 @@ impl Scheduler {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .filter_map(|(name, definition, next)| next.map(|next| (name, definition, next)))
-            .filter(|(_, _, next)| next <= &now);
+            .filter(|(_, _, NextSchedule(next))| next <= &now_local);
 
         for (name, backup, _) in backups_to_schedule {
             let repo = self

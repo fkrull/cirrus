@@ -107,6 +107,7 @@ impl Config {
 mod tests {
     use super::*;
     use crate::trigger;
+    use human_schedule::Schedule;
     use maplit::hashmap;
 
     #[test]
@@ -136,12 +137,11 @@ mod tests {
             exclude-larger-than = "1G"
             extra-args = ["--one-file-system"]
 
-            # look I don't remember cron syntax
             [[backups.home.triggers]]
-            cron = "2 * *"
-            timezone = "utc"
+            at = "16:00"
+            every = "weekday"
             [[backups.home.triggers]]
-            cron = "1 * *"
+            at = "4am"
 
             [backups.srv]
             repository = "sftp"
@@ -185,14 +185,10 @@ mod tests {
                         disable_triggers: false,
                         extra_args: vec!["--one-file-system".to_string()],
                         triggers: vec![
-                            trigger::Trigger::Cron(trigger::cron::Cron {
-                                cron: "2 * *".to_string(),
-                                timezone: trigger::cron::Timezone::Utc,
-                            }),
-                           trigger::Trigger::Cron(trigger::cron::Cron {
-                                cron: "1 * *".to_string(),
-                                timezone: trigger::cron::Timezone::Local
-                            }),
+                            trigger::Trigger::Schedule(
+                                Schedule::from_time_and_days("16:00", "weekday").unwrap()
+                            ),
+                            trigger::Trigger::Schedule(Schedule::from_time("4am").unwrap()),
                         ]
                     },
                     backup::Name("srv".to_string()) => backup::Definition {

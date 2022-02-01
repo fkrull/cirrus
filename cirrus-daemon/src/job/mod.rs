@@ -1,4 +1,4 @@
-use cirrus_core::{model, restic::Restic, secrets::Secrets};
+use cirrus_core::{config, restic::Restic, secrets::Secrets};
 use std::sync::Arc;
 use time::OffsetDateTime;
 
@@ -49,8 +49,8 @@ impl PartialEq for Job {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct QueueId<'a> {
-    pub repo: &'a model::repo::Name,
-    pub backup: Option<&'a model::backup::Name>,
+    pub repo: &'a config::repo::Name,
+    pub backup: Option<&'a config::backup::Name>,
 }
 
 #[derive(Debug, Clone)]

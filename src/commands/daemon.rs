@@ -1,6 +1,6 @@
 use crate::cli;
 use cirrus_actor::Messages;
-use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
 use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;

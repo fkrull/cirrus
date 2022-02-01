@@ -1,5 +1,5 @@
 use cirrus_actor::{Actor, ActorRef, Messages};
-use cirrus_core::model::Config;
+use cirrus_core::config::Config;
 use notify::Watcher;
 use std::{cell::RefCell, sync::Arc};
 use tracing::{error, info, warn};

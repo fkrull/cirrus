@@ -1,4 +1,4 @@
-use crate::model::repo::{self, Secret, SecretName};
+use crate::config::repo::{self, Secret, SecretName};
 use eyre::{eyre, WrapErr};
 use std::collections::HashMap;
 

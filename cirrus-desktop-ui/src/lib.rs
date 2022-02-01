@@ -1,5 +1,5 @@
 use cirrus_actor::Messages;
-use cirrus_core::model::Config;
+use cirrus_core::config::Config;
 use cirrus_daemon::{configreload::ConfigReload, job};
 use std::sync::Arc;
 

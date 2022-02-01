@@ -1,5 +1,5 @@
 use cirrus_actor::Messages;
-use cirrus_core::model;
+use cirrus_core::config;
 use cirrus_daemon::job;
 use eyre::WrapErr;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
@@ -16,13 +16,13 @@ pub(crate) use xdg::StatusIcon;
 
 #[derive(Debug)]
 pub(crate) struct Model {
-    config: Arc<model::Config>,
+    config: Arc<config::Config>,
     job_sink: Messages<job::Job>,
     running_jobs: HashMap<job::Id, job::Job>,
 }
 
 impl Model {
-    pub(crate) fn new(config: Arc<model::Config>, job_sink: Messages<job::Job>) -> Self {
+    pub(crate) fn new(config: Arc<config::Config>, job_sink: Messages<job::Job>) -> Self {
         Model {
             config,
             job_sink,
@@ -63,7 +63,7 @@ impl Model {
         }
     }
 
-    fn run_backup(&mut self, name: model::backup::Name) -> eyre::Result<()> {
+    fn run_backup(&mut self, name: config::backup::Name) -> eyre::Result<()> {
         let backup = self
             .config
             .backups
@@ -128,7 +128,7 @@ impl Model {
         format!("{} — {}", self.app_name(), self.status_text())
     }
 
-    fn backups(&self) -> impl Iterator<Item = &model::backup::Name> + '_ {
+    fn backups(&self) -> impl Iterator<Item = &config::backup::Name> + '_ {
         self.config.backups.iter().map(|(name, _)| name)
     }
 
@@ -143,8 +143,8 @@ enum Event {
     JobSucceeded(job::Job),
     JobFailed(job::Job),
 
-    UpdateConfig(Arc<model::Config>),
-    RunBackup(model::backup::Name),
+    UpdateConfig(Arc<config::Config>),
+    RunBackup(config::backup::Name),
     OpenConfigFile,
     Exit,
 }

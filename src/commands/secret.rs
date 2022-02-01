@@ -1,6 +1,6 @@
 use crate::cli;
 use cirrus_core::{
-    model::{repo, Config},
+    config::{repo, Config},
     secrets::{SecretValue, Secrets},
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};

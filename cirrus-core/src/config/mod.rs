@@ -3,7 +3,6 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
-use thiserror::Error;
 
 pub mod backup;
 pub mod repo;
@@ -48,7 +47,7 @@ pub struct Config {
     pub source: Option<PathBuf>,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ConfigLoadError {
     #[error("invalid configuration string")]
     InvalidConfigString(String, #[source] eyre::Report),
@@ -58,11 +57,11 @@ pub enum ConfigLoadError {
     IoError(PathBuf, std::io::Error),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 #[error("unknown repository '{}'", (self.0).0)]
 pub struct UnknownRepository(repo::Name);
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 #[error("unknown backup '{}'", (self.0).0)]
 pub struct UnknownBackup(backup::Name);
 
@@ -106,9 +105,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::trigger;
     use maplit::hashmap;
-    use schedule_dsl::Schedule;
 
     #[test]
     fn should_parse_complex_config() -> eyre::Result<()> {
@@ -185,10 +182,10 @@ mod tests {
                         disable_triggers: false,
                         extra_args: vec!["--one-file-system".to_string()],
                         triggers: vec![
-                            trigger::Trigger(
-                                Schedule::from_time_and_days("16:00", "weekday").unwrap()
+                            backup::Trigger(
+                                schedule_dsl::Schedule::from_time_and_days("16:00", "weekday").unwrap()
                             ),
-                            trigger::Trigger(Schedule::from_time("4am").unwrap()),
+                            backup::Trigger(schedule_dsl::Schedule::from_time("4am").unwrap()),
                         ]
                     },
                     backup::Name("srv".to_string()) => backup::Definition {

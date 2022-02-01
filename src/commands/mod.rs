@@ -1,6 +1,6 @@
 use crate::cli;
 use cirrus_core::{
-    model::{backup, repo, Config},
+    config::{backup, repo, Config},
     restic::{Options, Restic},
     secrets::Secrets,
 };

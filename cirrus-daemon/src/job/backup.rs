@@ -1,6 +1,6 @@
 use super::QueueId;
 use cirrus_core::{
-    model::{backup, repo},
+    config::{backup, repo},
     restic::{Event, Restic, Verbosity},
     secrets::Secrets,
 };

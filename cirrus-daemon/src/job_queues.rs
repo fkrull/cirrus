@@ -1,6 +1,6 @@
 use crate::job;
 use cirrus_actor::Messages;
-use cirrus_core::{model, restic::Restic, secrets::Secrets};
+use cirrus_core::{config, restic::Restic, secrets::Secrets};
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,
@@ -145,7 +145,7 @@ struct PerRepositoryQueue {
     secrets: Arc<Secrets>,
     jobstatus_messages: Messages<job::StatusChange>,
     repo_queue: RunQueue,
-    per_backup_queues: HashMap<model::backup::Name, RunQueue>,
+    per_backup_queues: HashMap<config::backup::Name, RunQueue>,
 }
 
 impl PerRepositoryQueue {
@@ -231,7 +231,7 @@ pub struct JobQueues {
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     jobstatus_messages: Messages<job::StatusChange>,
-    per_repo_queues: HashMap<model::repo::Name, PerRepositoryQueue>,
+    per_repo_queues: HashMap<config::repo::Name, PerRepositoryQueue>,
 }
 
 impl JobQueues {

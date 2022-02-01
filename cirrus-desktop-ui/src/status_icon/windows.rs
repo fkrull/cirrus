@@ -1,4 +1,4 @@
-use cirrus_core::model::Config;
+use cirrus_core::config::Config;
 use cirrus_daemon::job;
 use std::sync::Arc;
 use winit::{

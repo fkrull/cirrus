@@ -1,4 +1,4 @@
-use cirrus_core::{model::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use std::sync::Arc;
 
 pub mod configreload;

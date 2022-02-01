@@ -1,5 +1,5 @@
 use crate::cli::ResticArg;
-use cirrus_core::{model::Config, restic, secrets::Secrets};
+use cirrus_core::{config::Config, restic, secrets::Secrets};
 use std::path::PathBuf;
 
 mod cli;

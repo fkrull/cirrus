@@ -1,4 +1,4 @@
-use crate::{model::backup, secrets::RepoWithSecrets};
+use crate::{config::backup, secrets::RepoWithSecrets};
 use std::{ffi::OsStr, path::PathBuf, process::Stdio};
 use tokio::process::Command;
 

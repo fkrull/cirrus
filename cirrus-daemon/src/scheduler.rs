@@ -1,7 +1,6 @@
 use crate::job;
 use cirrus_actor::{Actor, Messages};
-use cirrus_core::model;
-use cirrus_core::trigger::NextSchedule;
+use cirrus_core::config;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use time::PrimitiveDateTime;
 use tracing::info;
@@ -10,14 +9,14 @@ const SCHEDULE_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Debug)]
 pub struct Scheduler {
-    config: Arc<model::Config>,
+    config: Arc<config::Config>,
     job_sink: Messages<job::Job>,
     start_time: time::OffsetDateTime,
-    previous_schedules: HashMap<model::backup::Name, time::OffsetDateTime>,
+    previous_schedules: HashMap<config::backup::Name, time::OffsetDateTime>,
 }
 
 impl Scheduler {
-    pub fn new(config: Arc<model::Config>, job_sink: Messages<job::Job>) -> Self {
+    pub fn new(config: Arc<config::Config>, job_sink: Messages<job::Job>) -> Self {
         Scheduler {
             config,
             job_sink,
@@ -44,7 +43,7 @@ impl Scheduler {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .filter_map(|(name, definition, next)| next.map(|next| (name, definition, next)))
-            .filter(|(_, _, NextSchedule(next))| next <= &now_local);
+            .filter(|(_, _, next)| next.0 <= now_local);
 
         for (name, backup, _) in backups_to_schedule {
             let repo = self
@@ -74,7 +73,7 @@ impl Scheduler {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    ConfigReloaded(Arc<model::Config>),
+    ConfigReloaded(Arc<config::Config>),
     SchedulerTick,
 }
 

@@ -1,7 +1,7 @@
 use crate::new_workdir;
 use cirrus_core::restic::Verbosity;
 use cirrus_core::{
-    model::{backup, repo},
+    config::{backup, repo},
     restic::{CommandConfig, Config, Options, Restic},
     secrets,
 };

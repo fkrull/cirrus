@@ -164,11 +164,17 @@ pub enum Cmd {
 }
 
 pub mod daemon {
+    use std::path::PathBuf;
+
     #[derive(clap::Parser)]
     pub struct Cli {
         /// Run the daemon under the built-in supervisor
         #[clap(long)]
         pub supervisor: bool,
+
+        /// Send all output to the given log file.
+        #[clap(long)]
+        pub log_file: Option<PathBuf>,
     }
 }
 

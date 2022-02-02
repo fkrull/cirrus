@@ -6,17 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
 use tracing::{info, warn};
 
-async fn cache_dir() -> eyre::Result<PathBuf> {
-    use dirs_next as dirs;
-
-    let data_dir = dirs::cache_dir()
-        .ok_or_else(|| eyre::eyre!("failed to get cache dir path"))?
-        .join("cirrus");
-    tokio::fs::create_dir_all(&data_dir).await?;
-    Ok(data_dir)
-}
-
-async fn setup_daemon_logger() -> eyre::Result<()> {
+async fn setup_daemon_logger(log_file: Option<&PathBuf>) -> eyre::Result<()> {
     use tracing::Level;
     use tracing_subscriber::{
         filter::LevelFilter,
@@ -26,35 +16,42 @@ async fn setup_daemon_logger() -> eyre::Result<()> {
         Registry,
     };
 
-    let time_format = time::macros::format_description!(
-        "[year]-[month]-[day] [hour repr:24]:[minute]:[second][offset_hour sign:mandatory]:[offset_minute]"
-    );
-
-    let stdout_layer = layer().with_ansi(true).with_target(false).without_time();
-
-    let log_file_dir = cache_dir().await?;
-    let file_layer = layer()
-        .with_ansi(false)
-        .with_span_events(FmtSpan::CLOSE)
-        .with_timer(LocalTime::new(time_format))
-        .with_writer(move || tracing_appender::rolling::never(&log_file_dir, "cirrus.log"));
-
-    Registry::default()
+    let builder = Registry::default()
         .with(LevelFilter::from(Level::INFO))
-        .with(stdout_layer)
-        .with(file_layer)
-        .try_init()?;
+        .with(layer().with_ansi(true).with_target(false).without_time());
+
+    if let Some(log_file) = log_file {
+        let time_format = time::macros::format_description!(
+            "[year]-[month]-[day] [hour repr:24]:[minute]:[second][offset_hour sign:mandatory]:[offset_minute]"
+        );
+
+        let file = std::fs::File::options()
+            .append(true)
+            .create(true)
+            .open(log_file)?;
+        builder
+            .with(
+                layer()
+                    .with_ansi(false)
+                    .with_span_events(FmtSpan::CLOSE)
+                    .with_timer(LocalTime::new(time_format))
+                    .with_writer(file),
+            )
+            .try_init()?;
+    } else {
+        builder.try_init()?;
+    }
 
     Ok(())
 }
 
 async fn run_daemon(
-    _args: cli::daemon::Cli,
+    args: cli::daemon::Cli,
     restic: Restic,
     secrets: Secrets,
     config: Config,
 ) -> eyre::Result<()> {
-    setup_daemon_logger().await?;
+    setup_daemon_logger(args.log_file.as_ref()).await?;
 
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);

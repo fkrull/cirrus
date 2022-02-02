@@ -105,8 +105,11 @@ async fn run_daemon(
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
     info!("instance name: {}", instance_name);
+    if let Some(version) = cirrus_core::VERSION {
+        info!("cirrus: {}", version);
+    }
     match restic.version_string().await {
-        Ok(restic_version) => info!("restic version: {}", restic_version),
+        Ok(restic_version) => info!("restic: {}", restic_version),
         Err(e) => warn!("failed to query restic version: {}", e),
     }
     info!("running forever...");

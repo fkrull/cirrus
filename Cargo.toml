@@ -36,7 +36,6 @@ color-eyre = "0.6.0"
 dirs-next = "2.0.0"
 tracing = "0.1.23"
 tracing-subscriber = { version = "0.3.5", default-features = false, features = ["fmt", "ansi", "registry", "local-time", "tracing-log"] }
-tracing-appender = "0.2.0"
 time = { version = "0.3.5", features = ["macros"] }
 
 [dependencies.tokio]

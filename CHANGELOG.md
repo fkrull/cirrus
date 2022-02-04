@@ -9,7 +9,8 @@ the version numbers are *not* semantic.
 * Option `--log-file` for `daemon` subcommand.
 
 ### Changed
-* Daemon doesn't create log file by default.
+* `daemon` doesn't create log file by default.
+* `daemon --supervisor` does create a log file.
 
 ## 1.4.0
 ### Added

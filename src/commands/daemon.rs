@@ -124,11 +124,24 @@ async fn run_daemon(
     Ok(())
 }
 
+async fn log_file_dir() -> eyre::Result<PathBuf> {
+    use dirs_next as dirs;
+
+    let log_file_dir = dirs::data_dir()
+        .ok_or_else(|| eyre::eyre!("can't determine data directory for log file"))?
+        .join("cirrus");
+    tokio::fs::create_dir_all(&log_file_dir).await?;
+    Ok(log_file_dir)
+}
+
 async fn run_supervisor() -> eyre::Result<()> {
     let cirrus_exe = std::env::current_exe()?;
+    let log_file = log_file_dir().await?.join("cirrus.log");
     loop {
         let exit_status = Command::new(&cirrus_exe)
             .arg("daemon")
+            .arg("--log-file")
+            .arg(&log_file)
             .spawn()?
             .wait()
             .await;

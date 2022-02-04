@@ -172,7 +172,7 @@ pub mod daemon {
         #[clap(long)]
         pub supervisor: bool,
 
-        /// Send all output to the given log file.
+        /// Send all output to the given log file
         #[clap(long)]
         pub log_file: Option<PathBuf>,
     }

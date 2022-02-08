@@ -2,7 +2,7 @@
 name = "restic-bin"
 version = "0.1.0"
 authors = ["Felix Krull <f_krull@gmx.de>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 bzip2 = { version = "0.4.1", optional = true }

@@ -2599,6 +2599,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "shindig"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

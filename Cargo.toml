@@ -16,6 +16,7 @@ members = [
     "build-scripts/restic-bin",
     "selfinstaller",
     "schedule-dsl",
+    "shindig",
 ]
 exclude = ["restigo"]
 

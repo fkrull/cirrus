@@ -1,9 +1,10 @@
+use parking_lot::RwLock;
 use std::{
     any::{type_name, Any, TypeId},
     collections::HashMap,
     sync::Arc,
 };
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::broadcast;
 
 #[derive(Debug, thiserror::Error)]
 #[error("ErasedChannel was of type {actual} but was expected to be of type {expected}")]
@@ -35,7 +36,7 @@ impl ErasedChannel {
         })
     }
 
-    async fn send<T: 'static>(&self, item: T) -> Result<usize, ErasedTypeError> {
+    fn send<T: 'static>(&self, item: T) -> Result<usize, ErasedTypeError> {
         let sender = self.sender()?;
         Ok(sender.send(item).unwrap_or(0))
     }
@@ -69,15 +70,17 @@ impl EventsShared {
         }
     }
 
-    async fn get<T: Clone + 'static>(&self) -> ErasedChannel {
+    fn get<T: Clone + 'static>(&self) -> ErasedChannel {
         let type_id = TypeId::of::<T>();
-        if let Some(channel) = self.channels.read().await.get(&type_id) {
+        if let Some(channel) = self.channels.read().get(&type_id) {
             channel.clone::<T>().unwrap()
         } else {
-            let mut channels = self.channels.write().await;
-            let channel = ErasedChannel::new::<T>(self.capacity);
-            channels.insert(type_id, channel.clone::<T>().unwrap());
-            channel
+            let mut channels = self.channels.write();
+            channels
+                .entry(type_id)
+                .or_insert_with(|| ErasedChannel::new::<T>(self.capacity))
+                .clone::<T>()
+                .unwrap()
         }
     }
 }
@@ -105,21 +108,23 @@ impl Events {
         }
     }
 
-    pub async fn send<T: Clone + 'static>(&mut self, item: T) -> usize {
-        self.get::<T>().await.send(item).await.unwrap()
+    pub fn send<T: Clone + 'static>(&mut self, item: T) -> usize {
+        self.get::<T>().send(item).unwrap()
     }
 
-    pub async fn subscribe<T: Clone + 'static>(&mut self) -> broadcast::Receiver<T> {
-        self.get::<T>().await.subscribe().unwrap()
+    pub fn subscribe<T: Clone + 'static>(&mut self) -> broadcast::Receiver<T> {
+        self.get::<T>().subscribe().unwrap()
     }
 
-    async fn get<T: Clone + 'static>(&mut self) -> &ErasedChannel {
+    pub fn typed_sender<T: Clone + 'static>(&mut self) -> broadcast::Sender<T> {
+        self.get::<T>().sender().unwrap().clone()
+    }
+
+    fn get<T: Clone + 'static>(&mut self) -> &ErasedChannel {
         let type_id = TypeId::of::<T>();
-        if !self.channels.contains_key(&type_id) {
-            let channel = self.shared.get::<T>().await;
-            self.channels.insert(type_id, channel);
-        }
-        self.channels.get(&type_id).unwrap()
+        self.channels
+            .entry(type_id)
+            .or_insert_with(|| self.shared.get::<T>())
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::job;
-use cirrus_actor::Messages;
 use cirrus_core::{config, restic::Restic, secrets::Secrets};
+use shindig::Events;
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,
@@ -50,21 +50,17 @@ impl RunningJob {
 struct RunQueue {
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
-    jobstatus_messages: Messages<job::StatusChange>,
+    events: Events,
     running: Option<RunningJob>,
     queue: VecDeque<job::Job>,
 }
 
 impl RunQueue {
-    fn new(
-        jobstatus_messages: Messages<job::StatusChange>,
-        restic: Arc<Restic>,
-        secrets: Arc<Secrets>,
-    ) -> Self {
+    fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
         RunQueue {
             restic,
             secrets,
-            jobstatus_messages,
+            events,
             running: None,
             queue: VecDeque::new(),
         }
@@ -101,8 +97,8 @@ impl RunQueue {
                     fut,
                     result: None,
                 });
-                self.jobstatus_messages
-                    .send(job::StatusChange::new(job, job::Status::Started))?;
+                self.events
+                    .send(job::StatusChange::new(job, job::Status::Started));
             }
         }
         Ok(())
@@ -123,8 +119,7 @@ impl RunQueue {
                         job::Status::FinishedWithError
                     }
                 };
-                self.jobstatus_messages
-                    .send(job::StatusChange::new(job, new_status))?;
+                self.events.send(job::StatusChange::new(job, new_status));
             }
         }
         Ok(())
@@ -143,36 +138,33 @@ impl RunQueue {
 struct PerRepositoryQueue {
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
-    jobstatus_messages: Messages<job::StatusChange>,
+    events: Events,
     repo_queue: RunQueue,
     per_backup_queues: HashMap<config::backup::Name, RunQueue>,
 }
 
 impl PerRepositoryQueue {
-    fn new(
-        jobstatus_messages: Messages<job::StatusChange>,
-        restic: Arc<Restic>,
-        secrets: Arc<Secrets>,
-    ) -> Self {
-        let repo_queue = RunQueue::new(jobstatus_messages.clone(), restic.clone(), secrets.clone());
+    fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+        let repo_queue = RunQueue::new(events.clone(), restic.clone(), secrets.clone());
         PerRepositoryQueue {
             restic,
             secrets,
             repo_queue,
-            jobstatus_messages,
+            events,
             per_backup_queues: HashMap::new(),
         }
     }
 
     fn push(&mut self, job: job::Job) {
-        let messages = &self.jobstatus_messages;
         let restic = &self.restic;
         let secrets = &self.secrets;
         match job.spec.queue_id().backup {
             Some(backup) => self
                 .per_backup_queues
                 .entry(backup.clone())
-                .or_insert_with(|| RunQueue::new(messages.clone(), restic.clone(), secrets.clone()))
+                .or_insert_with(|| {
+                    RunQueue::new(self.events.clone(), restic.clone(), secrets.clone())
+                })
                 .push(job),
             None => self.repo_queue.push(job),
         }
@@ -230,32 +222,27 @@ impl PerRepositoryQueue {
 pub struct JobQueues {
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
-    jobstatus_messages: Messages<job::StatusChange>,
+    events: Events,
     per_repo_queues: HashMap<config::repo::Name, PerRepositoryQueue>,
 }
 
 impl JobQueues {
-    pub fn new(
-        jobstatus_messages: Messages<job::StatusChange>,
-        restic: Arc<Restic>,
-        secrets: Arc<Secrets>,
-    ) -> Self {
+    pub fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
         JobQueues {
             restic,
             secrets,
-            jobstatus_messages,
+            events,
             per_repo_queues: HashMap::new(),
         }
     }
 
     fn push(&mut self, job: job::Job) {
-        let messages = &self.jobstatus_messages;
         let restic = &self.restic;
         let secrets = &self.secrets;
         self.per_repo_queues
             .entry(job.spec.queue_id().repo.clone())
             .or_insert_with(|| {
-                PerRepositoryQueue::new(messages.clone(), restic.clone(), secrets.clone())
+                PerRepositoryQueue::new(self.events.clone(), restic.clone(), secrets.clone())
             })
             .push(job);
     }
@@ -283,36 +270,15 @@ impl JobQueues {
             .map(Box::pin);
         select_all_or_pending(jobs).await;
     }
-}
 
-#[derive(Debug, Clone)]
-pub enum Message {
-    Job(job::Job),
-    JobFinished,
-}
-
-impl From<job::Job> for Message {
-    fn from(job: job::Job) -> Self {
-        Message::Job(job)
-    }
-}
-
-#[async_trait::async_trait]
-impl cirrus_actor::Actor for JobQueues {
-    type Message = Message;
-    type Error = eyre::Report;
-
-    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
-        match message {
-            Message::Job(job) => self.push(job),
-            Message::JobFinished => self.clean_finished_jobs()?,
+    pub async fn run(&mut self) -> eyre::Result<()> {
+        let mut job_recv = self.events.subscribe::<job::Job>();
+        loop {
+            tokio::select! {
+                job = job_recv.recv() => self.push(job?),
+                _ = self.poll_jobs() => self.clean_finished_jobs()?,
+            }
+            self.maybe_start_next_jobs()?;
         }
-        self.maybe_start_next_jobs()?;
-        Ok(())
-    }
-
-    async fn idle(&mut self) -> Result<Self::Message, Self::Error> {
-        self.poll_jobs().await;
-        Ok(Message::JobFinished)
     }
 }

@@ -394,7 +394,6 @@ dependencies = [
 name = "cirrus"
 version = "0.1.0"
 dependencies = [
- "cirrus-actor",
  "cirrus-core",
  "cirrus-daemon",
  "cirrus-desktop-ui",
@@ -413,15 +412,6 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "cirrus-actor"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "futures",
- "thiserror",
 ]
 
 [[package]]
@@ -452,7 +442,6 @@ name = "cirrus-daemon"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "cirrus-actor",
  "cirrus-core",
  "eyre",
  "futures",

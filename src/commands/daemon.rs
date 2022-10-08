@@ -1,5 +1,4 @@
 use crate::cli;
-use cirrus_actor::Messages;
 use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
 use shindig::Events;
@@ -58,11 +57,6 @@ async fn run_daemon(
     let config = Arc::new(config);
     let events = Events::new_with_capacity(64);
 
-    // declare actors
-    let jobqueues = cirrus_actor::new();
-    let jobstatus_sink = Messages::default();
-
-    // create actor instances
     #[cfg(feature = "cirrus-desktop-ui")]
     let desktop_ui = match cirrus_desktop_ui::DesktopUi::new(config.clone(), events.clone()) {
         Ok(desktop_ui) => Some(desktop_ui),
@@ -72,12 +66,7 @@ async fn run_daemon(
         }
     };
 
-    let mut jobqueues = jobqueues.into_instance(job_queues::JobQueues::new(
-        jobstatus_sink,
-        restic.clone(),
-        secrets.clone(),
-    ));
-
+    let mut jobqueues = job_queues::JobQueues::new(events.clone(), restic.clone(), secrets.clone());
     let mut scheduler = scheduler::Scheduler::new(config.clone(), events.clone());
     let mut configreloader = configreload::ConfigReloader::new(config.clone(), events.clone())?;
 

@@ -5,7 +5,6 @@ authors = ["Felix Krull <f_krull@gmx.de>"]
 edition = "2021"
 
 [dependencies]
-cirrus-actor = { path = "../cirrus-actor" }
 cirrus-core = { path = "../cirrus-core" }
 async-trait = "0.1.41"
 futures = "0.3.6"

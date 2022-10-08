@@ -6,7 +6,6 @@ edition = "2021"
 
 [workspace]
 members = [
-    "cirrus-actor",
     "cirrus-core",
     "cirrus-daemon",
     "cirrus-desktop-ui",
@@ -22,7 +21,6 @@ exclude = ["restigo"]
 
 [dependencies]
 cirrus-core = { path = "cirrus-core" }
-cirrus-actor = { path = "cirrus-actor" }
 cirrus-daemon = { path = "cirrus-daemon" }
 cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
 cirrus-self = { path = "cirrus-self", optional = true }

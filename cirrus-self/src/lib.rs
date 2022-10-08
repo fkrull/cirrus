@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 #[derive(clap::Parser)]
 pub struct Cli {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub command: Command,
 }
 
@@ -19,11 +19,11 @@ pub enum Command {
 #[derive(clap::Parser)]
 pub struct Install {
     /// Shows detailed installation steps instead of installing anything
-    #[clap(long)]
+    #[arg(long)]
     details: bool,
 
     /// Installs into PATH instead of the filesystem
-    #[clap(long, value_name = "PATH")]
+    #[arg(long, value_name = "PATH")]
     destdir: Option<PathBuf>,
 }
 

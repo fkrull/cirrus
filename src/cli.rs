@@ -1,10 +1,11 @@
+use clap::builder::TypedValueParser;
 use dirs_next as dirs;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConfigFile(Option<PathBuf>);
 
 impl ConfigFile {
@@ -23,6 +24,22 @@ impl Default for ConfigFile {
     }
 }
 
+#[derive(Debug, Clone)]
+struct ConfigFileParser;
+
+impl TypedValueParser for ConfigFileParser {
+    type Value = ConfigFile;
+
+    fn parse_ref(
+        &self,
+        _cmd: &clap::Command,
+        _arg: Option<&clap::Arg>,
+        value: &OsStr,
+    ) -> Result<Self::Value, clap::Error> {
+        Ok(ConfigFile(Some(PathBuf::from(value))))
+    }
+}
+
 impl From<&OsStr> for ConfigFile {
     fn from(s: &OsStr) -> Self {
         ConfigFile(Some(PathBuf::from(s)))
@@ -38,7 +55,7 @@ impl std::fmt::Display for ConfigFile {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ResticArg {
     System,
     Path(PathBuf),
@@ -60,16 +77,27 @@ impl Default for ResticArg {
     }
 }
 
-impl From<&OsStr> for ResticArg {
-    fn from(s: &OsStr) -> Self {
-        match s.to_str() {
+#[derive(Debug, Clone)]
+struct ResticArgParser;
+
+impl TypedValueParser for ResticArgParser {
+    type Value = ResticArg;
+
+    fn parse_ref(
+        &self,
+        _cmd: &clap::Command,
+        _arg: Option<&clap::Arg>,
+        value: &OsStr,
+    ) -> Result<Self::Value, clap::Error> {
+        let restic_arg = match value.to_str() {
             Some("system") => ResticArg::System,
             #[cfg(feature = "bundled-restic-support")]
             Some("bundled") => ResticArg::Bundled,
             #[cfg(feature = "bundled-restic-support")]
             Some("system-then-bundled") => ResticArg::SystemThenBundled,
-            _ => ResticArg::Path(PathBuf::from(s)),
-        }
+            _ => ResticArg::Path(PathBuf::from(value)),
+        };
+        Ok(restic_arg)
     }
 }
 
@@ -88,20 +116,14 @@ impl std::fmt::Display for ResticArg {
 
 /// A configuration-driven backup program based on restic.
 #[derive(clap::Parser)]
-#[clap(global_setting(clap::AppSettings::NoAutoVersion))]
+#[command(disable_version_flag = true)]
 pub struct Cli {
     /// Sets a custom configuration file path
-    #[clap(
-        short,
-        long,
-        env = "CIRRUS_CONFIG_FILE",
-        default_value_t,
-        parse(from_os_str)
-    )]
+    #[arg(short, long, env = "CIRRUS_CONFIG_FILE", default_value_t, value_parser = ConfigFileParser)]
     pub config_file: ConfigFile,
 
     /// Sets the configuration from a string
-    #[clap(long, env = "CIRRUS_CONFIG")]
+    #[arg(long, env = "CIRRUS_CONFIG")]
     pub config_string: Option<String>,
 
     /// Set the restic binary to use.
@@ -109,12 +131,7 @@ pub struct Cli {
     /// "system": use the system restic;
     /// <PATH>: use a specific restic binary
     #[cfg(not(feature = "bundled-restic-support"))]
-    #[clap(
-        long,
-        default_value_t,
-        value_name = "special value or PATH",
-        parse(from_os_str)
-    )]
+    #[arg(long, default_value_t, value_name = "special value or PATH", value_parser = ResticArgParser)]
     pub restic: ResticArg,
 
     /// Set the restic binary to use.
@@ -124,15 +141,10 @@ pub struct Cli {
     /// "system-then-bundled": first try the system restic, then the bundled restic;
     /// <PATH>: use a specific restic binary
     #[cfg(feature = "bundled-restic-support")]
-    #[clap(
-        long,
-        default_value_t,
-        value_name = "special value or PATH",
-        parse(from_os_str)
-    )]
+    #[arg(long, default_value_t, value_name = "special value or PATH", value_parser = ResticArgParser)]
     pub restic: ResticArg,
 
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub subcommand: Cmd,
 }
 
@@ -148,7 +160,7 @@ pub enum Cmd {
     Config,
 
     /// Gets and sets secrets
-    #[clap(alias = "secrets")]
+    #[command(alias = "secrets")]
     Secret(secret::Cli),
 
     /// Runs custom restic commands on configured repositories
@@ -156,7 +168,7 @@ pub enum Cmd {
 
     /// Runs self management tasks
     #[cfg(feature = "cirrus-self")]
-    #[clap(name = "self")]
+    #[command(name = "self")]
     SelfCommands(cirrus_self::Cli),
 
     /// Prints version information
@@ -169,11 +181,11 @@ pub mod daemon {
     #[derive(clap::Parser)]
     pub struct Cli {
         /// Run the daemon under the built-in supervisor
-        #[clap(long)]
+        #[arg(long)]
         pub supervisor: bool,
 
         /// Send all output to the given log file
-        #[clap(long)]
+        #[arg(long)]
         pub log_file: Option<PathBuf>,
     }
 }
@@ -182,7 +194,7 @@ pub mod backup {
     #[derive(clap::Parser)]
     pub struct Cli {
         /// The backup to run
-        #[clap(name = "BACKUP")]
+        #[arg(value_name = "BACKUP")]
         pub backup: String,
     }
 }
@@ -190,7 +202,7 @@ pub mod backup {
 pub mod secret {
     #[derive(clap::Parser)]
     pub struct Cli {
-        #[clap(subcommand)]
+        #[command(subcommand)]
         pub subcommand: Cmd,
     }
 
@@ -206,17 +218,17 @@ pub mod secret {
     #[derive(clap::Parser)]
     pub struct Set {
         /// Repository of the secret
-        #[clap(name = "REPOSITORY")]
+        #[arg(value_name = "REPOSITORY")]
         pub repository: String,
         /// Name of the secret, or the repository password if not set
-        #[clap(name = "SECRET")]
+        #[arg(value_name = "SECRET")]
         pub secret: Option<String>,
     }
 
     #[derive(clap::Parser)]
     pub struct List {
         /// Shows passwords in clear text
-        #[clap(long)]
+        #[arg(long)]
         pub show_passwords: bool,
     }
 }
@@ -225,13 +237,13 @@ pub mod restic {
     use std::ffi::OsString;
 
     #[derive(clap::Parser)]
-    #[clap(setting(clap::AppSettings::TrailingVarArg))]
     pub struct Cli {
         /// The cirrus repository to use with restic
-        #[clap(short, long, env = "CIRRUS_REPOSITORY")]
+        #[arg(short, long, env = "CIRRUS_REPOSITORY")]
         pub repository: Option<String>,
 
         /// Command-line arguments to pass to restic
+        #[arg(trailing_var_arg = true)]
         pub cmd: Vec<OsString>,
     }
 }

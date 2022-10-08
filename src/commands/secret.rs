@@ -47,7 +47,7 @@ pub fn set(secrets: &Secrets, config: &Config, args: cli::secret::Set) -> eyre::
     let (secret, value) = match secret_name {
         None => {
             let prompt = format!("Password for repository '{}': ", repo_name.0);
-            let value = SecretValue::new(rpassword::read_password_from_tty(Some(&prompt))?);
+            let value = SecretValue::new(rpassword::prompt_password(&prompt)?);
             (&repo.password, value)
         }
         Some(secret_name) => {
@@ -56,7 +56,7 @@ pub fn set(secrets: &Secrets, config: &Config, args: cli::secret::Set) -> eyre::
                 .get(&secret_name)
                 .ok_or_else(|| eyre::eyre!("no such secret '{}'", secret_name.0))?;
             let prompt = format!("Value for secret '{}.{}': ", repo_name.0, secret_name.0);
-            let value = SecretValue::new(rpassword::read_password_from_tty(Some(&prompt))?);
+            let value = SecretValue::new(rpassword::prompt_password(&prompt)?);
             (secret, value)
         }
     };

@@ -7,6 +7,9 @@ pub mod job_queues;
 pub mod scheduler;
 
 #[derive(Debug, Clone)]
+pub struct Shutdown;
+
+#[derive(Debug, Clone)]
 pub struct Daemon {
     pub instance_name: String,
     pub config: Arc<Config>,

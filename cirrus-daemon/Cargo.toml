@@ -15,6 +15,7 @@ notify = "5.0.0-pre.13"
 tracing = "0.1.23"
 tracing-futures = "0.2.4"
 time = "0.3.7"
+shindig = { version = "0.1.0", path = "../shindig" }
 
 [dependencies.tokio]
 version = "1.0.0"

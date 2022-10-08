@@ -1,8 +1,8 @@
-use cirrus_actor::{Actor, ActorRef, Messages};
+use crate::Shutdown;
 use cirrus_core::config::Config;
 use notify::Watcher;
-use std::{cell::RefCell, sync::Arc};
-use tracing::{error, info, warn};
+use shindig::Events;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct ConfigReload {
@@ -11,26 +11,24 @@ pub struct ConfigReload {
 
 pub struct ConfigReloader {
     config: Arc<Config>,
-    configreload_sink: Messages<ConfigReload>,
+    events: Events,
     watcher: notify::RecommendedWatcher,
 }
 
 impl ConfigReloader {
-    pub fn new(
-        config: Arc<Config>,
-        self_ref: ActorRef<Message>,
-        configreload_sink: Messages<ConfigReload>,
-    ) -> eyre::Result<Self> {
-        let self_ref = RefCell::new(self_ref);
-        let watcher = notify::recommended_watcher(move |ev| {
-            if let Err(err) = self_ref.borrow_mut().send(Message(ev)) {
-                error!("error sending config reload trigger message: {:?}", err);
+    pub fn new(config: Arc<Config>, mut events: Events) -> eyre::Result<Self> {
+        let notify_sender = events.typed_sender::<notify::Event>();
+        let watcher = notify::recommended_watcher(move |ev| match ev {
+            Ok(event) => {
+                notify_sender.send(event).ok();
+                ()
             }
+            Err(error) => tracing::error!(?error, "notify error"),
         })?;
 
         Ok(ConfigReloader {
             config,
-            configreload_sink,
+            events,
             watcher,
         })
     }
@@ -41,32 +39,47 @@ impl ConfigReloader {
             let result = Config::from_file(config_path).await;
             match result {
                 Ok(config) => {
-                    info!("reloaded configuration from {}", config_path.display());
+                    tracing::info!(path = %config_path.display(), "reloaded configuration");
                     let config = Arc::new(config);
                     self.config = config;
-                    self.configreload_sink.send(ConfigReload {
+                    self.events.send(ConfigReload {
                         new_config: self.config.clone(),
-                    })?;
+                    });
                 }
-                Err(err) => {
-                    warn!("failed to reload configuration: {:?}", err);
+                Err(error) => {
+                    tracing::warn!(?error, "failed to reload configuration");
                 }
             }
         }
         Ok(())
     }
-}
 
-#[derive(Debug)]
-pub struct Message(notify::Result<notify::Event>);
+    pub async fn run(&mut self) -> eyre::Result<()> {
+        self.start_watch()?;
+        let mut shutdown_event_recv = self.events.subscribe::<Shutdown>();
+        let mut notify_event_recv = self.events.subscribe::<notify::Event>();
+        loop {
+            tokio::select! {
+                notify_event = notify_event_recv.recv() => self.handle_notify_event(notify_event?).await?,
+                shutdown = shutdown_event_recv.recv() => self.handle_shutdown(shutdown?).await?,
+            }
+        }
+    }
 
-#[async_trait::async_trait]
-impl Actor for ConfigReloader {
-    type Message = Message;
-    type Error = eyre::Report;
+    fn start_watch(&mut self) -> eyre::Result<()> {
+        use notify::RecursiveMode::NonRecursive;
 
-    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
-        let ev = message.0?;
+        if let Some(config_path) = &self.config.source {
+            tracing::info!(
+                path = %config_path.display(),
+                "watching configuration file for changes"
+            );
+            self.watcher.watch(config_path, NonRecursive)?;
+        }
+        Ok(())
+    }
+
+    async fn handle_notify_event(&mut self, ev: notify::Event) -> eyre::Result<()> {
         if !ev.kind.is_create() && !ev.kind.is_modify() {
             // don't care about this one
             return Ok(());
@@ -74,20 +87,7 @@ impl Actor for ConfigReloader {
         self.reload_config().await
     }
 
-    async fn on_start(&mut self) -> Result<(), Self::Error> {
-        use notify::RecursiveMode::NonRecursive;
-
-        if let Some(config_path) = &self.config.source {
-            info!(
-                "watching configuration file {} for changes",
-                config_path.display()
-            );
-            self.watcher.watch(config_path, NonRecursive)?;
-        }
-        Ok(())
-    }
-
-    async fn on_close(&mut self) -> Result<(), Self::Error> {
+    async fn handle_shutdown(&mut self, _: Shutdown) -> eyre::Result<()> {
         if let Some(config_path) = &self.config.source {
             self.watcher.unwatch(config_path)?;
         }

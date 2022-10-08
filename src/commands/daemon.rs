@@ -2,6 +2,7 @@ use crate::cli;
 use cirrus_actor::Messages;
 use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
+use shindig::Events;
 use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
 use tracing::{info, warn};
@@ -56,13 +57,14 @@ async fn run_daemon(
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
     let config = Arc::new(config);
+    let events = Events::new_with_capacity(64);
 
     // declare actors
     let jobqueues = cirrus_actor::new();
     let scheduler = cirrus_actor::new();
-    let configreloader = cirrus_actor::new();
     let mut jobstatus_sink = Messages::default();
-    let mut configreload_sink = Messages::default().also_to(scheduler.actor_ref());
+    let mut configreload_sink: Messages<configreload::ConfigReload> =
+        Messages::default().also_to(scheduler.actor_ref());
     let job_sink = Messages::default().also_to(jobqueues.actor_ref());
 
     // create actor instances
@@ -92,12 +94,7 @@ async fn run_daemon(
     let mut scheduler =
         scheduler.into_instance(scheduler::Scheduler::new(config.clone(), job_sink.clone()));
 
-    let configreloader_ref = configreloader.actor_ref();
-    let mut configreloader = configreloader.into_instance(configreload::ConfigReloader::new(
-        config.clone(),
-        configreloader_ref,
-        configreload_sink,
-    )?);
+    let mut configreloader = configreload::ConfigReloader::new(config.clone(), events.clone())?;
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();

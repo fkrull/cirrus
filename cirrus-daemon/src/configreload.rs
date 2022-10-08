@@ -9,6 +9,9 @@ pub struct ConfigReload {
     pub new_config: Arc<Config>,
 }
 
+#[derive(Debug, Clone)]
+struct NotifyEvent(notify::Event);
+
 pub struct ConfigReloader {
     config: Arc<Config>,
     events: Events,
@@ -17,11 +20,10 @@ pub struct ConfigReloader {
 
 impl ConfigReloader {
     pub fn new(config: Arc<Config>, mut events: Events) -> eyre::Result<Self> {
-        let notify_sender = events.typed_sender::<notify::Event>();
+        let notify_sender = events.typed_sender::<NotifyEvent>();
         let watcher = notify::recommended_watcher(move |ev| match ev {
             Ok(event) => {
-                notify_sender.send(event).ok();
-                ()
+                notify_sender.send(NotifyEvent(event));
             }
             Err(error) => tracing::error!(?error, "notify error"),
         })?;
@@ -57,7 +59,7 @@ impl ConfigReloader {
     pub async fn run(&mut self) -> eyre::Result<()> {
         self.start_watch()?;
         let mut shutdown_event_recv = self.events.subscribe::<Shutdown>();
-        let mut notify_event_recv = self.events.subscribe::<notify::Event>();
+        let mut notify_event_recv = self.events.subscribe::<NotifyEvent>();
         loop {
             tokio::select! {
                 notify_event = notify_event_recv.recv() => self.handle_notify_event(notify_event?).await?,
@@ -79,8 +81,8 @@ impl ConfigReloader {
         Ok(())
     }
 
-    async fn handle_notify_event(&mut self, ev: notify::Event) -> eyre::Result<()> {
-        if !ev.kind.is_create() && !ev.kind.is_modify() {
+    async fn handle_notify_event(&mut self, ev: NotifyEvent) -> eyre::Result<()> {
+        if !ev.0.kind.is_create() && !ev.0.kind.is_modify() {
             // don't care about this one
             return Ok(());
         }

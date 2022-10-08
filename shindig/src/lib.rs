@@ -6,6 +6,46 @@ use std::{
 };
 use tokio::sync::broadcast;
 
+#[derive(Debug)]
+pub struct Sender<T>(broadcast::Sender<T>);
+
+impl<T> Clone for Sender<T> {
+    fn clone(&self) -> Self {
+        Sender(self.0.clone())
+    }
+}
+
+impl<T> Sender<T> {
+    pub fn send(&self, item: T) -> usize {
+        self.0.send(item).unwrap_or(0)
+    }
+
+    fn subscribe(&self) -> Subscriber<T> {
+        Subscriber(self.0.subscribe())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("sender closed")]
+pub struct SenderClosed;
+
+#[derive(Debug)]
+pub struct Subscriber<T>(broadcast::Receiver<T>);
+
+impl<T: Clone> Subscriber<T> {
+    pub async fn recv(&mut self) -> Result<T, SenderClosed> {
+        loop {
+            match self.0.recv().await {
+                Ok(item) => break Ok(item),
+                Err(broadcast::error::RecvError::Closed) => break Err(SenderClosed),
+                Err(broadcast::error::RecvError::Lagged(lag)) => {
+                    tracing::warn!(lag, "lagged {lag} messages, retrying")
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("ErasedChannel was of type {actual} but was expected to be of type {expected}")]
 struct ErasedTypeError {
@@ -23,7 +63,7 @@ impl ErasedChannel {
     fn new<T: Clone + Send + 'static>(capacity: usize) -> Self {
         let (sender, _) = broadcast::channel::<T>(capacity);
         ErasedChannel {
-            sender: Box::new(sender),
+            sender: Box::new(Sender(sender)),
             type_name: type_name::<T>(),
         }
     }
@@ -37,18 +77,17 @@ impl ErasedChannel {
     }
 
     fn send<T: 'static>(&self, item: T) -> Result<usize, ErasedTypeError> {
-        let sender = self.sender()?;
-        Ok(sender.send(item).unwrap_or(0))
+        Ok(self.sender()?.send(item))
     }
 
-    fn subscribe<T: 'static>(&self) -> Result<broadcast::Receiver<T>, ErasedTypeError> {
+    fn subscribe<T: 'static>(&self) -> Result<Subscriber<T>, ErasedTypeError> {
         let sender = self.sender()?;
         Ok(sender.subscribe())
     }
 
-    fn sender<T: 'static>(&self) -> Result<&broadcast::Sender<T>, ErasedTypeError> {
+    fn sender<T: 'static>(&self) -> Result<&Sender<T>, ErasedTypeError> {
         self.sender
-            .downcast_ref::<broadcast::Sender<T>>()
+            .downcast_ref::<Sender<T>>()
             .ok_or_else(|| ErasedTypeError {
                 expected: type_name::<T>(),
                 actual: self.type_name,
@@ -117,11 +156,11 @@ impl Events {
         self.get::<T>().send(item).unwrap()
     }
 
-    pub fn subscribe<T: Clone + Send + 'static>(&mut self) -> broadcast::Receiver<T> {
+    pub fn subscribe<T: Clone + Send + 'static>(&mut self) -> Subscriber<T> {
         self.get::<T>().subscribe().unwrap()
     }
 
-    pub fn typed_sender<T: Clone + Send + 'static>(&mut self) -> broadcast::Sender<T> {
+    pub fn typed_sender<T: Clone + Send + 'static>(&mut self) -> Sender<T> {
         self.get::<T>().sender().unwrap().clone()
     }
 

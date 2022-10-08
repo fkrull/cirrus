@@ -1,30 +1,30 @@
 use crate::job;
-use cirrus_actor::{Actor, Messages};
 use cirrus_core::config;
+use shindig::Events;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use time::PrimitiveDateTime;
-use tracing::info;
 
 const SCHEDULE_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Debug)]
 pub struct Scheduler {
     config: Arc<config::Config>,
-    job_sink: Messages<job::Job>,
+    events: Events,
     start_time: time::OffsetDateTime,
     previous_schedules: HashMap<config::backup::Name, time::OffsetDateTime>,
 }
 
 impl Scheduler {
-    pub fn new(config: Arc<config::Config>, job_sink: Messages<job::Job>) -> Self {
+    pub fn new(config: Arc<config::Config>, events: Events) -> Self {
         Scheduler {
             config,
-            job_sink,
+            events,
             start_time: time::OffsetDateTime::now_utc(),
             previous_schedules: HashMap::new(),
         }
     }
 
+    #[tracing::instrument(level = "debug")]
     fn run_schedules(&mut self) -> eyre::Result<()> {
         use crate::job::BackupSpec;
 
@@ -62,42 +62,21 @@ impl Scheduler {
                 }
                 .into(),
             );
-            info!("scheduling '{}'", backup_job.spec.label());
-            self.job_sink.send(backup_job)?;
+            tracing::info!(label = backup_job.spec.label(), "scheduling backup",);
+            self.events.send(backup_job);
             self.previous_schedules.insert(name.clone(), now);
         }
 
         Ok(())
     }
-}
 
-#[derive(Debug, Clone)]
-pub enum Message {
-    ConfigReloaded(Arc<config::Config>),
-    SchedulerTick,
-}
-
-impl From<crate::configreload::ConfigReload> for Message {
-    fn from(ev: crate::configreload::ConfigReload) -> Self {
-        Message::ConfigReloaded(ev.new_config)
-    }
-}
-
-#[async_trait::async_trait]
-impl Actor for Scheduler {
-    type Message = Message;
-    type Error = eyre::Report;
-
-    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
-        match message {
-            Message::ConfigReloaded(new_config) => self.config = new_config,
-            Message::SchedulerTick => self.run_schedules()?,
+    pub async fn run(&mut self) -> eyre::Result<()> {
+        let mut config_reload_recv = self.events.subscribe::<crate::configreload::ConfigReload>();
+        loop {
+            tokio::select! {
+                config_reload = config_reload_recv.recv() => self.config = config_reload?.new_config,
+                _ = tokio::time::sleep(SCHEDULE_INTERVAL) => self.run_schedules()?
+            }
         }
-        Ok(())
-    }
-
-    async fn idle(&mut self) -> Result<Self::Message, Self::Error> {
-        tokio::time::sleep(SCHEDULE_INTERVAL).await;
-        Ok(Message::SchedulerTick)
     }
 }

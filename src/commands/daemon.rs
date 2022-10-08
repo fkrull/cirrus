@@ -61,10 +61,7 @@ async fn run_daemon(
 
     // declare actors
     let jobqueues = cirrus_actor::new();
-    let scheduler = cirrus_actor::new();
     let mut jobstatus_sink = Messages::default();
-    let mut configreload_sink: Messages<configreload::ConfigReload> =
-        Messages::default().also_to(scheduler.actor_ref());
     let job_sink = Messages::default().also_to(jobqueues.actor_ref());
 
     // create actor instances
@@ -75,7 +72,6 @@ async fn run_daemon(
         match cirrus_desktop_ui::DesktopUi::new(config.clone(), job_sink.clone()) {
             Ok(desktop_ui) => {
                 jobstatus_sink = jobstatus_sink.also_to(desktop_ui_ref.clone());
-                configreload_sink = configreload_sink.also_to(desktop_ui_ref);
                 Some(desktop_ui_builder.into_instance(desktop_ui))
             }
             Err(err) => {
@@ -91,9 +87,7 @@ async fn run_daemon(
         secrets.clone(),
     ));
 
-    let mut scheduler =
-        scheduler.into_instance(scheduler::Scheduler::new(config.clone(), job_sink.clone()));
-
+    let mut scheduler = scheduler::Scheduler::new(config.clone(), events.clone());
     let mut configreloader = configreload::ConfigReloader::new(config.clone(), events.clone())?;
 
     // run everything

@@ -15,12 +15,12 @@ struct ErasedTypeError {
 
 #[derive(Debug)]
 struct ErasedChannel {
-    sender: Box<dyn Any>,
+    sender: Box<dyn Any + Send + Sync>,
     type_name: &'static str,
 }
 
 impl ErasedChannel {
-    fn new<T: Clone + 'static>(capacity: usize) -> Self {
+    fn new<T: Clone + Send + 'static>(capacity: usize) -> Self {
         let (sender, _) = broadcast::channel::<T>(capacity);
         ErasedChannel {
             sender: Box::new(sender),
@@ -28,7 +28,7 @@ impl ErasedChannel {
         }
     }
 
-    fn clone<T: 'static>(&self) -> Result<Self, ErasedTypeError> {
+    fn clone<T: Send + 'static>(&self) -> Result<Self, ErasedTypeError> {
         let sender = self.sender::<T>()?;
         Ok(ErasedChannel {
             sender: Box::new(sender.clone()),
@@ -70,10 +70,15 @@ impl EventsShared {
         }
     }
 
-    fn get<T: Clone + 'static>(&self) -> ErasedChannel {
+    fn get<T: Clone + Send + 'static>(&self) -> ErasedChannel {
         let type_id = TypeId::of::<T>();
-        if let Some(channel) = self.channels.read().get(&type_id) {
-            channel.clone::<T>().unwrap()
+        let existing_channel = self
+            .channels
+            .read()
+            .get(&type_id)
+            .map(|c| c.clone::<T>().unwrap());
+        if let Some(channel) = existing_channel {
+            channel
         } else {
             let mut channels = self.channels.write();
             channels
@@ -108,19 +113,19 @@ impl Events {
         }
     }
 
-    pub fn send<T: Clone + 'static>(&mut self, item: T) -> usize {
+    pub fn send<T: Clone + Send + 'static>(&mut self, item: T) -> usize {
         self.get::<T>().send(item).unwrap()
     }
 
-    pub fn subscribe<T: Clone + 'static>(&mut self) -> broadcast::Receiver<T> {
+    pub fn subscribe<T: Clone + Send + 'static>(&mut self) -> broadcast::Receiver<T> {
         self.get::<T>().subscribe().unwrap()
     }
 
-    pub fn typed_sender<T: Clone + 'static>(&mut self) -> broadcast::Sender<T> {
+    pub fn typed_sender<T: Clone + Send + 'static>(&mut self) -> broadcast::Sender<T> {
         self.get::<T>().sender().unwrap().clone()
     }
 
-    fn get<T: Clone + 'static>(&mut self) -> &ErasedChannel {
+    fn get<T: Clone + Send + 'static>(&mut self) -> &ErasedChannel {
         let type_id = TypeId::of::<T>();
         self.channels
             .entry(type_id)

@@ -5,7 +5,6 @@ use cirrus_daemon::*;
 use shindig::Events;
 use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
-use tracing::{info, warn};
 
 async fn setup_daemon_logger(log_file: Option<&PathBuf>) -> eyre::Result<()> {
     use tracing::Level;
@@ -61,23 +60,15 @@ async fn run_daemon(
 
     // declare actors
     let jobqueues = cirrus_actor::new();
-    let mut jobstatus_sink = Messages::default();
-    let job_sink = Messages::default().also_to(jobqueues.actor_ref());
+    let jobstatus_sink = Messages::default();
 
     // create actor instances
     #[cfg(feature = "cirrus-desktop-ui")]
-    let desktop_ui = {
-        let desktop_ui_builder = cirrus_actor::new();
-        let desktop_ui_ref = desktop_ui_builder.actor_ref();
-        match cirrus_desktop_ui::DesktopUi::new(config.clone(), job_sink.clone()) {
-            Ok(desktop_ui) => {
-                jobstatus_sink = jobstatus_sink.also_to(desktop_ui_ref.clone());
-                Some(desktop_ui_builder.into_instance(desktop_ui))
-            }
-            Err(err) => {
-                warn!("failed to start desktop UI: {}", err);
-                None
-            }
+    let desktop_ui = match cirrus_desktop_ui::DesktopUi::new(config.clone(), events.clone()) {
+        Ok(desktop_ui) => Some(desktop_ui),
+        Err(err) => {
+            tracing::warn!("failed to start desktop UI: {}", err);
+            None
         }
     };
 
@@ -92,15 +83,15 @@ async fn run_daemon(
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
-    info!("instance name: {}", instance_name);
+    tracing::info!("instance name: {}", instance_name);
     if let Some(version) = cirrus_core::VERSION {
-        info!("cirrus: {}", version);
+        tracing::info!("cirrus: {}", version);
     }
     match restic.version_string().await {
-        Ok(restic_version) => info!("restic: {}", restic_version),
-        Err(e) => warn!("failed to query restic version: {}", e),
+        Ok(restic_version) => tracing::info!("restic: {}", restic_version),
+        Err(e) => tracing::warn!("failed to query restic version: {}", e),
     }
-    info!("running forever...");
+    tracing::info!("running forever...");
 
     tokio::spawn(async move { jobqueues.run().await.unwrap() });
     tokio::spawn(async move { scheduler.run().await.unwrap() });

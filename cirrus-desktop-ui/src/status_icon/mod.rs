@@ -1,7 +1,7 @@
-use cirrus_actor::Messages;
 use cirrus_core::config;
 use cirrus_daemon::job;
 use eyre::WrapErr;
+use shindig::Events;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 #[cfg(windows)]
@@ -17,15 +17,15 @@ pub(crate) use xdg::StatusIcon;
 #[derive(Debug)]
 pub(crate) struct Model {
     config: Arc<config::Config>,
-    job_sink: Messages<job::Job>,
+    events: Events,
     running_jobs: HashMap<job::Id, job::Job>,
 }
 
 impl Model {
-    pub(crate) fn new(config: Arc<config::Config>, job_sink: Messages<job::Job>) -> Self {
+    pub(crate) fn new(config: Arc<config::Config>, events: Events) -> Self {
         Model {
             config,
-            job_sink,
+            events,
             running_jobs: HashMap::new(),
         }
     }
@@ -58,6 +58,7 @@ impl Model {
             }
             Event::Exit => {
                 tracing::info!("exiting due to user request via status icon");
+                // TODO shutdown
                 std::process::exit(0)
             }
         }
@@ -85,7 +86,7 @@ impl Model {
             }
             .into(),
         );
-        self.job_sink.send(job)?;
+        self.events.send(job);
         Ok(())
     }
 

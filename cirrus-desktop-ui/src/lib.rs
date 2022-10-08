@@ -1,6 +1,6 @@
-use cirrus_actor::Messages;
 use cirrus_core::config::Config;
 use cirrus_daemon::{configreload::ConfigReload, job};
+use shindig::Events;
 use std::sync::Arc;
 
 mod status_icon;
@@ -8,16 +8,16 @@ mod status_icon;
 #[derive(Debug)]
 pub struct DesktopUi {
     config: Arc<Config>,
-    job_sink: Messages<job::Job>,
+    events: Events,
     status_icon: status_icon::StatusIcon,
 }
 
 impl DesktopUi {
-    pub fn new(config: Arc<Config>, job_sink: Messages<job::Job>) -> eyre::Result<Self> {
+    pub fn new(config: Arc<Config>, events: Events) -> eyre::Result<Self> {
         let status_icon = status_icon::StatusIcon::new()?;
         Ok(Self {
             config,
-            job_sink,
+            events,
             status_icon,
         })
     }
@@ -43,42 +43,17 @@ impl DesktopUi {
         self.status_icon.config_reloaded(self.config.clone())?;
         Ok(())
     }
-}
 
-#[derive(Debug, Clone)]
-pub enum Message {
-    StatusChange(job::StatusChange),
-    ConfigReloaded(Arc<Config>),
-}
-
-impl From<job::StatusChange> for Message {
-    fn from(ev: job::StatusChange) -> Self {
-        Message::StatusChange(ev)
-    }
-}
-
-impl From<ConfigReload> for Message {
-    fn from(ev: ConfigReload) -> Self {
-        Message::ConfigReloaded(ev.new_config)
-    }
-}
-
-#[async_trait::async_trait]
-impl cirrus_actor::Actor for DesktopUi {
-    type Message = Message;
-    type Error = eyre::Report;
-
-    async fn on_message(&mut self, message: Self::Message) -> Result<(), Self::Error> {
-        match message {
-            Message::StatusChange(ev) => self.handle_job_status_change(ev)?,
-            Message::ConfigReloaded(new_config) => self.handle_config_reloaded(new_config)?,
-        }
-        Ok(())
-    }
-
-    async fn on_start(&mut self) -> Result<(), Self::Error> {
-        let model = status_icon::Model::new(self.config.clone(), self.job_sink.clone());
+    pub async fn run(&mut self) -> eyre::Result<()> {
+        let model = status_icon::Model::new(self.config.clone(), self.events.clone());
         self.status_icon.start(model)?;
-        Ok(())
+        let mut status_change_recv = self.events.subscribe::<job::StatusChange>();
+        let mut config_reload_recv = self.events.subscribe::<ConfigReload>();
+        loop {
+            tokio::select! {
+                status_change = status_change_recv.recv() => self.handle_job_status_change(status_change?)?,
+                config_reload = config_reload_recv.recv() => self.handle_config_reloaded(config_reload?.new_config)?,
+            }
+        }
     }
 }

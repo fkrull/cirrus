@@ -1,6 +1,7 @@
 use cirrus_core::config::Config;
 use cirrus_daemon::job;
 use std::sync::Arc;
+use winit::event_loop::EventLoopBuilder;
 use winit::{
     event::Event,
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
@@ -17,11 +18,13 @@ impl StatusIcon {
     }
 
     pub(crate) fn start(&mut self, mut model: super::Model) -> eyre::Result<()> {
-        use winit::platform::windows::EventLoopExtWindows;
-
         let (send, recv) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
-            let evloop = EventLoop::new_any_thread();
+            use winit::platform::windows::EventLoopBuilderExtWindows;
+
+            let evloop = EventLoopBuilder::with_user_event()
+                .with_any_thread(true)
+                .build();
             let mut view = View::new(&evloop, &model).unwrap();
             send.send(evloop.create_proxy()).unwrap();
             evloop.run(move |event, _, control_flow| {
@@ -79,8 +82,9 @@ struct View {
 
 impl View {
     fn new(evloop: &EventLoop<super::Event>, model: &super::Model) -> eyre::Result<Self> {
-        let tray_icon = trayicon::TrayIconBuilder::new()
-            .sender_winit(evloop.create_proxy())
+        let evloop_proxy = evloop.create_proxy();
+        let tray_icon = trayicon::TrayIconBuilder::<super::Event>::new()
+            .sender_callback(move |ev| evloop_proxy.send_event(ev.clone()).unwrap())
             .tooltip(&model.tooltip())
             .icon(icon_for_status(model)?.clone())
             .menu(menu(model))

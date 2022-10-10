@@ -1,9 +1,7 @@
-use cirrus_core::{config, restic::Restic, secrets::Secrets};
-use std::sync::Arc;
+use cirrus_core::config::{backup, repo};
 use time::OffsetDateTime;
 
-mod backup;
-pub use backup::*;
+pub(crate) mod runner;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct Id(uuid::Uuid);
@@ -49,8 +47,8 @@ impl PartialEq for Job {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct QueueId<'a> {
-    pub repo: &'a config::repo::Name,
-    pub backup: Option<&'a config::backup::Name>,
+    pub repo: &'a repo::Name,
+    pub backup: Option<&'a backup::Name>,
 }
 
 #[derive(Debug, Clone)]
@@ -71,20 +69,31 @@ impl Spec {
         }
     }
 
-    pub(crate) async fn run_job(
-        self,
-        restic: Arc<Restic>,
-        secrets: Arc<Secrets>,
-    ) -> eyre::Result<()> {
-        match self {
-            Spec::Backup(spec) => spec.run_job(&restic, &secrets).await,
-        }
-    }
-
     pub fn label(&self) -> String {
         match self {
             Spec::Backup(spec) => format!("backup.{}", spec.name()),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BackupSpec {
+    pub repo_name: repo::Name,
+    pub backup_name: backup::Name,
+    pub repo: repo::Definition,
+    pub backup: backup::Definition,
+}
+
+impl BackupSpec {
+    fn queue_id(&self) -> QueueId {
+        QueueId {
+            repo: &self.repo_name,
+            backup: Some(&self.backup_name),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.backup_name.0
     }
 }
 
@@ -110,5 +119,4 @@ pub enum Status {
     Started,
     FinishedSuccessfully,
     FinishedWithError,
-    Retried { attempt: u32, attempts_left: u32 },
 }

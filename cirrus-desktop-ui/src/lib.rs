@@ -33,7 +33,6 @@ impl DesktopUi {
             job::Status::FinishedWithError => {
                 self.status_icon.job_failed(&ev.job)?;
             }
-            _ => {}
         }
         Ok(())
     }

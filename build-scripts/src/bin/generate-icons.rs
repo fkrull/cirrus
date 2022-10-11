@@ -12,6 +12,8 @@ fn status_icons() -> eyre::Result<()> {
         ("cirrus-idle.dark", vec!["dark"]),
         ("cirrus-running.light", vec!["light", "running"]),
         ("cirrus-running.dark", vec!["dark", "running"]),
+        ("cirrus-suspend.light", vec!["light", "suspend"]),
+        ("cirrus-suspend.dark", vec!["dark", "suspend"]),
     ];
     let sizes = [16, 24, 32, 48];
 

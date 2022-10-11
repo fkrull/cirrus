@@ -151,6 +151,10 @@ mod icons {
         Lazy::new(|| load_icon(include_bytes!("../resources/cirrus-running.light.ico")).unwrap());
     static RUNNING_DARK: Lazy<trayicon::Icon> =
         Lazy::new(|| load_icon(include_bytes!("../resources/cirrus-running.dark.ico")).unwrap());
+    static SUSPEND_LIGHT: Lazy<trayicon::Icon> =
+        Lazy::new(|| load_icon(include_bytes!("../resources/cirrus-suspend.light.ico")).unwrap());
+    static SUSPEND_DARK: Lazy<trayicon::Icon> =
+        Lazy::new(|| load_icon(include_bytes!("../resources/cirrus-suspend.dark.ico")).unwrap());
 
     pub(super) fn idle() -> eyre::Result<&'static trayicon::Icon> {
         match systray_theme()? {

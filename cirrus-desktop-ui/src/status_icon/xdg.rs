@@ -187,6 +187,20 @@ mod icons {
             .unwrap()
     });
 
+    static SUSPEND_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
+        const ICON_DATA: [&[u8]; 4] = [
+            include_bytes!("../resources/16/cirrus-suspend.light.png"),
+            include_bytes!("../resources/24/cirrus-suspend.light.png"),
+            include_bytes!("../resources/32/cirrus-suspend.light.png"),
+            include_bytes!("../resources/48/cirrus-suspend.light.png"),
+        ];
+        ICON_DATA
+            .iter()
+            .map(|&data| load_png(data))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+    });
+
     pub(super) fn idle() -> &'static Vec<ksni::Icon> {
         &IDLE_LIGHT
     }

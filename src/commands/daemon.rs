@@ -72,6 +72,7 @@ async fn run_daemon(
         config_reload::ConfigReloadService::new(events.clone(), config.clone())?;
     let mut shutdown_service = shutdown::ShutdownService::new(events.clone());
     let mut suspend_service = suspend::SuspendService::new(events.clone());
+    let mut signal_handler = signal_handler::SignalHandler::new(events.clone());
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
@@ -90,14 +91,14 @@ async fn run_daemon(
     tokio::spawn(async move { config_reload_service.run().await.unwrap() });
     tokio::spawn(async move { shutdown_service.run().await.unwrap() });
     tokio::spawn(async move { suspend_service.run().await.unwrap() });
+    tokio::spawn(async move { signal_handler.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
     if let Some(mut desktop_ui) = desktop_ui {
         tokio::spawn(async move { desktop_ui.run().await.unwrap() });
     }
 
-    tokio::signal::ctrl_c().await?;
-
-    Ok(())
+    // wait forever
+    futures::future::pending::<eyre::Result<()>>().await
 }
 
 async fn log_file_dir() -> eyre::Result<PathBuf> {

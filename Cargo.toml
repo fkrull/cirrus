@@ -37,6 +37,7 @@ tracing = "0.1.23"
 tracing-subscriber = { version = "0.3.5", default-features = false, features = ["fmt", "ansi", "registry", "local-time", "tracing-log"] }
 time = { version = "0.3.5", features = ["macros"] }
 shindig = { version = "0.1.0", path = "shindig" }
+futures = "0.3.24"
 
 [dependencies.tokio]
 version = "1.0.0"

@@ -76,7 +76,8 @@ fn merge_output_streams(child: &'_ mut Child) -> BoxStream<'static, Result<Event
 fn ask_to_terminate(child: &mut Child) -> Result<(), Error> {
     // TODO maybe not unwrap?
     let pid = child.id().expect("child should have a PID");
-    unsafe { libc::kill(pid as i32, libc::SIGTERM) }
+    unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+    Ok(())
 }
 
 #[cfg(not(unix))]
@@ -120,13 +121,19 @@ impl ResticProcess {
         self.wait().await?.check_status()
     }
 
+    #[tracing::instrument(level = "debug", skip_all, fields(pid = self.child.id(), grace_period_secs = grace_period.as_secs_f64()))]
     pub async fn terminate(&mut self, grace_period: Duration) -> Result<(), Error> {
+        tracing::debug!("trying to terminate gracefully");
         ask_to_terminate(&mut self.child)?;
         match tokio::time::timeout(grace_period, self.wait()).await {
             Ok(result) => {
+                tracing::debug!("process terminated before timeout");
                 result?;
             }
-            Err(_) => self.child.kill().await.map_err(Error::KillError)?,
+            Err(_) => {
+                tracing::debug!("process did not terminate before timeout, killing it instead");
+                self.child.kill().await.map_err(Error::KillError)?;
+            }
         };
         Ok(())
     }

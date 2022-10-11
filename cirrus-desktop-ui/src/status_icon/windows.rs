@@ -1,10 +1,6 @@
-use cirrus_core::config::Config;
-use cirrus_daemon::job;
-use std::sync::Arc;
-use winit::event_loop::EventLoopBuilder;
 use winit::{
     event::Event,
-    event_loop::{ControlFlow, EventLoop, EventLoopProxy},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy},
 };
 
 #[derive(Debug)]
@@ -43,43 +39,8 @@ impl StatusIcon {
         Ok(())
     }
 
-    pub(crate) fn job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
-        self.evloop_proxy
-            .as_ref()
-            .unwrap()
-            .send_event(super::Event::JobStarted(job.clone()))?;
-        Ok(())
-    }
-
-    pub(crate) fn job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
-        self.evloop_proxy
-            .as_ref()
-            .unwrap()
-            .send_event(super::Event::JobSucceeded(job.clone()))?;
-        Ok(())
-    }
-
-    pub(crate) fn job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
-        self.evloop_proxy
-            .as_ref()
-            .unwrap()
-            .send_event(super::Event::JobFailed(job.clone()))?;
-        Ok(())
-    }
-
-    pub(crate) fn job_cancelled(&mut self, job: &job::Job) -> eyre::Result<()> {
-        self.evloop_proxy
-            .as_ref()
-            .unwrap()
-            .send_event(super::Event::JobCancelled(job.clone()))?;
-        Ok(())
-    }
-
-    pub(crate) fn config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
-        self.evloop_proxy
-            .as_ref()
-            .unwrap()
-            .send_event(super::Event::UpdateConfig(new_config))?;
+    pub(crate) fn send(&mut self, event: super::Event) -> eyre::Result<()> {
+        self.evloop_proxy.as_ref().unwrap().send_event(event)?;
         Ok(())
     }
 }
@@ -137,6 +98,7 @@ fn icon_for_status(model: &super::Model) -> eyre::Result<&'static trayicon::Icon
     match model.status() {
         super::Status::Idle => icons::idle(),
         super::Status::Running => icons::running(),
+        super::Status::Suspended => icons::suspend(),
     }
 }
 
@@ -167,6 +129,13 @@ mod icons {
         match systray_theme()? {
             SystrayTheme::Light => Ok(&RUNNING_DARK),
             SystrayTheme::Dark => Ok(&RUNNING_LIGHT),
+        }
+    }
+
+    pub(super) fn suspend() -> eyre::Result<&'static trayicon::Icon> {
+        match systray_theme()? {
+            SystrayTheme::Light => Ok(&SUSPEND_DARK),
+            SystrayTheme::Dark => Ok(&SUSPEND_LIGHT),
         }
     }
 

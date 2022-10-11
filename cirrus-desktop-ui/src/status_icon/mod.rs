@@ -15,11 +15,28 @@ mod xdg;
 #[cfg(target_family = "unix")]
 pub(crate) use xdg::StatusIcon;
 
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) enum Event {
+    JobStarted(job::Job),
+    JobSucceeded(job::Job),
+    JobFailed(job::Job),
+    JobCancelled(job::Job),
+
+    Suspended,
+    Unsuspended,
+
+    UpdateConfig(Arc<config::Config>),
+    RunBackup(config::backup::Name),
+    OpenConfigFile,
+    Exit,
+}
+
 #[derive(Debug)]
 pub(crate) struct Model {
     config: Arc<config::Config>,
     events: Events,
     running_jobs: HashMap<job::Id, job::Job>,
+    suspended: bool,
 }
 
 impl Model {
@@ -28,6 +45,7 @@ impl Model {
             config,
             events,
             running_jobs: HashMap::new(),
+            suspended: false,
         }
     }
 
@@ -47,6 +65,14 @@ impl Model {
             }
             Event::JobCancelled(job) => {
                 self.running_jobs.remove(&job.id);
+                Ok(HandleEventOutcome::UpdateView)
+            }
+            Event::Suspended => {
+                self.suspended = true;
+                Ok(HandleEventOutcome::UpdateView)
+            }
+            Event::Unsuspended => {
+                self.suspended = false;
                 Ok(HandleEventOutcome::UpdateView)
             }
             Event::UpdateConfig(new_config) => {
@@ -110,15 +136,19 @@ impl Model {
     }
 
     fn status(&self) -> Status {
-        if self.running_jobs.is_empty() {
-            Status::Idle
-        } else {
+        if self.suspended {
+            Status::Suspended
+        } else if !self.running_jobs.is_empty() {
             Status::Running
+        } else {
+            Status::Idle
         }
     }
 
     fn status_text(&self) -> Cow<'static, str> {
-        if self.running_jobs.is_empty() {
+        if self.suspended {
+            "Suspended".into()
+        } else if self.running_jobs.is_empty() {
             "Idle".into()
         } else if self.running_jobs.len() == 1 {
             let job = self.running_jobs.values().next().unwrap();
@@ -143,19 +173,6 @@ impl Model {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-enum Event {
-    JobStarted(job::Job),
-    JobSucceeded(job::Job),
-    JobFailed(job::Job),
-    JobCancelled(job::Job),
-
-    UpdateConfig(Arc<config::Config>),
-    RunBackup(config::backup::Name),
-    OpenConfigFile,
-    Exit,
-}
-
 #[derive(Debug)]
 enum HandleEventOutcome {
     UpdateView,
@@ -166,4 +183,5 @@ enum HandleEventOutcome {
 enum Status {
     Idle,
     Running,
+    Suspended,
 }

@@ -1,7 +1,3 @@
-use cirrus_core::config::Config;
-use cirrus_daemon::job;
-use std::sync::Arc;
-
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
 pub(crate) struct StatusIcon {
@@ -29,47 +25,9 @@ impl StatusIcon {
         Ok(())
     }
 
-    pub(crate) fn job_started(&mut self, job: &job::Job) -> eyre::Result<()> {
+    pub(crate) fn send(&mut self, event: super::Event) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
-            model
-                .handle_event(super::Event::JobStarted(job.clone()))
-                .unwrap();
-        });
-        Ok(())
-    }
-
-    pub(crate) fn job_succeeded(&mut self, job: &job::Job) -> eyre::Result<()> {
-        self.handle.as_ref().unwrap().update(|model| {
-            model
-                .handle_event(super::Event::JobSucceeded(job.clone()))
-                .unwrap();
-        });
-        Ok(())
-    }
-
-    pub(crate) fn job_failed(&mut self, job: &job::Job) -> eyre::Result<()> {
-        self.handle.as_ref().unwrap().update(|model| {
-            model
-                .handle_event(super::Event::JobFailed(job.clone()))
-                .unwrap();
-        });
-        Ok(())
-    }
-
-    pub(crate) fn job_cancelled(&mut self, job: &job::Job) -> eyre::Result<()> {
-        self.handle.as_ref().unwrap().update(|model| {
-            model
-                .handle_event(super::Event::JobCancelled(job.clone()))
-                .unwrap();
-        });
-        Ok(())
-    }
-
-    pub(crate) fn config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
-        self.handle.as_ref().unwrap().update(|model| {
-            model
-                .handle_event(super::Event::UpdateConfig(new_config.clone()))
-                .unwrap();
+            model.handle_event(event.clone()).unwrap();
         });
         Ok(())
     }
@@ -93,6 +51,7 @@ impl ksni::Tray for super::Model {
         match self.status() {
             super::Status::Idle => icons::idle().clone(),
             super::Status::Running => icons::running().clone(),
+            super::Status::Suspended => icons::suspend().clone(),
         }
     }
 
@@ -207,6 +166,10 @@ mod icons {
 
     pub(super) fn running() -> &'static Vec<ksni::Icon> {
         &RUNNING_LIGHT
+    }
+
+    pub(super) fn suspend() -> &'static Vec<ksni::Icon> {
+        &SUSPEND_LIGHT
     }
 
     fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {

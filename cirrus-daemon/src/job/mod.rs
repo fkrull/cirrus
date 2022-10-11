@@ -98,6 +98,12 @@ impl BackupSpec {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum CancellationReason {
+    Shutdown,
+    Suspend,
+}
+
 #[derive(Debug, Clone)]
 pub struct StatusChange {
     pub job: Job,
@@ -120,4 +126,5 @@ pub enum Status {
     Started,
     FinishedSuccessfully,
     FinishedWithError,
+    Cancelled,
 }

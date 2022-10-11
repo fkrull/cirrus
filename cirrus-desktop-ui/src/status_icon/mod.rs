@@ -44,6 +44,10 @@ impl Model {
                 self.running_jobs.remove(&job.id);
                 Ok(HandleEventOutcome::UpdateView)
             }
+            Event::JobCancelled(job) => {
+                self.running_jobs.remove(&job.id);
+                Ok(HandleEventOutcome::UpdateView)
+            }
             Event::UpdateConfig(new_config) => {
                 self.config = new_config;
                 Ok(HandleEventOutcome::UpdateView)
@@ -143,6 +147,7 @@ enum Event {
     JobStarted(job::Job),
     JobSucceeded(job::Job),
     JobFailed(job::Job),
+    JobCancelled(job::Job),
 
     UpdateConfig(Arc<config::Config>),
     RunBackup(config::backup::Name),

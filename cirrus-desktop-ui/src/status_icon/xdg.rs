@@ -56,6 +56,15 @@ impl StatusIcon {
         Ok(())
     }
 
+    pub(crate) fn job_cancelled(&mut self, job: &job::Job) -> eyre::Result<()> {
+        self.handle.as_ref().unwrap().update(|model| {
+            model
+                .handle_event(super::Event::JobCancelled(job.clone()))
+                .unwrap();
+        });
+        Ok(())
+    }
+
     pub(crate) fn config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
         self.handle.as_ref().unwrap().update(|model| {
             model

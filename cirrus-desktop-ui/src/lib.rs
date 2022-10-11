@@ -33,6 +33,9 @@ impl DesktopUi {
             job::Status::FinishedWithError => {
                 self.status_icon.job_failed(&ev.job)?;
             }
+            job::Status::Cancelled => {
+                self.status_icon.job_cancelled(&ev.job)?;
+            }
         }
         Ok(())
     }

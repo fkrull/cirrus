@@ -67,6 +67,14 @@ impl StatusIcon {
         Ok(())
     }
 
+    pub(crate) fn job_cancelled(&mut self, job: &job::Job) -> eyre::Result<()> {
+        self.evloop_proxy
+            .as_ref()
+            .unwrap()
+            .send_event(super::Event::JobCancelled(job.clone()))?;
+        Ok(())
+    }
+
     pub(crate) fn config_reloaded(&mut self, new_config: Arc<Config>) -> eyre::Result<()> {
         self.evloop_proxy
             .as_ref()

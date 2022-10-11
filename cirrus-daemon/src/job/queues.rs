@@ -49,7 +49,8 @@ impl RunQueue {
                     self.secrets.clone(),
                 );
                 let cloned_job = job.clone();
-                tokio::spawn(async move { runner.run(cloned_job).await });
+                let cancel_recv = self.events.subscribe::<job::runner::Cancel>();
+                tokio::spawn(async move { runner.run(cloned_job, cancel_recv).await });
                 self.running = Some(job);
             }
         }
@@ -174,9 +175,9 @@ impl JobQueues {
     fn handle_status_change(&mut self, status_change: job::StatusChange) {
         match status_change.new_status {
             job::Status::Started => {}
-            job::Status::FinishedSuccessfully | job::Status::FinishedWithError => {
-                self.job_finished(&status_change.job)
-            }
+            job::Status::FinishedSuccessfully
+            | job::Status::FinishedWithError
+            | job::Status::Cancelled => self.job_finished(&status_change.job),
         }
     }
 

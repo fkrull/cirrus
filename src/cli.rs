@@ -114,6 +114,33 @@ impl std::fmt::Display for ResticArg {
     }
 }
 
+#[derive(Debug, Copy, Clone, clap::ValueEnum)]
+pub enum LogLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+impl Default for LogLevel {
+    fn default() -> Self {
+        LogLevel::Info
+    }
+}
+
+impl From<LogLevel> for tracing::Level {
+    fn from(level: LogLevel) -> Self {
+        match level {
+            LogLevel::Trace => tracing::Level::TRACE,
+            LogLevel::Debug => tracing::Level::DEBUG,
+            LogLevel::Info => tracing::Level::INFO,
+            LogLevel::Warn => tracing::Level::WARN,
+            LogLevel::Error => tracing::Level::ERROR,
+        }
+    }
+}
+
 /// A configuration-driven backup program based on restic.
 #[derive(clap::Parser)]
 #[command(disable_version_flag = true)]
@@ -176,6 +203,7 @@ pub enum Cmd {
 }
 
 pub mod daemon {
+    use crate::cli::LogLevel;
     use std::path::PathBuf;
 
     #[derive(clap::Parser)]
@@ -183,6 +211,10 @@ pub mod daemon {
         /// Run the daemon under the built-in supervisor
         #[arg(long)]
         pub supervisor: bool,
+
+        /// Set the log level
+        #[arg(long, value_enum, default_value_t)]
+        pub log_level: LogLevel,
 
         /// Send all output to the given log file
         #[arg(long)]

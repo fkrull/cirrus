@@ -5,8 +5,7 @@ use shindig::Events;
 use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
 
-async fn setup_daemon_logger(log_file: Option<&PathBuf>) -> eyre::Result<()> {
-    use tracing::Level;
+async fn setup_daemon_logger(level: cli::LogLevel, log_file: Option<&PathBuf>) -> eyre::Result<()> {
     use tracing_subscriber::{
         filter::LevelFilter,
         fmt::{format::FmtSpan, layer, time::LocalTime},
@@ -16,7 +15,7 @@ async fn setup_daemon_logger(log_file: Option<&PathBuf>) -> eyre::Result<()> {
     };
 
     let builder = Registry::default()
-        .with(LevelFilter::from(Level::DEBUG))
+        .with(LevelFilter::from_level(level.into()))
         .with(layer().with_ansi(true).with_target(false).without_time());
 
     if let Some(log_file) = log_file {
@@ -50,7 +49,7 @@ async fn run_daemon(
     secrets: Secrets,
     config: Config,
 ) -> eyre::Result<()> {
-    setup_daemon_logger(args.log_file.as_ref()).await?;
+    setup_daemon_logger(args.log_level, args.log_file.as_ref()).await?;
 
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);

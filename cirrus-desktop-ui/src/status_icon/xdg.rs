@@ -94,6 +94,15 @@ impl ksni::Tray for super::Model {
                 ..Default::default()
             }
             .into(),
+            CheckmarkItem {
+                label: "Suspended".to_owned(),
+                checked: self.suspended,
+                activate: Box::new(move |this: &mut super::Model| {
+                    this.handle_event(super::Event::ToggleSuspended).unwrap();
+                }),
+                ..Default::default()
+            }
+            .into(),
             MenuItem::Separator,
             StandardItem {
                 label: "Open Configuration".to_owned(),

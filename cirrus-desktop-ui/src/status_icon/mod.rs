@@ -1,6 +1,6 @@
 use cirrus_core::config;
-use cirrus_daemon::job;
 use cirrus_daemon::shutdown::RequestShutdown;
+use cirrus_daemon::{job, suspend};
 use eyre::WrapErr;
 use shindig::Events;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
@@ -15,16 +15,17 @@ mod xdg;
 #[cfg(target_family = "unix")]
 pub(crate) use xdg::StatusIcon;
 
+// TODO: split into internal and external events
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum Event {
     JobStarted(job::Job),
     JobSucceeded(job::Job),
     JobFailed(job::Job),
     JobCancelled(job::Job),
-
     Suspended,
     Unsuspended,
 
+    ToggleSuspended,
     UpdateConfig(Arc<config::Config>),
     RunBackup(config::backup::Name),
     OpenConfigFile,
@@ -74,6 +75,11 @@ impl Model {
             Event::Unsuspended => {
                 self.suspended = false;
                 Ok(HandleEventOutcome::UpdateView)
+            }
+
+            Event::ToggleSuspended => {
+                self.toggle_suspend();
+                Ok(HandleEventOutcome::Unchanged)
             }
             Event::UpdateConfig(new_config) => {
                 self.config = new_config;
@@ -129,6 +135,14 @@ impl Model {
             .ok_or_else(|| eyre::Report::msg("configuration not loaded from file"))?;
         opener::open(config_path)
             .wrap_err_with(|| format!("failed to open config file {}", config_path.display()))
+    }
+
+    fn toggle_suspend(&mut self) {
+        if self.suspended {
+            self.events.send(suspend::Unsuspend);
+        } else {
+            self.events.send(suspend::Suspend::UntilDisabled);
+        }
     }
 
     fn app_name(&self) -> &'static str {

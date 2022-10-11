@@ -16,7 +16,7 @@ async fn setup_daemon_logger(log_file: Option<&PathBuf>) -> eyre::Result<()> {
     };
 
     let builder = Registry::default()
-        .with(LevelFilter::from(Level::INFO))
+        .with(LevelFilter::from(Level::DEBUG))
         .with(layer().with_ansi(true).with_target(false).without_time());
 
     if let Some(log_file) = log_file {
@@ -69,7 +69,9 @@ async fn run_daemon(
     let mut job_queues =
         job::queues::JobQueues::new(events.clone(), restic.clone(), secrets.clone());
     let mut scheduler = scheduler::Scheduler::new(config.clone(), events.clone());
-    let mut configreloader = configreload::ConfigReloader::new(config.clone(), events.clone())?;
+    let mut config_reload_service =
+        config_reload::ConfigReloadService::new(events.clone(), config.clone())?;
+    let mut shutdown_service = shutdown::ShutdownService::new(events.clone());
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
@@ -85,7 +87,8 @@ async fn run_daemon(
 
     tokio::spawn(async move { job_queues.run().await.unwrap() });
     tokio::spawn(async move { scheduler.run().await.unwrap() });
-    tokio::spawn(async move { configreloader.run().await.unwrap() });
+    tokio::spawn(async move { config_reload_service.run().await.unwrap() });
+    tokio::spawn(async move { shutdown_service.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
     if let Some(mut desktop_ui) = desktop_ui {
         tokio::spawn(async move { desktop_ui.run().await.unwrap() });

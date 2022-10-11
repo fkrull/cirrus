@@ -1,12 +1,10 @@
 use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use std::sync::Arc;
 
-pub mod configreload;
+pub mod config_reload;
 pub mod job;
 pub mod scheduler;
-
-#[derive(Debug, Clone)]
-pub struct Shutdown;
+pub mod shutdown;
 
 #[derive(Debug, Clone)]
 pub struct Daemon {

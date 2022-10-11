@@ -1,5 +1,6 @@
 use cirrus_core::config;
 use cirrus_daemon::job;
+use cirrus_daemon::shutdown::RequestShutdown;
 use eyre::WrapErr;
 use shindig::Events;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
@@ -62,8 +63,8 @@ impl Model {
             }
             Event::Exit => {
                 tracing::info!("exiting due to user request via status icon");
-                // TODO shutdown
-                std::process::exit(0)
+                self.events.send(RequestShutdown);
+                Ok(HandleEventOutcome::Unchanged)
             }
         }
     }

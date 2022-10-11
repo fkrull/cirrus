@@ -71,7 +71,9 @@ impl Scheduler {
     }
 
     pub async fn run(&mut self) -> eyre::Result<()> {
-        let mut config_reload_recv = self.events.subscribe::<crate::configreload::ConfigReload>();
+        let mut config_reload_recv = self
+            .events
+            .subscribe::<crate::config_reload::ConfigReload>();
         loop {
             tokio::select! {
                 config_reload = config_reload_recv.recv() => self.config = config_reload?.new_config,

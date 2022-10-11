@@ -1,5 +1,5 @@
 use cirrus_core::config::Config;
-use cirrus_daemon::{configreload::ConfigReload, job};
+use cirrus_daemon::{config_reload::ConfigReload, job};
 use shindig::Events;
 use std::sync::Arc;
 

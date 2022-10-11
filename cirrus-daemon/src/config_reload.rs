@@ -1,4 +1,4 @@
-use crate::Shutdown;
+use crate::{shutdown::ShutdownAcknowledged, shutdown::ShutdownRequested};
 use cirrus_core::config::Config;
 use notify::Watcher;
 use shindig::Events;
@@ -12,14 +12,14 @@ pub struct ConfigReload {
 #[derive(Debug, Clone)]
 struct NotifyEvent(notify::Event);
 
-pub struct ConfigReloader {
-    config: Arc<Config>,
+pub struct ConfigReloadService {
     events: Events,
+    config: Arc<Config>,
     watcher: notify::RecommendedWatcher,
 }
 
-impl ConfigReloader {
-    pub fn new(config: Arc<Config>, mut events: Events) -> eyre::Result<Self> {
+impl ConfigReloadService {
+    pub fn new(mut events: Events, config: Arc<Config>) -> eyre::Result<Self> {
         let notify_sender = events.typed_sender::<NotifyEvent>();
         let watcher = notify::recommended_watcher(move |ev| match ev {
             Ok(event) => {
@@ -28,7 +28,7 @@ impl ConfigReloader {
             Err(error) => tracing::error!(?error, "notify error"),
         })?;
 
-        Ok(ConfigReloader {
+        Ok(ConfigReloadService {
             config,
             events,
             watcher,
@@ -58,12 +58,15 @@ impl ConfigReloader {
 
     pub async fn run(&mut self) -> eyre::Result<()> {
         self.start_watch()?;
-        let mut shutdown_event_recv = self.events.subscribe::<Shutdown>();
+        let mut shutdown_recv = self.events.subscribe::<ShutdownRequested>();
         let mut notify_event_recv = self.events.subscribe::<NotifyEvent>();
         loop {
             tokio::select! {
                 notify_event = notify_event_recv.recv() => self.handle_notify_event(notify_event?).await?,
-                shutdown = shutdown_event_recv.recv() => self.handle_shutdown(shutdown?).await?,
+                shutdown = shutdown_recv.recv() => {
+                    self.handle_shutdown(shutdown?).await?;
+                    break Ok(());
+                },
             }
         }
     }
@@ -89,10 +92,11 @@ impl ConfigReloader {
         self.reload_config().await
     }
 
-    async fn handle_shutdown(&mut self, _: Shutdown) -> eyre::Result<()> {
+    async fn handle_shutdown(&mut self, _: ShutdownRequested) -> eyre::Result<()> {
         if let Some(config_path) = &self.config.source {
             self.watcher.unwatch(config_path)?;
         }
+        self.events.send(ShutdownAcknowledged);
         Ok(())
     }
 }

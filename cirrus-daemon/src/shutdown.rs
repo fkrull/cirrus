@@ -29,7 +29,7 @@ impl ShutdownService {
         ShutdownService { events }
     }
 
-    #[tracing::instrument(name = "shutdown", skip_all)]
+    #[tracing::instrument(name = "ShutdownService", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         let _ = self.events.subscribe::<RequestShutdown>().recv().await?;
         tracing::info!(

@@ -56,7 +56,7 @@ impl ConfigReloadService {
         Ok(())
     }
 
-    #[tracing::instrument(name = "config_reload", skip_all)]
+    #[tracing::instrument(name = "ConfigReloadService", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         self.start_watch()?;
         let mut shutdown_recv = self.events.subscribe::<ShutdownRequested>();

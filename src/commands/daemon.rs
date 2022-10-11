@@ -71,6 +71,7 @@ async fn run_daemon(
     let mut config_reload_service =
         config_reload::ConfigReloadService::new(events.clone(), config.clone())?;
     let mut shutdown_service = shutdown::ShutdownService::new(events.clone());
+    let mut suspend_service = suspend::SuspendService::new(events.clone());
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
@@ -88,6 +89,7 @@ async fn run_daemon(
     tokio::spawn(async move { scheduler.run().await.unwrap() });
     tokio::spawn(async move { config_reload_service.run().await.unwrap() });
     tokio::spawn(async move { shutdown_service.run().await.unwrap() });
+    tokio::spawn(async move { suspend_service.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
     if let Some(mut desktop_ui) = desktop_ui {
         tokio::spawn(async move { desktop_ui.run().await.unwrap() });

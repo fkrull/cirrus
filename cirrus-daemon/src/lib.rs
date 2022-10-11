@@ -5,6 +5,7 @@ pub mod config_reload;
 pub mod job;
 pub mod scheduler;
 pub mod shutdown;
+pub mod suspend;
 
 #[derive(Debug, Clone)]
 pub struct Daemon {

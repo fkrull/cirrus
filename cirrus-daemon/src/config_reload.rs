@@ -94,6 +94,7 @@ impl ConfigReloadService {
     }
 
     async fn handle_shutdown(&mut self, _: ShutdownRequested) -> eyre::Result<()> {
+        tracing::debug!("received shutdown event");
         if let Some(config_path) = &self.config.source {
             self.watcher.unwatch(config_path)?;
         }

@@ -1,5 +1,7 @@
 use crate::job;
+use crate::shutdown::{ShutdownAcknowledged, ShutdownRequested};
 use cirrus_core::{config, restic::Restic, secrets::Secrets};
+use futures::StreamExt as _;
 use shindig::Events;
 use std::{
     collections::{HashMap, VecDeque},
@@ -7,11 +9,17 @@ use std::{
 };
 
 #[derive(Debug)]
+struct RunningJob {
+    job: job::Job,
+    cancellation: Option<job::cancellation::Send>,
+}
+
+#[derive(Debug)]
 struct RunQueue {
     events: Events,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
-    running: Option<job::Job>,
+    running: Option<RunningJob>,
     queue: VecDeque<job::Job>,
 }
 
@@ -49,9 +57,12 @@ impl RunQueue {
                     self.secrets.clone(),
                 );
                 let cloned_job = job.clone();
-                let cancel_recv = self.events.subscribe::<job::runner::Cancel>();
-                tokio::spawn(async move { runner.run(cloned_job, cancel_recv).await });
-                self.running = Some(job);
+                let (cancellation_send, cancellation_recv) = job::cancellation::new();
+                tokio::spawn(async move { runner.run(cloned_job, cancellation_recv).await });
+                self.running = Some(RunningJob {
+                    job,
+                    cancellation: Some(cancellation_send),
+                });
             }
         }
         Ok(())
@@ -59,9 +70,15 @@ impl RunQueue {
 
     fn job_finished(&mut self, job: &job::Job) {
         if let Some(running) = &self.running {
-            if running == job {
+            if &running.job == job {
                 self.running = None;
             }
+        }
+    }
+
+    async fn cancel(&mut self, reason: job::cancellation::Reason) {
+        if let Some(cancellation) = self.running.as_mut().and_then(|j| j.cancellation.take()) {
+            cancellation.cancel(reason).await;
         }
     }
 }
@@ -127,6 +144,17 @@ impl PerRepositoryQueue {
         }
     }
 
+    async fn cancel(&mut self, reason: job::cancellation::Reason) {
+        let mut futs = futures::stream::FuturesUnordered::new();
+        futs.push(self.repo_queue.cancel(reason));
+        futs.extend(
+            self.per_backup_queues
+                .values_mut()
+                .map(|q| q.cancel(reason)),
+        );
+        futs.count().await;
+    }
+
     fn has_running_jobs(&self) -> bool {
         self.repo_queue.has_running_job()
             || self.per_backup_queues.values().any(|q| q.has_running_job())
@@ -187,13 +215,28 @@ impl JobQueues {
         }
     }
 
+    async fn cancel(&mut self, reason: job::cancellation::Reason) {
+        let mut futs = futures::stream::FuturesUnordered::new();
+        futs.extend(self.per_repo_queues.values_mut().map(|q| q.cancel(reason)));
+        futs.count().await;
+    }
+
+    #[tracing::instrument(name = "job_queues", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         let mut job_recv = self.events.subscribe::<job::Job>();
         let mut status_change_recv = self.events.subscribe::<job::StatusChange>();
+        let mut shutdown_recv = self.events.subscribe::<ShutdownRequested>();
         loop {
             tokio::select! {
                 job = job_recv.recv() => self.push(job?),
                 status_change = status_change_recv.recv() => self.handle_status_change(status_change?),
+                shutdown = shutdown_recv.recv() => {
+                    let _ = shutdown?;
+                    tracing::debug!("received shutdown event");
+                    self.cancel(job::cancellation::Reason::Shutdown).await;
+                    self.events.send(ShutdownAcknowledged);
+                    break Ok(());
+                },
             }
             self.maybe_start_next_jobs()?;
         }

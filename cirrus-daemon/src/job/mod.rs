@@ -1,6 +1,7 @@
 use cirrus_core::config::{backup, repo};
 use time::OffsetDateTime;
 
+mod cancellation;
 pub mod queues;
 mod runner;
 
@@ -96,12 +97,6 @@ impl BackupSpec {
     pub fn name(&self) -> &str {
         &self.backup_name.0
     }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum CancellationReason {
-    Shutdown,
-    Suspend,
 }
 
 #[derive(Debug, Clone)]

@@ -7,12 +7,6 @@ use futures::StreamExt;
 use shindig::Events;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
-pub(super) struct Cancel {
-    pub id: job::Id,
-    pub reason: job::CancellationReason,
-}
-
 #[derive(Debug)]
 pub(super) struct Runner {
     events: Events,
@@ -33,7 +27,7 @@ impl Runner {
     pub(super) async fn run(
         &mut self,
         job: job::Job,
-        mut cancel_recv: shindig::Subscriber<Cancel>,
+        mut cancellation_recv: job::cancellation::Recv,
     ) {
         self.events
             .send(job::StatusChange::new(job.clone(), job::Status::Started));
@@ -45,12 +39,9 @@ impl Runner {
                     self.handle_result(result, &job);
                     break;
                 }
-                cancel = cancel_recv.recv() => {
-                    if let Ok(cancel) = cancel {
-                        if let Some(_) = self.handle_cancel(cancel, &job) {
-                            break;
-                        }
-                    }
+                cancellation = cancellation_recv.recv() => {
+                    self.handle_cancel(cancellation, &job);
+                    break;
                 }
             }
         }
@@ -75,15 +66,12 @@ impl Runner {
         }
     }
 
-    fn handle_cancel(&mut self, cancel: Cancel, job: &job::Job) -> Option<job::CancellationReason> {
-        if cancel.id == job.id {
-            tracing::info!(reason = ?cancel.reason, "cancelled");
-            self.events
-                .send(job::StatusChange::new(job.clone(), job::Status::Cancelled));
-            Some(cancel.reason)
-        } else {
-            None
-        }
+    fn handle_cancel(&mut self, request: job::cancellation::Request, job: &job::Job) {
+        tracing::info!(reason = ?request.reason, "cancelled");
+        // TODO actually kill the process...
+        self.events
+            .send(job::StatusChange::new(job.clone(), job::Status::Cancelled));
+        request.acknowledge();
     }
 }
 

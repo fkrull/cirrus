@@ -16,6 +16,7 @@ toml = "0.5.6"
 tokio-stream = { version = "0.1.6", features = ["io-util"] }
 pin-project = "1.0.7"
 time = "0.3.7"
+libc = "0.2.135"
 
 [dependencies.tokio]
 version = "1.0.0"

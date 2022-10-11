@@ -1,5 +1,6 @@
 use super::Error;
 use futures::{prelude::*, stream::BoxStream};
+use std::time::Duration;
 use tokio::{
     io::{AsyncBufReadExt as _, BufReader},
     process::Child,
@@ -71,6 +72,19 @@ fn merge_output_streams(child: &'_ mut Child) -> BoxStream<'static, Result<Event
     }
 }
 
+#[cfg(unix)]
+fn ask_to_terminate(child: &mut Child) -> Result<(), Error> {
+    // TODO maybe not unwrap?
+    let pid = child.id().expect("child should have a PID");
+    unsafe { libc::kill(pid as i32, libc::SIGTERM) }
+}
+
+#[cfg(not(unix))]
+fn ask_to_terminate(child: &mut Child) -> Result<(), Error> {
+    child.start_kill().map_err(Error::KillError)?;
+    Ok(())
+}
+
 #[pin_project::pin_project]
 pub struct ResticProcess {
     child: Child,
@@ -104,6 +118,17 @@ impl ResticProcess {
 
     pub async fn check_wait(&mut self) -> Result<(), Error> {
         self.wait().await?.check_status()
+    }
+
+    pub async fn terminate(&mut self, grace_period: Duration) -> Result<(), Error> {
+        ask_to_terminate(&mut self.child)?;
+        match tokio::time::timeout(grace_period, self.wait()).await {
+            Ok(result) => {
+                result?;
+            }
+            Err(_) => self.child.kill().await.map_err(Error::KillError)?,
+        };
+        Ok(())
     }
 }
 

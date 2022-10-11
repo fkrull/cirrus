@@ -82,6 +82,8 @@ pub enum Error {
     SubprocessIoError(#[source] std::io::Error),
     #[error("error getting subprocess status")]
     SubprocessStatusError(#[source] std::io::Error),
+    #[error("error killing process")]
+    KillError(#[source] std::io::Error),
     #[error("{}", .0.message())]
     ResticError(ExitStatus),
     #[error("couldn't determine restic version from output")]

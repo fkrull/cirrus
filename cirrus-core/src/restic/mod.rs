@@ -83,7 +83,7 @@ pub enum Error {
     #[error("error getting subprocess status")]
     SubprocessStatusError(#[source] std::io::Error),
     #[error("error killing process")]
-    KillError(#[source] std::io::Error),
+    SubprocessTerminateError(#[source] std::io::Error),
     #[error("{}", .0.message())]
     ResticError(ExitStatus),
     #[error("couldn't determine restic version from output")]
@@ -165,6 +165,7 @@ impl Restic {
         options: &Options,
     ) -> Result<ResticProcess, Error> {
         let mut cmd = config.to_command();
+        // kill-on-drop is a final fallback, normally the process gets terminated gracefully
         cmd.stdin(Stdio::null()).kill_on_drop(true);
 
         if let Some(repo_with_secrets) = repo_with_secrets {

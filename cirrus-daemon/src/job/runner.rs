@@ -40,14 +40,14 @@ async fn run_backup(
 }
 
 #[derive(Debug)]
-pub struct Runner {
+pub(super) struct Runner {
     events: Events,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
 }
 
 impl Runner {
-    pub(crate) fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+    pub(super) fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
         Runner {
             events,
             restic,
@@ -56,7 +56,7 @@ impl Runner {
     }
 
     #[tracing::instrument(name = "job", skip_all, fields(id = %job.id, label = job.spec.label()))]
-    pub(crate) async fn run(&mut self, job: job::Job) {
+    pub(super) async fn run(&mut self, job: job::Job) {
         self.events
             .send(job::StatusChange::new(job.clone(), job::Status::Started));
         let result = match &job.spec {

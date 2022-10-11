@@ -60,13 +60,14 @@ async fn run_daemon(
     #[cfg(feature = "cirrus-desktop-ui")]
     let desktop_ui = match cirrus_desktop_ui::DesktopUi::new(config.clone(), events.clone()) {
         Ok(desktop_ui) => Some(desktop_ui),
-        Err(err) => {
-            tracing::warn!("failed to start desktop UI: {}", err);
+        Err(error) => {
+            tracing::warn!(%error, "failed to start desktop UI");
             None
         }
     };
 
-    let mut jobqueues = job_queues::JobQueues::new(events.clone(), restic.clone(), secrets.clone());
+    let mut job_queues =
+        job::queues::JobQueues::new(events.clone(), restic.clone(), secrets.clone());
     let mut scheduler = scheduler::Scheduler::new(config.clone(), events.clone());
     let mut configreloader = configreload::ConfigReloader::new(config.clone(), events.clone())?;
 
@@ -82,7 +83,7 @@ async fn run_daemon(
     }
     tracing::info!("running forever...");
 
-    tokio::spawn(async move { jobqueues.run().await.unwrap() });
+    tokio::spawn(async move { job_queues.run().await.unwrap() });
     tokio::spawn(async move { scheduler.run().await.unwrap() });
     tokio::spawn(async move { configreloader.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]

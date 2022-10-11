@@ -1,7 +1,8 @@
 use cirrus_core::config::{backup, repo};
 use time::OffsetDateTime;
 
-pub(crate) mod runner;
+pub mod queues;
+mod runner;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct Id(uuid::Uuid);

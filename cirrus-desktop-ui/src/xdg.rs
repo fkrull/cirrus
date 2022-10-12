@@ -1,5 +1,17 @@
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
+pub(crate) fn check() -> eyre::Result<()> {
+    zbus::blocking::Connection::session()?;
+    Ok(())
+}
+
+pub(crate) fn start(model: super::Model) -> eyre::Result<Handle> {
+    let service = ksni::TrayService::new(model);
+    let handle = service.handle();
+    service.spawn();
+    Ok(Handle { handle })
+}
+
 pub(crate) struct Handle {
     handle: ksni::Handle<super::Model>,
 }
@@ -13,28 +25,12 @@ impl std::fmt::Debug for Handle {
 }
 
 impl Handle {
-    pub(crate) fn check() -> eyre::Result<()> {
-        check_session_dbus_connection()
-    }
-
-    pub(crate) fn start(model: super::Model) -> eyre::Result<Self> {
-        let service = ksni::TrayService::new(model);
-        let handle = service.handle();
-        service.spawn();
-        Ok(Handle { handle })
-    }
-
     pub(crate) fn send(&mut self, event: super::Event) -> eyre::Result<()> {
         self.handle.update(|model| {
             model.handle_event(event.clone()).unwrap();
         });
         Ok(())
     }
-}
-
-fn check_session_dbus_connection() -> eyre::Result<()> {
-    zbus::blocking::Connection::session()?;
-    Ok(())
 }
 
 impl ksni::Tray for super::Model {
@@ -129,10 +125,10 @@ mod icons {
 
     static IDLE_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
         const ICON_DATA: [&[u8]; 4] = [
-            include_bytes!("../resources/16/cirrus-idle.light.png"),
-            include_bytes!("../resources/24/cirrus-idle.light.png"),
-            include_bytes!("../resources/32/cirrus-idle.light.png"),
-            include_bytes!("../resources/48/cirrus-idle.light.png"),
+            include_bytes!("resources/16/cirrus-idle.light.png"),
+            include_bytes!("resources/24/cirrus-idle.light.png"),
+            include_bytes!("resources/32/cirrus-idle.light.png"),
+            include_bytes!("resources/48/cirrus-idle.light.png"),
         ];
         ICON_DATA
             .iter()
@@ -142,10 +138,10 @@ mod icons {
     });
     static RUNNING_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
         const ICON_DATA: [&[u8]; 4] = [
-            include_bytes!("../resources/16/cirrus-running.light.png"),
-            include_bytes!("../resources/24/cirrus-running.light.png"),
-            include_bytes!("../resources/32/cirrus-running.light.png"),
-            include_bytes!("../resources/48/cirrus-running.light.png"),
+            include_bytes!("resources/16/cirrus-running.light.png"),
+            include_bytes!("resources/24/cirrus-running.light.png"),
+            include_bytes!("resources/32/cirrus-running.light.png"),
+            include_bytes!("resources/48/cirrus-running.light.png"),
         ];
         ICON_DATA
             .iter()
@@ -156,10 +152,10 @@ mod icons {
 
     static SUSPEND_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
         const ICON_DATA: [&[u8]; 4] = [
-            include_bytes!("../resources/16/cirrus-suspend.light.png"),
-            include_bytes!("../resources/24/cirrus-suspend.light.png"),
-            include_bytes!("../resources/32/cirrus-suspend.light.png"),
-            include_bytes!("../resources/48/cirrus-suspend.light.png"),
+            include_bytes!("resources/16/cirrus-suspend.light.png"),
+            include_bytes!("resources/24/cirrus-suspend.light.png"),
+            include_bytes!("resources/32/cirrus-suspend.light.png"),
+            include_bytes!("resources/48/cirrus-suspend.light.png"),
         ];
         ICON_DATA
             .iter()
@@ -168,15 +164,15 @@ mod icons {
             .unwrap()
     });
 
-    pub(super) fn idle() -> &'static Vec<ksni::Icon> {
+    pub(crate) fn idle() -> &'static Vec<ksni::Icon> {
         &IDLE_LIGHT
     }
 
-    pub(super) fn running() -> &'static Vec<ksni::Icon> {
+    pub(crate) fn running() -> &'static Vec<ksni::Icon> {
         &RUNNING_LIGHT
     }
 
-    pub(super) fn suspend() -> &'static Vec<ksni::Icon> {
+    pub(crate) fn suspend() -> &'static Vec<ksni::Icon> {
         &SUSPEND_LIGHT
     }
 

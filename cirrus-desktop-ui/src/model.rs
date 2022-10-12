@@ -1,19 +1,10 @@
 use cirrus_core::config;
-use cirrus_daemon::config_reload::ConfigReload;
-use cirrus_daemon::{job, shutdown::RequestShutdown, suspend::Suspend};
+use cirrus_daemon::{
+    config_reload::ConfigReload, job, shutdown::RequestShutdown, suspend::Suspend,
+};
 use eyre::WrapErr;
 use shindig::Events;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
-
-#[cfg(windows)]
-mod windows;
-#[cfg(windows)]
-pub(crate) use windows::Handle;
-
-#[cfg(target_family = "unix")]
-mod xdg;
-#[cfg(target_family = "unix")]
-pub(crate) use xdg::Handle;
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum Event {
@@ -28,13 +19,13 @@ pub(crate) enum Event {
 }
 
 #[derive(Debug)]
-enum HandleEventOutcome {
+pub(crate) enum HandleEventOutcome {
     UpdateView,
     Unchanged,
 }
 
 #[derive(Debug)]
-enum Status {
+pub(crate) enum Status {
     Idle,
     Running,
     Suspended,
@@ -58,7 +49,7 @@ impl Model {
         }
     }
 
-    fn handle_event(&mut self, event: Event) -> eyre::Result<HandleEventOutcome> {
+    pub(crate) fn handle_event(&mut self, event: Event) -> eyre::Result<HandleEventOutcome> {
         match event {
             Event::JobStatusChange(status_change) => {
                 match status_change.new_status {
@@ -136,11 +127,7 @@ impl Model {
             .wrap_err_with(|| format!("failed to open config file {}", config_path.display()))
     }
 
-    fn app_name(&self) -> &'static str {
-        "Cirrus"
-    }
-
-    fn status(&self) -> Status {
+    pub(crate) fn status(&self) -> Status {
         if self.suspend.is_suspended() {
             Status::Suspended
         } else if !self.running_jobs.is_empty() {
@@ -150,7 +137,11 @@ impl Model {
         }
     }
 
-    fn status_text(&self) -> Cow<'static, str> {
+    pub(crate) fn app_name(&self) -> &'static str {
+        "Cirrus"
+    }
+
+    pub(crate) fn status_text(&self) -> Cow<'static, str> {
         if self.suspend.is_suspended() {
             "Suspended".into()
         } else if self.running_jobs.is_empty() {
@@ -165,19 +156,19 @@ impl Model {
         }
     }
 
-    fn tooltip(&self) -> String {
+    pub(crate) fn tooltip(&self) -> String {
         format!("{} — {}", self.app_name(), self.status_text())
     }
 
-    fn backups(&self) -> impl Iterator<Item = &config::backup::Name> + '_ {
+    pub(crate) fn backups(&self) -> impl Iterator<Item = &config::backup::Name> + '_ {
         self.config.backups.iter().map(|(name, _)| name)
     }
 
-    fn can_open_config_file(&self) -> bool {
+    pub(crate) fn can_open_config_file(&self) -> bool {
         self.config.source.is_some()
     }
 
-    fn is_suspended(&self) -> bool {
+    pub(crate) fn is_suspended(&self) -> bool {
         self.suspend.is_suspended()
     }
 }

@@ -1,47 +1,64 @@
-use shindig::Events;
+use shindig::{Events, Subscriber};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Suspend {
     UntilDisabled,
-    // TODO: suspend until a certain time
+    NotSuspended,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct Unsuspend;
+impl Default for Suspend {
+    fn default() -> Self {
+        Suspend::NotSuspended
+    }
+}
+
+impl Suspend {
+    pub fn is_suspended(&self) -> bool {
+        match self {
+            Suspend::UntilDisabled => true,
+            Suspend::NotSuspended => false,
+        }
+    }
+
+    pub fn toggle(&self) -> Suspend {
+        match self {
+            Suspend::UntilDisabled => Suspend::NotSuspended,
+            Suspend::NotSuspended => Suspend::UntilDisabled,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct SuspendService {
-    events: Events,
-    suspended: Option<Suspend>,
+    suspend: Suspend,
+    sub_suspend: Subscriber<Suspend>,
 }
 
 impl SuspendService {
-    pub fn new(events: Events) -> Self {
+    pub fn new(mut events: Events) -> Self {
         // TODO: save and restore suspended status
+        let sub_suspend = events.subscribe();
         SuspendService {
-            events,
-            suspended: None,
+            suspend: Suspend::default(),
+            sub_suspend,
         }
     }
 
     #[tracing::instrument(name = "SuspendService", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
-        // TODO: should I subscribe in new(), so there's no race of tasks sending out events before everything is subscribed?
-        let mut suspend_recv = self.events.subscribe::<Suspend>();
-        let mut unsuspend_recv = self.events.subscribe::<Unsuspend>();
         loop {
-            tokio::select! {
-                suspend = suspend_recv.recv() => {
-                    let suspend = suspend?;
-                    tracing::info!(?suspend, "suspended");
-                    self.suspended = Some(suspend);
-                },
-                unsuspend = unsuspend_recv.recv() => {
-                    let _ = unsuspend?;
-                    tracing::info!("unsuspended");
-                    self.suspended = None;
-                }
+            let suspend = self.sub_suspend.recv().await?;
+            // TODO: save state
+            if !self.suspend.is_suspended() && suspend.is_suspended() {
+                tracing::info!(?suspend, "suspended");
+            } else if self.suspend.is_suspended() && !suspend.is_suspended() {
+                tracing::info!(?suspend, "unsuspended");
             }
+            self.suspend = suspend;
         }
+    }
+
+    pub fn get_suspend(&self) -> &Suspend {
+        &self.suspend
     }
 }

@@ -84,7 +84,11 @@ fn menu(model: &super::Model) -> trayicon::MenuBuilder<super::Event> {
         });
     trayicon::MenuBuilder::new()
         .submenu("Run Backup", backups_menu)
-        .checkable("Suspended", model.suspended, super::Event::ToggleSuspended)
+        .checkable(
+            "Suspended",
+            model.suspend.is_suspended(),
+            super::Event::ToggleSuspended,
+        )
         .separator()
         .with(trayicon::MenuItem::Item {
             name: "Open Configuration".to_owned(),

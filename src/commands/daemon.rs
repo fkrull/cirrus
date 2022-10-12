@@ -56,23 +56,31 @@ async fn run_daemon(
     let config = Arc::new(config);
     let events = Events::new_with_capacity(64);
 
+    let mut suspend_service = suspend::SuspendService::new(events.clone());
+    let mut job_queues = job::queues::JobQueues::new(
+        events.clone(),
+        restic.clone(),
+        secrets.clone(),
+        suspend_service.get_suspend().clone(),
+    );
+    let mut scheduler = scheduler::Scheduler::new(config.clone(), events.clone());
+    let mut config_reload_service =
+        config_reload::ConfigReloadService::new(events.clone(), config.clone())?;
+    let mut shutdown_service = shutdown::ShutdownService::new(events.clone());
+    let mut signal_handler = signal_handler::SignalHandler::new(events.clone());
+
     #[cfg(feature = "cirrus-desktop-ui")]
-    let desktop_ui = match cirrus_desktop_ui::DesktopUi::new(config.clone(), events.clone()) {
+    let desktop_ui = match cirrus_desktop_ui::DesktopUi::new(
+        config.clone(),
+        events.clone(),
+        suspend_service.get_suspend().clone(),
+    ) {
         Ok(desktop_ui) => Some(desktop_ui),
         Err(error) => {
             tracing::warn!(%error, "failed to start desktop UI");
             None
         }
     };
-
-    let mut job_queues =
-        job::queues::JobQueues::new(events.clone(), restic.clone(), secrets.clone());
-    let mut scheduler = scheduler::Scheduler::new(config.clone(), events.clone());
-    let mut config_reload_service =
-        config_reload::ConfigReloadService::new(events.clone(), config.clone())?;
-    let mut shutdown_service = shutdown::ShutdownService::new(events.clone());
-    let mut suspend_service = suspend::SuspendService::new(events.clone());
-    let mut signal_handler = signal_handler::SignalHandler::new(events.clone());
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();

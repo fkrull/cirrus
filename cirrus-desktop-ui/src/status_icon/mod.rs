@@ -1,6 +1,7 @@
 use cirrus_core::config;
+use cirrus_daemon::job;
 use cirrus_daemon::shutdown::RequestShutdown;
-use cirrus_daemon::{job, suspend};
+use cirrus_daemon::suspend::Suspend;
 use eyre::WrapErr;
 use shindig::Events;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
@@ -22,8 +23,7 @@ pub(crate) enum Event {
     JobSucceeded(job::Job),
     JobFailed(job::Job),
     JobCancelled(job::Job),
-    Suspended,
-    Unsuspended,
+    Suspend(Suspend),
 
     ToggleSuspended,
     UpdateConfig(Arc<config::Config>),
@@ -37,16 +37,16 @@ pub(crate) struct Model {
     config: Arc<config::Config>,
     events: Events,
     running_jobs: HashMap<job::Id, job::Job>,
-    suspended: bool,
+    suspend: Suspend,
 }
 
 impl Model {
-    pub(crate) fn new(config: Arc<config::Config>, events: Events) -> Self {
+    pub(crate) fn new(config: Arc<config::Config>, events: Events, suspend: Suspend) -> Self {
         Model {
             config,
             events,
             running_jobs: HashMap::new(),
-            suspended: false,
+            suspend,
         }
     }
 
@@ -68,12 +68,8 @@ impl Model {
                 self.running_jobs.remove(&job.id);
                 Ok(HandleEventOutcome::UpdateView)
             }
-            Event::Suspended => {
-                self.suspended = true;
-                Ok(HandleEventOutcome::UpdateView)
-            }
-            Event::Unsuspended => {
-                self.suspended = false;
+            Event::Suspend(suspend) => {
+                self.suspend = suspend;
                 Ok(HandleEventOutcome::UpdateView)
             }
 
@@ -138,11 +134,7 @@ impl Model {
     }
 
     fn toggle_suspend(&mut self) {
-        if self.suspended {
-            self.events.send(suspend::Unsuspend);
-        } else {
-            self.events.send(suspend::Suspend::UntilDisabled);
-        }
+        self.events.send(self.suspend.toggle());
     }
 
     fn app_name(&self) -> &'static str {
@@ -150,7 +142,7 @@ impl Model {
     }
 
     fn status(&self) -> Status {
-        if self.suspended {
+        if self.suspend.is_suspended() {
             Status::Suspended
         } else if !self.running_jobs.is_empty() {
             Status::Running
@@ -160,7 +152,7 @@ impl Model {
     }
 
     fn status_text(&self) -> Cow<'static, str> {
-        if self.suspended {
+        if self.suspend.is_suspended() {
             "Suspended".into()
         } else if self.running_jobs.is_empty() {
             "Idle".into()

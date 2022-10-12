@@ -1,5 +1,6 @@
 use crate::job;
 use crate::shutdown::{ShutdownAcknowledged, ShutdownRequested};
+use crate::suspend::Suspend;
 use cirrus_core::{config, restic::Restic, secrets::Secrets};
 use futures::StreamExt as _;
 use shindig::Events;
@@ -166,15 +167,22 @@ pub struct JobQueues {
     events: Events,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
+    suspend: Suspend,
     per_repo_queues: HashMap<config::repo::Name, PerRepositoryQueue>,
 }
 
 impl JobQueues {
-    pub fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+    pub fn new(
+        events: Events,
+        restic: Arc<Restic>,
+        secrets: Arc<Secrets>,
+        suspend: Suspend,
+    ) -> Self {
         JobQueues {
             events,
             restic,
             secrets,
+            suspend,
             per_repo_queues: HashMap::new(),
         }
     }
@@ -223,6 +231,7 @@ impl JobQueues {
 
     #[tracing::instrument(name = "job_queues", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
+        // TODO: listen to suspend events and handle them
         let mut job_recv = self.events.subscribe::<job::Job>();
         let mut status_change_recv = self.events.subscribe::<job::StatusChange>();
         let mut shutdown_recv = self.events.subscribe::<ShutdownRequested>();

@@ -1,46 +1,47 @@
-use winit::{
-    event::Event,
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy},
-};
+use std::sync::mpsc::Sender;
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 
-#[derive(Debug)]
-pub(crate) struct StatusIcon {
-    evloop_proxy: Option<EventLoopProxy<super::Event>>,
+fn tray_icon_thread(
+    mut model: super::Model,
+    evloop_proxy_send: Sender<EventLoopProxy<super::Event>>,
+) {
+    use winit::platform::windows::EventLoopBuilderExtWindows;
+
+    let evloop = EventLoopBuilder::with_user_event()
+        .with_any_thread(true)
+        .build();
+    let mut view = View::new(&evloop, &model).unwrap();
+    evloop_proxy_send.send(evloop.create_proxy()).unwrap();
+    evloop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+        if let winit::event::Event::UserEvent(event) = event {
+            let outcome = model.handle_event(event).unwrap();
+            if let super::HandleEventOutcome::UpdateView = outcome {
+                view.update(&model).unwrap()
+            }
+        }
+    });
 }
 
-impl StatusIcon {
-    pub(crate) fn new() -> eyre::Result<Self> {
-        Ok(StatusIcon { evloop_proxy: None })
-    }
+#[derive(Debug)]
+pub(crate) struct Handle {
+    evloop_proxy: EventLoopProxy<super::Event>,
+}
 
-    pub(crate) fn start(&mut self, mut model: super::Model) -> eyre::Result<()> {
-        let (send, recv) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            use winit::platform::windows::EventLoopBuilderExtWindows;
-
-            let evloop = EventLoopBuilder::with_user_event()
-                .with_any_thread(true)
-                .build();
-            let mut view = View::new(&evloop, &model).unwrap();
-            send.send(evloop.create_proxy()).unwrap();
-            evloop.run(move |event, _, control_flow| {
-                *control_flow = ControlFlow::Wait;
-                if let Event::UserEvent(event) = event {
-                    let outcome = model.handle_event(event).unwrap();
-                    if let super::HandleEventOutcome::UpdateView = outcome {
-                        view.update(&model).unwrap()
-                    }
-                }
-            });
-        });
-
-        let evloop_proxy = recv.recv()?;
-        self.evloop_proxy = Some(evloop_proxy);
+impl Handle {
+    pub(crate) fn check() -> eyre::Result<()> {
         Ok(())
     }
 
+    pub(crate) fn start(model: super::Model) -> eyre::Result<Self> {
+        let (send, recv) = std::sync::mpsc::channel();
+        std::thread::spawn(move || tray_icon_thread(model, send));
+        let evloop_proxy = recv.recv()?;
+        Ok(Handle { evloop_proxy })
+    }
+
     pub(crate) fn send(&mut self, event: super::Event) -> eyre::Result<()> {
-        self.evloop_proxy.as_ref().unwrap().send_event(event)?;
+        self.evloop_proxy.send_event(event)?;
         Ok(())
     }
 }
@@ -86,7 +87,7 @@ fn menu(model: &super::Model) -> trayicon::MenuBuilder<super::Event> {
         .submenu("Run Backup", backups_menu)
         .checkable(
             "Suspended",
-            model.suspend.is_suspended(),
+            model.is_suspended(),
             super::Event::ToggleSuspended,
         )
         .separator()

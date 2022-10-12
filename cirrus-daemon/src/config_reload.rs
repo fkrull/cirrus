@@ -4,7 +4,7 @@ use notify::Watcher;
 use shindig::Events;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ConfigReload {
     pub new_config: Arc<Config>,
 }

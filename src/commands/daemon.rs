@@ -70,29 +70,28 @@ async fn run_daemon(
     let mut signal_handler = signal_handler::SignalHandler::new(events.clone());
 
     #[cfg(feature = "cirrus-desktop-ui")]
-    let desktop_ui = match cirrus_desktop_ui::DesktopUi::new(
+    let status_icon = match cirrus_desktop_ui::StatusIcon::new(
         config.clone(),
         events.clone(),
         suspend_service.get_suspend().clone(),
     ) {
-        Ok(desktop_ui) => Some(desktop_ui),
+        Ok(status_icon) => Some(status_icon),
         Err(error) => {
-            tracing::warn!(%error, "failed to start desktop UI");
+            tracing::warn!(%error, "failed to create status icon");
             None
         }
     };
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
-    tracing::info!("instance name: {}", instance_name);
+    tracing::info!(instance_name);
     if let Some(version) = cirrus_core::VERSION {
-        tracing::info!("cirrus: {}", version);
+        tracing::info!(cirrus_version = %version);
     }
     match restic.version_string().await {
-        Ok(restic_version) => tracing::info!("restic: {}", restic_version),
-        Err(e) => tracing::warn!("failed to query restic version: {}", e),
+        Ok(restic_version) => tracing::info!(%restic_version),
+        Err(error) => tracing::warn!(%error, "failed to query restic version"),
     }
-    tracing::info!("running forever...");
 
     tokio::spawn(async move { job_queues.run().await.unwrap() });
     tokio::spawn(async move { scheduler.run().await.unwrap() });
@@ -101,11 +100,11 @@ async fn run_daemon(
     tokio::spawn(async move { suspend_service.run().await.unwrap() });
     tokio::spawn(async move { signal_handler.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
-    if let Some(mut desktop_ui) = desktop_ui {
-        tokio::spawn(async move { desktop_ui.run().await.unwrap() });
+    if let Some(status_icon) = status_icon {
+        tokio::spawn(async move { status_icon.run().await.unwrap() });
     }
 
-    // wait forever
+    tracing::info!("running forever...");
     futures::future::pending::<eyre::Result<()>>().await
 }
 

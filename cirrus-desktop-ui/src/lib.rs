@@ -1,34 +1,34 @@
 use cirrus_core::config::Config;
 use cirrus_daemon::{config_reload::ConfigReload, job, suspend::Suspend};
-use shindig::Events;
+use shindig::{Events, Subscriber};
 use std::sync::Arc;
 
 mod status_icon;
 
 #[derive(Debug)]
-pub struct DesktopUi {
-    config: Arc<Config>,
-    events: Events,
-    initial_suspend: Suspend,
-    status_icon: status_icon::StatusIcon,
+pub struct StatusIcon {
+    model: status_icon::Model,
+    sub_status_change: Subscriber<job::StatusChange>,
+    sub_config_reload: Subscriber<ConfigReload>,
+    sub_suspend: Subscriber<Suspend>,
 }
 
-impl DesktopUi {
-    pub fn new(
-        config: Arc<Config>,
-        events: Events,
-        initial_suspend: Suspend,
-    ) -> eyre::Result<Self> {
-        let status_icon = status_icon::StatusIcon::new()?;
-        Ok(Self {
-            config,
-            events,
-            initial_suspend,
-            status_icon,
+impl StatusIcon {
+    pub fn new(config: Arc<Config>, mut events: Events, suspend: Suspend) -> eyre::Result<Self> {
+        status_icon::Handle::check()?;
+        let sub_status_change = events.subscribe();
+        let sub_config_reload = events.subscribe();
+        let sub_suspend = events.subscribe();
+        let model = status_icon::Model::new(config, events, suspend);
+        Ok(StatusIcon {
+            model,
+            sub_status_change,
+            sub_config_reload,
+            sub_suspend,
         })
     }
 
-    fn handle_job_status_change(&mut self, ev: job::StatusChange) -> eyre::Result<()> {
+    /*fn handle_job_status_change(&mut self, ev: job::StatusChange) -> eyre::Result<()> {
         let event = match ev.new_status {
             job::Status::Started => status_icon::Event::JobStarted(ev.job),
             job::Status::FinishedSuccessfully => status_icon::Event::JobSucceeded(ev.job),
@@ -46,24 +46,17 @@ impl DesktopUi {
 
     fn handle_suspend(&mut self, suspend: Suspend) -> eyre::Result<()> {
         self.status_icon.send(status_icon::Event::Suspend(suspend))
-    }
+    }*/
 
-    pub async fn run(&mut self) -> eyre::Result<()> {
-        let model = status_icon::Model::new(
-            self.config.clone(),
-            self.events.clone(),
-            self.initial_suspend.clone(),
-        );
-        self.status_icon.start(model)?;
-        let mut status_change_recv = self.events.subscribe::<job::StatusChange>();
-        let mut config_reload_recv = self.events.subscribe::<ConfigReload>();
-        let mut suspend_recv = self.events.subscribe::<Suspend>();
+    pub async fn run(mut self) -> eyre::Result<()> {
+        let mut handle = status_icon::Handle::start(self.model)?;
         loop {
-            tokio::select! {
-                status_change = status_change_recv.recv() => self.handle_job_status_change(status_change?)?,
-                config_reload = config_reload_recv.recv() => self.handle_config_reloaded(config_reload?.new_config)?,
-                suspend = suspend_recv.recv() => self.handle_suspend(suspend?)?,
-            }
+            let event = tokio::select! {
+                status_change = self.sub_status_change.recv() => status_icon::Event::JobStatusChange(status_change?),
+                config_reload = self.sub_config_reload.recv() => status_icon::Event::ConfigReload(config_reload?),
+                suspend = self.sub_suspend.recv() => status_icon::Event::Suspend(suspend?),
+            };
+            handle.send(event)?;
         }
     }
 }

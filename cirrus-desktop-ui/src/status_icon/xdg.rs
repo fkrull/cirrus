@@ -1,10 +1,10 @@
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
-pub(crate) struct StatusIcon {
-    handle: Option<ksni::Handle<super::Model>>,
+pub(crate) struct Handle {
+    handle: ksni::Handle<super::Model>,
 }
 
-impl std::fmt::Debug for StatusIcon {
+impl std::fmt::Debug for Handle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StatusIcon")
             .field("handle", &"...")
@@ -12,21 +12,20 @@ impl std::fmt::Debug for StatusIcon {
     }
 }
 
-impl StatusIcon {
-    pub(crate) fn new() -> eyre::Result<Self> {
-        check_session_dbus_connection()?;
-        Ok(StatusIcon { handle: None })
+impl Handle {
+    pub(crate) fn check() -> eyre::Result<()> {
+        check_session_dbus_connection()
     }
 
-    pub(crate) fn start(&mut self, model: super::Model) -> eyre::Result<()> {
+    pub(crate) fn start(model: super::Model) -> eyre::Result<Self> {
         let service = ksni::TrayService::new(model);
-        self.handle = Some(service.handle());
+        let handle = service.handle();
         service.spawn();
-        Ok(())
+        Ok(Handle { handle })
     }
 
     pub(crate) fn send(&mut self, event: super::Event) -> eyre::Result<()> {
-        self.handle.as_ref().unwrap().update(|model| {
+        self.handle.update(|model| {
             model.handle_event(event.clone()).unwrap();
         });
         Ok(())
@@ -96,7 +95,7 @@ impl ksni::Tray for super::Model {
             .into(),
             CheckmarkItem {
                 label: "Suspended".to_owned(),
-                checked: self.suspended,
+                checked: self.is_suspended(),
                 activate: Box::new(move |this: &mut super::Model| {
                     this.handle_event(super::Event::ToggleSuspended).unwrap();
                 }),

@@ -1,7 +1,6 @@
 use cirrus_core::config;
-use cirrus_daemon::job;
-use cirrus_daemon::shutdown::RequestShutdown;
-use cirrus_daemon::suspend::Suspend;
+use cirrus_daemon::config_reload::ConfigReload;
+use cirrus_daemon::{job, shutdown::RequestShutdown, suspend::Suspend};
 use eyre::WrapErr;
 use shindig::Events;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
@@ -9,27 +8,36 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub(crate) use windows::StatusIcon;
+pub(crate) use windows::Handle;
 
 #[cfg(target_family = "unix")]
 mod xdg;
 #[cfg(target_family = "unix")]
-pub(crate) use xdg::StatusIcon;
+pub(crate) use xdg::Handle;
 
-// TODO: split into internal and external events
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum Event {
-    JobStarted(job::Job),
-    JobSucceeded(job::Job),
-    JobFailed(job::Job),
-    JobCancelled(job::Job),
+    JobStatusChange(job::StatusChange),
     Suspend(Suspend),
+    ConfigReload(ConfigReload),
 
     ToggleSuspended,
-    UpdateConfig(Arc<config::Config>),
     RunBackup(config::backup::Name),
     OpenConfigFile,
     Exit,
+}
+
+#[derive(Debug)]
+enum HandleEventOutcome {
+    UpdateView,
+    Unchanged,
+}
+
+#[derive(Debug)]
+enum Status {
+    Idle,
+    Running,
+    Suspended,
 }
 
 #[derive(Debug)]
@@ -52,34 +60,29 @@ impl Model {
 
     fn handle_event(&mut self, event: Event) -> eyre::Result<HandleEventOutcome> {
         match event {
-            Event::JobStarted(job) => {
-                self.running_jobs.insert(job.id, job);
-                Ok(HandleEventOutcome::UpdateView)
-            }
-            Event::JobSucceeded(job) => {
-                self.running_jobs.remove(&job.id);
-                Ok(HandleEventOutcome::UpdateView)
-            }
-            Event::JobFailed(job) => {
-                self.running_jobs.remove(&job.id);
-                Ok(HandleEventOutcome::UpdateView)
-            }
-            Event::JobCancelled(job) => {
-                self.running_jobs.remove(&job.id);
+            Event::JobStatusChange(status_change) => {
+                match status_change.new_status {
+                    job::Status::Started => self
+                        .running_jobs
+                        .insert(status_change.job.id, status_change.job),
+                    job::Status::FinishedSuccessfully
+                    | job::Status::FinishedWithError
+                    | job::Status::Cancelled => self.running_jobs.remove(&status_change.job.id),
+                };
                 Ok(HandleEventOutcome::UpdateView)
             }
             Event::Suspend(suspend) => {
                 self.suspend = suspend;
                 Ok(HandleEventOutcome::UpdateView)
             }
+            Event::ConfigReload(config_reload) => {
+                self.config = config_reload.new_config;
+                Ok(HandleEventOutcome::UpdateView)
+            }
 
             Event::ToggleSuspended => {
-                self.toggle_suspend();
+                self.events.send(self.suspend.toggle());
                 Ok(HandleEventOutcome::Unchanged)
-            }
-            Event::UpdateConfig(new_config) => {
-                self.config = new_config;
-                Ok(HandleEventOutcome::UpdateView)
             }
             Event::RunBackup(name) => {
                 self.run_backup(name)?;
@@ -133,10 +136,6 @@ impl Model {
             .wrap_err_with(|| format!("failed to open config file {}", config_path.display()))
     }
 
-    fn toggle_suspend(&mut self) {
-        self.events.send(self.suspend.toggle());
-    }
-
     fn app_name(&self) -> &'static str {
         "Cirrus"
     }
@@ -177,17 +176,8 @@ impl Model {
     fn can_open_config_file(&self) -> bool {
         self.config.source.is_some()
     }
-}
 
-#[derive(Debug)]
-enum HandleEventOutcome {
-    UpdateView,
-    Unchanged,
-}
-
-#[derive(Debug)]
-enum Status {
-    Idle,
-    Running,
-    Suspended,
+    fn is_suspended(&self) -> bool {
+        self.suspend.is_suspended()
+    }
 }

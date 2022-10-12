@@ -26,7 +26,7 @@ impl Id {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Job {
     pub id: Id,
     pub spec: Spec,
@@ -41,19 +41,13 @@ impl Job {
     }
 }
 
-impl PartialEq for Job {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct QueueId<'a> {
     pub repo: &'a repo::Name,
     pub backup: Option<&'a backup::Name>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Spec {
     Backup(BackupSpec),
 }
@@ -78,7 +72,7 @@ impl Spec {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BackupSpec {
     pub repo_name: repo::Name,
     pub backup_name: backup::Name,
@@ -99,7 +93,7 @@ impl BackupSpec {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct StatusChange {
     pub job: Job,
     pub timestamp: OffsetDateTime,

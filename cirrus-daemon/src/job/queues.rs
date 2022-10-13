@@ -1,8 +1,9 @@
-use crate::job;
-use crate::shutdown::{ShutdownAcknowledged, ShutdownRequested};
-use crate::suspend::Suspend;
+use crate::{
+    job,
+    shutdown::{ShutdownAcknowledged, ShutdownRequested},
+    suspend::Suspend,
+};
 use cirrus_core::{config, restic::Restic, secrets::Secrets};
-use events::{Events, Sender, Subscriber};
 use futures::StreamExt as _;
 use std::{
     collections::{HashMap, VecDeque},
@@ -17,7 +18,7 @@ struct RunningJob {
 
 #[derive(Debug)]
 struct RunQueue {
-    sender: Sender,
+    sender: events::Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     running: Option<RunningJob>,
@@ -25,7 +26,7 @@ struct RunQueue {
 }
 
 impl RunQueue {
-    fn new(sender: Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+    fn new(sender: events::Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
         RunQueue {
             sender,
             restic,
@@ -86,7 +87,7 @@ impl RunQueue {
 
 #[derive(Debug)]
 struct PerRepositoryQueue {
-    sender: Sender,
+    sender: events::Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     repo_queue: RunQueue,
@@ -94,7 +95,7 @@ struct PerRepositoryQueue {
 }
 
 impl PerRepositoryQueue {
-    fn new(sender: Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+    fn new(sender: events::Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
         let repo_queue = RunQueue::new(sender.clone(), restic.clone(), secrets.clone());
         PerRepositoryQueue {
             sender,
@@ -162,12 +163,15 @@ impl PerRepositoryQueue {
     }
 }
 
+events::subscriptions! {
+    Job: job::Job,
+    StatusChange: job::StatusChange,
+    ShutdownRequested,
+}
+
 #[derive(Debug)]
 pub struct JobQueues {
-    sender: Sender,
-    sub_job: Subscriber<job::Job>,
-    sub_status_change: Subscriber<job::StatusChange>,
-    sub_shutdown_requested: Subscriber<ShutdownRequested>,
+    events: Subscriptions,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     suspend: Suspend,
@@ -176,16 +180,13 @@ pub struct JobQueues {
 
 impl JobQueues {
     pub fn new(
-        events: &mut Events,
+        events: &mut events::Builder,
         restic: Arc<Restic>,
         secrets: Arc<Secrets>,
         suspend: Suspend,
     ) -> Self {
         JobQueues {
-            sender: events.sender(),
-            sub_job: events.subscribe(),
-            sub_status_change: events.subscribe(),
-            sub_shutdown_requested: events.subscribe(),
+            events: Subscriptions::subscribe(events),
             restic,
             secrets,
             suspend,
@@ -198,7 +199,7 @@ impl JobQueues {
             .entry(job.spec.queue_id().repo.clone())
             .or_insert_with(|| {
                 PerRepositoryQueue::new(
-                    self.sender.clone(),
+                    self.events.sender.clone(),
                     self.restic.clone(),
                     self.secrets.clone(),
                 )
@@ -240,13 +241,13 @@ impl JobQueues {
         // TODO: listen to suspend events and handle them
         loop {
             tokio::select! {
-                job = self.sub_job.recv() => self.push(job?),
-                status_change = self.sub_status_change.recv() => self.handle_status_change(status_change?),
-                shutdown = self.sub_shutdown_requested.recv() => {
+                job = self.events.Job.recv() => self.push(job?),
+                status_change = self.events.StatusChange.recv() => self.handle_status_change(status_change?),
+                shutdown = self.events.ShutdownRequested.recv() => {
                     let _ = shutdown?;
                     tracing::debug!("received shutdown event");
                     self.cancel(job::cancellation::Reason::Shutdown).await;
-                    self.sender.send(ShutdownAcknowledged);
+                    self.events.send(ShutdownAcknowledged);
                     break Ok(());
                 },
             }

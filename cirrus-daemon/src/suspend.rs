@@ -1,5 +1,3 @@
-use events::{Events, Subscriber};
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Suspend {
     UntilDisabled,
@@ -28,25 +26,29 @@ impl Suspend {
     }
 }
 
+events::subscriptions! {
+    Suspend,
+}
+
 #[derive(Debug)]
 pub struct SuspendService {
     suspend: Suspend,
-    sub_suspend: Subscriber<Suspend>,
+    events: Subscriptions,
 }
 
 impl SuspendService {
-    pub fn new(events: &mut Events) -> Self {
+    pub fn new(events: &mut events::Builder) -> Self {
         // TODO: save and restore suspended status
         SuspendService {
             suspend: Suspend::default(),
-            sub_suspend: events.subscribe(),
+            events: Subscriptions::subscribe(events),
         }
     }
 
     #[tracing::instrument(name = "SuspendService", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         loop {
-            let suspend = self.sub_suspend.recv().await?;
+            let suspend = self.events.Suspend.recv().await?;
             // TODO: save state
             if !self.suspend.is_suspended() && suspend.is_suspended() {
                 tracing::info!(?suspend, "suspended");

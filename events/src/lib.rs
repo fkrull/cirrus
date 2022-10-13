@@ -83,11 +83,11 @@ impl<T: Clone> Subscriber<T> {
 }
 
 #[derive(Debug)]
-pub struct Events(Arc<EventsShared>);
+pub struct Builder(Arc<EventsShared>);
 
-impl Events {
+impl Builder {
     pub fn new_with_capacity(capacity: usize) -> Self {
-        Events(Arc::new(EventsShared::new(capacity)))
+        Builder(Arc::new(EventsShared::new(capacity)))
     }
 
     pub fn sender(&mut self) -> Sender {
@@ -116,7 +116,7 @@ macro_rules! subscriptions_type {
 
 #[macro_export]
 macro_rules! subscriptions {
-    { $name:ident => $( $n:ident $(: $t:ty)? ),+ } => {
+    { struct $name:ident { $( $n:ident $(: $t:ty)?, )+ } } => {
         #[derive(Debug)]
         #[allow(non_snake_case)]
         struct $name {
@@ -127,7 +127,7 @@ macro_rules! subscriptions {
         }
 
         impl $name {
-            fn subscribe(events: &mut $crate::Events) -> Self {
+            fn subscribe(events: &mut $crate::Builder) -> Self {
                 Self {
                     sender: events.sender(),
                     $(
@@ -141,8 +141,11 @@ macro_rules! subscriptions {
             }
         }
     };
+    { struct $name:ident { $( $n:ident $(: $t:ty)? ),+ } } => {
+        $crate::subscriptions! { struct $name { $( $n $(: $t:ty)?, )+ } }
+    };
     { $($args:tt)* } => {
-        $crate::subscriptions! { Subscriptions => $($args)* }
+        $crate::subscriptions! { struct Subscriptions { $($args)* } }
     };
 }
 

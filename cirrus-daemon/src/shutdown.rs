@@ -1,4 +1,3 @@
-use events::{Events, Sender, Subscriber};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
@@ -19,34 +18,35 @@ fn shutdown() -> ! {
     std::process::exit(0);
 }
 
+events::subscriptions! {
+    RequestShutdown,
+    ShutdownAcknowledged,
+}
+
 #[derive(Debug)]
 pub struct ShutdownService {
-    sender: Sender,
-    sub_request_shutdown: Subscriber<RequestShutdown>,
-    sub_shutdown_acknowledged: Subscriber<ShutdownAcknowledged>,
+    events: Subscriptions,
 }
 
 impl ShutdownService {
-    pub fn new(events: &mut Events) -> Self {
+    pub fn new(events: &mut events::Builder) -> Self {
         ShutdownService {
-            sender: events.sender(),
-            sub_request_shutdown: events.subscribe(),
-            sub_shutdown_acknowledged: events.subscribe(),
+            events: Subscriptions::subscribe(events),
         }
     }
 
     #[tracing::instrument(name = "ShutdownService", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
-        let _ = self.sub_request_shutdown.recv().await?;
+        let _ = self.events.RequestShutdown.recv().await?;
         tracing::info!(
             grace_period_secs = SHUTDOWN_GRACE_PERIOD.as_secs_f64(),
             "shutdown requested"
         );
         let grace_deadline = Instant::now() + SHUTDOWN_GRACE_PERIOD;
-        let mut required_acks = self.sender.send(ShutdownRequested { grace_deadline });
+        let mut required_acks = self.events.send(ShutdownRequested { grace_deadline });
         loop {
             tokio::select! {
-                ack = self.sub_shutdown_acknowledged.recv() => {
+                ack = self.events.ShutdownAcknowledged.recv() => {
                     let _ = ack?;
                     required_acks -= 1;
                     tracing::debug!(required_acks, "received ack");

@@ -1,6 +1,5 @@
 use crate::{shutdown::ShutdownAcknowledged, shutdown::ShutdownRequested};
 use cirrus_core::config::Config;
-use events::Events;
 use notify::Watcher;
 use std::sync::Arc;
 
@@ -13,8 +12,8 @@ pub struct ConfigReload {
 struct NotifyEvent(notify::Event);
 
 events::subscriptions! {
-    ShutdownRequested: crate::shutdown::ShutdownRequested,
-    NotifyEvent
+    ShutdownRequested,
+    NotifyEvent,
 }
 
 pub struct ConfigReloadService {
@@ -24,7 +23,7 @@ pub struct ConfigReloadService {
 }
 
 impl ConfigReloadService {
-    pub fn new(config: Arc<Config>, events: &mut Events) -> eyre::Result<Self> {
+    pub fn new(config: Arc<Config>, events: &mut events::Builder) -> eyre::Result<Self> {
         let notify_sender = events.typed_sender::<NotifyEvent>();
         let watcher = notify::recommended_watcher(move |ev| match ev {
             Ok(event) => {

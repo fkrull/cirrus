@@ -1,13 +1,12 @@
 use crate::shutdown::RequestShutdown;
-use events::{Events, Sender};
 
 #[derive(Debug)]
 pub struct SignalHandler {
-    sender: Sender,
+    sender: events::Sender,
 }
 
 impl SignalHandler {
-    pub fn new(events: &mut Events) -> Self {
+    pub fn new(events: &mut events::Builder) -> Self {
         SignalHandler {
             sender: events.sender(),
         }

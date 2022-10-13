@@ -3,20 +3,18 @@ use cirrus_core::{
     restic::{Event, Options, Restic, Verbosity},
     secrets::Secrets,
 };
-use events::Sender;
 use futures::StreamExt;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 #[derive(Debug)]
 pub(super) struct Runner {
-    sender: Sender,
+    sender: events::Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
 }
 
 impl Runner {
-    pub(super) fn new(sender: Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+    pub(super) fn new(sender: events::Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
         Runner {
             sender,
             restic,

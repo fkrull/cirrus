@@ -3,7 +3,7 @@ use cirrus_daemon::{config_reload::ConfigReload, job, suspend::Suspend};
 use std::sync::Arc;
 
 mod model;
-use events::{Events, Subscriber};
+use events::{Builder, Subscriber};
 pub(crate) use model::*;
 
 #[cfg(windows)]
@@ -25,7 +25,7 @@ pub struct StatusIcon {
 }
 
 impl StatusIcon {
-    pub fn new(config: Arc<Config>, events: &mut Events, suspend: Suspend) -> eyre::Result<Self> {
+    pub fn new(config: Arc<Config>, events: &mut Builder, suspend: Suspend) -> eyre::Result<Self> {
         platform_specific::check()?;
         let model = Model::new(config, events.sender(), suspend);
         Ok(StatusIcon {

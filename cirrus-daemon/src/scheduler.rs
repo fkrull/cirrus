@@ -1,27 +1,28 @@
 use crate::config_reload::ConfigReload;
 use crate::job;
 use cirrus_core::config;
-use events::{Events, Sender, Subscriber};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use time::PrimitiveDateTime;
 
 const SCHEDULE_INTERVAL: Duration = Duration::from_secs(30);
 
+events::subscriptions! {
+    ConfigReload,
+}
+
 #[derive(Debug)]
 pub struct Scheduler {
     config: Arc<config::Config>,
-    sender: Sender,
-    sub_config_reload: Subscriber<ConfigReload>,
+    events: Subscriptions,
     start_time: time::OffsetDateTime,
     previous_schedules: HashMap<config::backup::Name, time::OffsetDateTime>,
 }
 
 impl Scheduler {
-    pub fn new(config: Arc<config::Config>, events: &mut Events) -> Self {
+    pub fn new(config: Arc<config::Config>, events: &mut events::Builder) -> Self {
         Scheduler {
             config,
-            sender: events.sender(),
-            sub_config_reload: events.subscribe(),
+            events: Subscriptions::subscribe(events),
             start_time: time::OffsetDateTime::now_utc(),
             previous_schedules: HashMap::new(),
         }
@@ -66,7 +67,7 @@ impl Scheduler {
                 .into(),
             );
             tracing::info!(label = backup_job.spec.label(), "scheduling backup",);
-            self.sender.send(backup_job);
+            self.events.send(backup_job);
             self.previous_schedules.insert(name.clone(), now);
         }
 
@@ -76,7 +77,7 @@ impl Scheduler {
     pub async fn run(&mut self) -> eyre::Result<()> {
         loop {
             tokio::select! {
-                config_reload = self.sub_config_reload.recv() => self.config = config_reload?.new_config,
+                config_reload = self.events.ConfigReload.recv() => self.config = config_reload?.new_config,
                 _ = tokio::time::sleep(SCHEDULE_INTERVAL) => self.run_schedules()?
             }
         }

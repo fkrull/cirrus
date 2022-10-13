@@ -1,4 +1,4 @@
-use shindig::{Events, Sender, Subscriber};
+use events::{Events, Sender, Subscriber};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]

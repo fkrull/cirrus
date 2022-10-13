@@ -1,7 +1,7 @@
 use crate::{shutdown::ShutdownAcknowledged, shutdown::ShutdownRequested};
 use cirrus_core::config::Config;
+use events::Events;
 use notify::Watcher;
-use shindig::Events;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -12,7 +12,7 @@ pub struct ConfigReload {
 #[derive(Debug, Clone)]
 struct NotifyEvent(notify::Event);
 
-shindig::subscriptions! {
+events::subscriptions! {
     ShutdownRequested: crate::shutdown::ShutdownRequested,
     NotifyEvent
 }

@@ -3,8 +3,8 @@ use cirrus_core::{
     restic::{Event, Options, Restic, Verbosity},
     secrets::Secrets,
 };
+use events::Sender;
 use futures::StreamExt;
-use shindig::Sender;
 use std::sync::Arc;
 use std::time::Duration;
 

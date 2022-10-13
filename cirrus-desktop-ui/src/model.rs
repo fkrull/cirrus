@@ -2,8 +2,8 @@ use cirrus_core::config;
 use cirrus_daemon::{
     config_reload::ConfigReload, job, shutdown::RequestShutdown, suspend::Suspend,
 };
+use events::Sender;
 use eyre::WrapErr;
-use shindig::Sender;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 #[derive(Debug, PartialEq, Clone)]

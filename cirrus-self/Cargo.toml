@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0.10", features = ["derive"] }
 eyre = "0.6.5"
-selfinstaller = { path = "../selfinstaller" }
+selfinstaller = { version = "0.1.0", path = "../selfinstaller" }
 
 [target.'cfg(windows)'.dependencies]
 windirs = "1.0.1"

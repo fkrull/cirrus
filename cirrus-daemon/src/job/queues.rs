@@ -2,8 +2,8 @@ use crate::job;
 use crate::shutdown::{ShutdownAcknowledged, ShutdownRequested};
 use crate::suspend::Suspend;
 use cirrus_core::{config, restic::Restic, secrets::Secrets};
+use events::{Events, Sender, Subscriber};
 use futures::StreamExt as _;
-use shindig::{Events, Sender, Subscriber};
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,

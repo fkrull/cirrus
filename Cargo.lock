@@ -397,12 +397,12 @@ dependencies = [
  "clap 4.0.14",
  "color-eyre",
  "dirs-next",
+ "events",
  "eyre",
  "futures",
  "hostname",
  "restigo",
  "rpassword",
- "shindig",
  "termcolor",
  "time 0.3.15",
  "tokio",
@@ -442,10 +442,10 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "cirrus-core",
+ "events",
  "eyre",
  "futures",
  "notify",
- "shindig",
  "time 0.3.15",
  "tokio",
  "tracing",
@@ -460,13 +460,13 @@ dependencies = [
  "async-trait",
  "cirrus-core",
  "cirrus-daemon",
+ "events",
  "eyre",
  "ksni",
  "log",
  "once_cell",
  "opener",
  "png",
- "shindig",
  "tokio",
  "tracing",
  "trayicon",
@@ -1025,6 +1025,16 @@ name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
+
+[[package]]
+name = "events"
+version = "0.2.0"
+dependencies = [
+ "parking_lot",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "expat-sys"
@@ -2539,16 +2549,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
 dependencies = [
  "lazy_static",
-]
-
-[[package]]
-name = "shindig"
-version = "0.1.0"
-dependencies = [
- "parking_lot",
- "thiserror",
- "tokio",
- "tracing",
 ]
 
 [[package]]

@@ -3,8 +3,8 @@ use cirrus_daemon::{config_reload::ConfigReload, job, suspend::Suspend};
 use std::sync::Arc;
 
 mod model;
+use events::{Events, Subscriber};
 pub(crate) use model::*;
-use shindig::{Events, Subscriber};
 
 #[cfg(windows)]
 mod windows;

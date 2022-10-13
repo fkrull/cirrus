@@ -1,5 +1,5 @@
 use crate::shutdown::RequestShutdown;
-use shindig::{Events, Sender};
+use events::{Events, Sender};
 
 #[derive(Debug)]
 pub struct SignalHandler {

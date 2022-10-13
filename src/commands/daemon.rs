@@ -1,7 +1,7 @@
 use crate::cli;
 use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
-use shindig::Events;
+use events::Events;
 use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
 

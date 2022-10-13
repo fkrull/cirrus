@@ -1,7 +1,7 @@
 use crate::config_reload::ConfigReload;
 use crate::job;
 use cirrus_core::config;
-use shindig::{Events, Sender, Subscriber};
+use events::{Events, Sender, Subscriber};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use time::PrimitiveDateTime;
 

@@ -10,12 +10,12 @@ members = [
     "cirrus-daemon",
     "cirrus-desktop-ui",
     "cirrus-self",
+    "events",
     "integration-tests",
     "build-scripts",
     "build-scripts/restic-bin",
     "selfinstaller",
     "schedule-dsl",
-    "shindig",
 ]
 exclude = ["restigo"]
 
@@ -36,7 +36,7 @@ dirs-next = "2.0.0"
 tracing = "0.1.23"
 tracing-subscriber = { version = "0.3.5", default-features = false, features = ["fmt", "ansi", "registry", "local-time", "tracing-log"] }
 time = { version = "0.3.5", features = ["macros"] }
-shindig = { version = "0.1.0", path = "shindig" }
+events = { version = "0.2.0", path = "events" }
 futures = "0.3.24"
 
 [dependencies.tokio]

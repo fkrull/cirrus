@@ -17,11 +17,8 @@ tokio-stream = { version = "0.1.6", features = ["io-util"] }
 pin-project = "1.0.7"
 time = { version = "0.3.7", features = ["local-offset"] }
 libc = "0.2.135"
+tokio = { version = "1.21.2", features = ["fs", "process", "io-util", "macros"] }
 tracing = "0.1.37"
-
-[dependencies.tokio]
-version = "1.0.0"
-features = ["fs", "process", "io-util", "macros"]
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winbase"] }

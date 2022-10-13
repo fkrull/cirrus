@@ -1,10 +1,10 @@
 use cirrus_core::config::Config;
 use cirrus_daemon::{config_reload::ConfigReload, job, suspend::Suspend};
-use shindig::{Events, Subscriber};
 use std::sync::Arc;
 
 mod model;
 pub(crate) use model::*;
+use shindig::{EventsBuilder, Subscriber};
 
 #[cfg(windows)]
 mod windows;
@@ -25,17 +25,18 @@ pub struct StatusIcon {
 }
 
 impl StatusIcon {
-    pub fn new(config: Arc<Config>, mut events: Events, suspend: Suspend) -> eyre::Result<Self> {
+    pub fn new(
+        config: Arc<Config>,
+        events: &mut EventsBuilder,
+        suspend: Suspend,
+    ) -> eyre::Result<Self> {
         platform_specific::check()?;
-        let sub_status_change = events.subscribe();
-        let sub_config_reload = events.subscribe();
-        let sub_suspend = events.subscribe();
-        let model = Model::new(config, events, suspend);
+        let model = Model::new(config, events.sender(), suspend);
         Ok(StatusIcon {
             model,
-            sub_status_change,
-            sub_config_reload,
-            sub_suspend,
+            sub_status_change: events.subscribe(),
+            sub_config_reload: events.subscribe(),
+            sub_suspend: events.subscribe(),
         })
     }
 

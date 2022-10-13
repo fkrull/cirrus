@@ -1,4 +1,4 @@
-use shindig::{Events, Subscriber};
+use shindig::{EventsBuilder, Subscriber};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Suspend {
@@ -35,12 +35,11 @@ pub struct SuspendService {
 }
 
 impl SuspendService {
-    pub fn new(mut events: Events) -> Self {
+    pub fn new(events: &mut EventsBuilder) -> Self {
         // TODO: save and restore suspended status
-        let sub_suspend = events.subscribe();
         SuspendService {
             suspend: Suspend::default(),
-            sub_suspend,
+            sub_suspend: events.subscribe(),
         }
     }
 

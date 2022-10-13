@@ -7,15 +7,15 @@ use std::{
 use tokio::sync::broadcast;
 
 #[derive(Debug)]
-pub struct Sender<T>(broadcast::Sender<T>);
+pub struct TypedSender<T>(broadcast::Sender<T>);
 
-impl<T> Clone for Sender<T> {
+impl<T> Clone for TypedSender<T> {
     fn clone(&self) -> Self {
-        Sender(self.0.clone())
+        TypedSender(self.0.clone())
     }
 }
 
-impl<T> Sender<T> {
+impl<T> TypedSender<T> {
     pub fn send(&self, item: T) -> usize {
         self.0.send(item).unwrap_or(0)
     }
@@ -63,7 +63,7 @@ impl ErasedChannel {
     fn new<T: Clone + Send + 'static>(capacity: usize) -> Self {
         let (sender, _) = broadcast::channel::<T>(capacity);
         ErasedChannel {
-            sender: Box::new(Sender(sender)),
+            sender: Box::new(TypedSender(sender)),
             type_name: type_name::<T>(),
         }
     }
@@ -85,9 +85,9 @@ impl ErasedChannel {
         Ok(sender.subscribe())
     }
 
-    fn sender<T: 'static>(&self) -> Result<&Sender<T>, ErasedTypeError> {
+    fn sender<T: 'static>(&self) -> Result<&TypedSender<T>, ErasedTypeError> {
         self.sender
-            .downcast_ref::<Sender<T>>()
+            .downcast_ref::<TypedSender<T>>()
             .ok_or_else(|| ErasedTypeError {
                 expected: type_name::<T>(),
                 actual: self.type_name,
@@ -130,24 +130,21 @@ impl EventsShared {
 }
 
 #[derive(Debug)]
-pub struct Events {
+pub struct Sender {
     shared: Arc<EventsShared>,
     channels: HashMap<TypeId, ErasedChannel>,
 }
 
-impl Clone for Events {
+impl Clone for Sender {
     fn clone(&self) -> Self {
-        Events {
-            shared: self.shared.clone(),
-            channels: HashMap::new(),
-        }
+        Sender::new(self.shared.clone())
     }
 }
 
-impl Events {
-    pub fn new_with_capacity(capacity: usize) -> Self {
-        Events {
-            shared: Arc::new(EventsShared::new(capacity)),
+impl Sender {
+    fn new(shared: Arc<EventsShared>) -> Self {
+        Sender {
+            shared,
             channels: HashMap::new(),
         }
     }
@@ -156,11 +153,7 @@ impl Events {
         self.get::<T>().send(item).unwrap()
     }
 
-    pub fn subscribe<T: Clone + Send + 'static>(&mut self) -> Subscriber<T> {
-        self.get::<T>().subscribe().unwrap()
-    }
-
-    pub fn typed_sender<T: Clone + Send + 'static>(&mut self) -> Sender<T> {
+    pub fn typed_sender<T: Clone + Send + 'static>(&mut self) -> TypedSender<T> {
         self.get::<T>().sender().unwrap().clone()
     }
 
@@ -169,6 +162,27 @@ impl Events {
         self.channels
             .entry(type_id)
             .or_insert_with(|| self.shared.get::<T>())
+    }
+}
+
+#[derive(Debug)]
+pub struct EventsBuilder(Arc<EventsShared>);
+
+impl EventsBuilder {
+    pub fn new_with_capacity(capacity: usize) -> Self {
+        EventsBuilder(Arc::new(EventsShared::new(capacity)))
+    }
+
+    pub fn sender(&mut self) -> Sender {
+        Sender::new(self.0.clone())
+    }
+
+    pub fn typed_sender<T: Clone + Send + 'static>(&mut self) -> TypedSender<T> {
+        self.0.get::<T>().sender().unwrap().clone()
+    }
+
+    pub fn subscribe<T: Clone + Send + 'static>(&mut self) -> Subscriber<T> {
+        self.0.get::<T>().subscribe().unwrap()
     }
 }
 

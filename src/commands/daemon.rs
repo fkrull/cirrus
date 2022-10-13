@@ -1,7 +1,7 @@
 use crate::cli;
 use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
-use shindig::Events;
+use shindig::EventsBuilder;
 use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
 
@@ -54,25 +54,25 @@ async fn run_daemon(
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
     let config = Arc::new(config);
-    let events = Events::new_with_capacity(64);
+    let mut events = EventsBuilder::new_with_capacity(128);
 
-    let mut suspend_service = suspend::SuspendService::new(events.clone());
+    let mut suspend_service = suspend::SuspendService::new(&mut events);
     let mut job_queues = job::queues::JobQueues::new(
-        events.clone(),
+        &mut events,
         restic.clone(),
         secrets.clone(),
         suspend_service.get_suspend().clone(),
     );
-    let mut scheduler = scheduler::Scheduler::new(config.clone(), events.clone());
+    let mut scheduler = scheduler::Scheduler::new(config.clone(), &mut events);
     let mut config_reload_service =
-        config_reload::ConfigReloadService::new(events.clone(), config.clone())?;
-    let mut shutdown_service = shutdown::ShutdownService::new(events.clone());
-    let mut signal_handler = signal_handler::SignalHandler::new(events.clone());
+        config_reload::ConfigReloadService::new(config.clone(), &mut events)?;
+    let mut shutdown_service = shutdown::ShutdownService::new(&mut events);
+    let mut signal_handler = signal_handler::SignalHandler::new(&mut events);
 
     #[cfg(feature = "cirrus-desktop-ui")]
     let status_icon = match cirrus_desktop_ui::StatusIcon::new(
         config.clone(),
-        events.clone(),
+        &mut events,
         suspend_service.get_suspend().clone(),
     ) {
         Ok(status_icon) => Some(status_icon),

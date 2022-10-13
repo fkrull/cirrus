@@ -4,21 +4,21 @@ use cirrus_core::{
     secrets::Secrets,
 };
 use futures::StreamExt;
-use shindig::Events;
+use shindig::Sender;
 use std::sync::Arc;
 use std::time::Duration;
 
 #[derive(Debug)]
 pub(super) struct Runner {
-    events: Events,
+    sender: Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
 }
 
 impl Runner {
-    pub(super) fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+    pub(super) fn new(sender: Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
         Runner {
-            events,
+            sender,
             restic,
             secrets,
         }
@@ -26,7 +26,7 @@ impl Runner {
 
     #[tracing::instrument(name = "job", skip_all, fields(id = %job.id, label = job.spec.label()))]
     pub(super) async fn run(&mut self, job: job::Job, cancellation_recv: job::cancellation::Recv) {
-        self.events
+        self.sender
             .send(job::StatusChange::new(job.clone(), job::Status::Started));
         let run_result = run(
             job.spec.clone(),
@@ -38,20 +38,20 @@ impl Runner {
         match run_result {
             Ok(Ok(_)) => {
                 tracing::info!("finished successfully");
-                self.events.send(job::StatusChange::new(
+                self.sender.send(job::StatusChange::new(
                     job,
                     job::Status::FinishedSuccessfully,
                 ));
             }
             Ok(Err(cancellation)) => {
                 tracing::info!(reason = ?cancellation.reason, "cancelled");
-                self.events
+                self.sender
                     .send(job::StatusChange::new(job, job::Status::Cancelled));
                 cancellation.acknowledge();
             }
             Err(error) => {
                 tracing::error!(%error, "failed");
-                self.events
+                self.sender
                     .send(job::StatusChange::new(job, job::Status::FinishedWithError));
             }
         }

@@ -1,21 +1,23 @@
 use crate::shutdown::RequestShutdown;
-use shindig::Events;
+use shindig::{EventsBuilder, Sender};
 
 #[derive(Debug)]
 pub struct SignalHandler {
-    events: Events,
+    sender: Sender,
 }
 
 impl SignalHandler {
-    pub fn new(events: Events) -> Self {
-        SignalHandler { events }
+    pub fn new(events: &mut EventsBuilder) -> Self {
+        SignalHandler {
+            sender: events.sender(),
+        }
     }
 
     #[tracing::instrument(name = "SignalHandler", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         let signal = shutdown_signals().await?;
         tracing::info!(?signal, "exiting due to signal");
-        self.events.send(RequestShutdown);
+        self.sender.send(RequestShutdown);
         Ok(())
     }
 }

@@ -3,7 +3,7 @@ use cirrus_daemon::{
     config_reload::ConfigReload, job, shutdown::RequestShutdown, suspend::Suspend,
 };
 use eyre::WrapErr;
-use shindig::Events;
+use shindig::Sender;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -34,16 +34,16 @@ pub(crate) enum Status {
 #[derive(Debug)]
 pub(crate) struct Model {
     config: Arc<config::Config>,
-    events: Events,
+    sender: Sender,
     running_jobs: HashMap<job::Id, job::Job>,
     suspend: Suspend,
 }
 
 impl Model {
-    pub(crate) fn new(config: Arc<config::Config>, events: Events, suspend: Suspend) -> Self {
+    pub(crate) fn new(config: Arc<config::Config>, sender: Sender, suspend: Suspend) -> Self {
         Model {
             config,
-            events,
+            sender,
             running_jobs: HashMap::new(),
             suspend,
         }
@@ -72,7 +72,7 @@ impl Model {
             }
 
             Event::ToggleSuspended => {
-                self.events.send(self.suspend.toggle());
+                self.sender.send(self.suspend.toggle());
                 Ok(HandleEventOutcome::Unchanged)
             }
             Event::RunBackup(name) => {
@@ -85,7 +85,7 @@ impl Model {
             }
             Event::Exit => {
                 tracing::info!("exiting due to user request via status icon");
-                self.events.send(RequestShutdown);
+                self.sender.send(RequestShutdown);
                 Ok(HandleEventOutcome::Unchanged)
             }
         }
@@ -113,7 +113,7 @@ impl Model {
             }
             .into(),
         );
-        self.events.send(job);
+        self.sender.send(job);
         Ok(())
     }
 

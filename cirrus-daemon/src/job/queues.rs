@@ -3,7 +3,7 @@ use crate::shutdown::{ShutdownAcknowledged, ShutdownRequested};
 use crate::suspend::Suspend;
 use cirrus_core::{config, restic::Restic, secrets::Secrets};
 use futures::StreamExt as _;
-use shindig::Events;
+use shindig::{EventsBuilder, Sender, Subscriber};
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
@@ -17,7 +17,7 @@ struct RunningJob {
 
 #[derive(Debug)]
 struct RunQueue {
-    events: Events,
+    sender: Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     running: Option<RunningJob>,
@@ -25,9 +25,9 @@ struct RunQueue {
 }
 
 impl RunQueue {
-    fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+    fn new(sender: Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
         RunQueue {
-            events,
+            sender,
             restic,
             secrets,
             running: None,
@@ -53,7 +53,7 @@ impl RunQueue {
             if let Some(job) = self.queue.pop_front() {
                 // TODO: cancellation channel
                 let mut runner = job::runner::Runner::new(
-                    self.events.clone(),
+                    self.sender.clone(),
                     self.restic.clone(),
                     self.secrets.clone(),
                 );
@@ -86,7 +86,7 @@ impl RunQueue {
 
 #[derive(Debug)]
 struct PerRepositoryQueue {
-    events: Events,
+    sender: Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     repo_queue: RunQueue,
@@ -94,10 +94,10 @@ struct PerRepositoryQueue {
 }
 
 impl PerRepositoryQueue {
-    fn new(events: Events, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
-        let repo_queue = RunQueue::new(events.clone(), restic.clone(), secrets.clone());
+    fn new(sender: Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+        let repo_queue = RunQueue::new(sender.clone(), restic.clone(), secrets.clone());
         PerRepositoryQueue {
-            events,
+            sender,
             restic,
             secrets,
             repo_queue,
@@ -113,7 +113,7 @@ impl PerRepositoryQueue {
                 .per_backup_queues
                 .entry(backup.clone())
                 .or_insert_with(|| {
-                    RunQueue::new(self.events.clone(), restic.clone(), secrets.clone())
+                    RunQueue::new(self.sender.clone(), restic.clone(), secrets.clone())
                 })
                 .push(job),
             None => self.repo_queue.push(job),
@@ -164,7 +164,10 @@ impl PerRepositoryQueue {
 
 #[derive(Debug)]
 pub struct JobQueues {
-    events: Events,
+    sender: Sender,
+    sub_job: Subscriber<job::Job>,
+    sub_status_change: Subscriber<job::StatusChange>,
+    sub_shutdown_requested: Subscriber<ShutdownRequested>,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     suspend: Suspend,
@@ -173,13 +176,16 @@ pub struct JobQueues {
 
 impl JobQueues {
     pub fn new(
-        events: Events,
+        events: &mut EventsBuilder,
         restic: Arc<Restic>,
         secrets: Arc<Secrets>,
         suspend: Suspend,
     ) -> Self {
         JobQueues {
-            events,
+            sender: events.sender(),
+            sub_job: events.subscribe(),
+            sub_status_change: events.subscribe(),
+            sub_shutdown_requested: events.subscribe(),
             restic,
             secrets,
             suspend,
@@ -192,7 +198,7 @@ impl JobQueues {
             .entry(job.spec.queue_id().repo.clone())
             .or_insert_with(|| {
                 PerRepositoryQueue::new(
-                    self.events.clone(),
+                    self.sender.clone(),
                     self.restic.clone(),
                     self.secrets.clone(),
                 )
@@ -232,18 +238,15 @@ impl JobQueues {
     #[tracing::instrument(name = "job_queues", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         // TODO: listen to suspend events and handle them
-        let mut job_recv = self.events.subscribe::<job::Job>();
-        let mut status_change_recv = self.events.subscribe::<job::StatusChange>();
-        let mut shutdown_recv = self.events.subscribe::<ShutdownRequested>();
         loop {
             tokio::select! {
-                job = job_recv.recv() => self.push(job?),
-                status_change = status_change_recv.recv() => self.handle_status_change(status_change?),
-                shutdown = shutdown_recv.recv() => {
+                job = self.sub_job.recv() => self.push(job?),
+                status_change = self.sub_status_change.recv() => self.handle_status_change(status_change?),
+                shutdown = self.sub_shutdown_requested.recv() => {
                     let _ = shutdown?;
                     tracing::debug!("received shutdown event");
                     self.cancel(job::cancellation::Reason::Shutdown).await;
-                    self.events.send(ShutdownAcknowledged);
+                    self.sender.send(ShutdownAcknowledged);
                     break Ok(());
                 },
             }

@@ -1,7 +1,7 @@
 use crate::{shutdown::ShutdownAcknowledged, shutdown::ShutdownRequested};
 use cirrus_core::config::Config;
 use notify::Watcher;
-use shindig::Events;
+use shindig::{EventsBuilder, Sender, Subscriber};
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -13,13 +13,15 @@ pub struct ConfigReload {
 struct NotifyEvent(notify::Event);
 
 pub struct ConfigReloadService {
-    events: Events,
+    sender: Sender,
+    sub_shutdown_requested: Subscriber<ShutdownRequested>,
+    sub_notify_event: Subscriber<NotifyEvent>,
     config: Arc<Config>,
     watcher: notify::RecommendedWatcher,
 }
 
 impl ConfigReloadService {
-    pub fn new(mut events: Events, config: Arc<Config>) -> eyre::Result<Self> {
+    pub fn new(config: Arc<Config>, events: &mut EventsBuilder) -> eyre::Result<Self> {
         let notify_sender = events.typed_sender::<NotifyEvent>();
         let watcher = notify::recommended_watcher(move |ev| match ev {
             Ok(event) => {
@@ -29,8 +31,10 @@ impl ConfigReloadService {
         })?;
 
         Ok(ConfigReloadService {
+            sender: events.sender(),
+            sub_shutdown_requested: events.subscribe(),
+            sub_notify_event: events.subscribe(),
             config,
-            events,
             watcher,
         })
     }
@@ -44,7 +48,7 @@ impl ConfigReloadService {
                     tracing::info!(path = %config_path.display(), "reloaded configuration");
                     let config = Arc::new(config);
                     self.config = config;
-                    self.events.send(ConfigReload {
+                    self.sender.send(ConfigReload {
                         new_config: self.config.clone(),
                     });
                 }
@@ -59,13 +63,11 @@ impl ConfigReloadService {
     #[tracing::instrument(name = "ConfigReloadService", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         self.start_watch()?;
-        let mut shutdown_recv = self.events.subscribe::<ShutdownRequested>();
-        let mut notify_event_recv = self.events.subscribe::<NotifyEvent>();
         loop {
             tokio::select! {
-                notify_event = notify_event_recv.recv() => self.handle_notify_event(notify_event?).await?,
-                shutdown = shutdown_recv.recv() => {
-                    self.handle_shutdown(shutdown?).await?;
+                notify_event = self.sub_notify_event.recv() => self.handle_notify_event(notify_event?).await?,
+                shutdown_requested = self.sub_shutdown_requested.recv() => {
+                    self.handle_shutdown(shutdown_requested?).await?;
                     break Ok(());
                 },
             }
@@ -98,7 +100,7 @@ impl ConfigReloadService {
         if let Some(config_path) = &self.config.source {
             self.watcher.unwatch(config_path)?;
         }
-        self.events.send(ShutdownAcknowledged);
+        self.sender.send(ShutdownAcknowledged);
         Ok(())
     }
 }

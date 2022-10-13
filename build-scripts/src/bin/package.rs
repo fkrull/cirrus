@@ -23,19 +23,25 @@ struct Args {
 }
 
 fn main() -> eyre::Result<()> {
+    let sh = Shell::new()?;
     let args: Args = argh::from_env();
     let target = args.target;
     let tmp = TempDir::new()?;
 
     // compile cirrus
     {
-        let _e1 = pushenv("CIRRUS_VERSION", &args.version);
-        let _e2 = pushenv("CIRRUS_BUILD_STRING", &args.build_string);
-        let _e3 = pushenv("CIRRUS_TARGET", &target);
+        let _e1 = sh.push_env("CIRRUS_VERSION", &args.version);
+        let _e2 = sh.push_env("CIRRUS_BUILD_STRING", &args.build_string);
+        let _e3 = sh.push_env("CIRRUS_TARGET", &target);
 
         let features = args.features;
-        cmd!("cargo build --release --target={target} --features={features}").run()?;
+        cmd!(
+            sh,
+            "cargo build --release --target={target} --features={features}"
+        )
+        .run()?;
         copy_binary(
+            &sh,
             Path::new(&format!("target/{}/release/cirrus", target)),
             &tmp.path().join("cirrus"),
         )?;
@@ -51,28 +57,28 @@ fn main() -> eyre::Result<()> {
     }
 
     // build package
-    mkdir_p("public")?;
+    sh.create_dir("public")?;
     let pkg_filename = format!("cirrus_{}.tar.xz", target);
     let pkg_path = Path::new("public").join(&pkg_filename);
-    package_tar_xz(tmp.path(), &pkg_path)?;
+    package_tar_xz(&sh, tmp.path(), &pkg_path)?;
 
     Ok(())
 }
 
-fn copy_binary(base_src: &Path, base_dst: &Path) -> xshell::Result<()> {
-    cp(base_src, base_dst).or_else(|_| {
-        cp(
+fn copy_binary(sh: &Shell, base_src: &Path, base_dst: &Path) -> xshell::Result<()> {
+    sh.copy_file(base_src, base_dst).or_else(|_| {
+        sh.copy_file(
             base_src.with_extension("exe"),
             base_dst.with_extension("exe"),
         )
     })
 }
 
-fn package_tar_xz(dir: &Path, dest: &Path) -> eyre::Result<()> {
+fn package_tar_xz(sh: &Shell, dir: &Path, dest: &Path) -> eyre::Result<()> {
     let mut xz = xz2::write::XzEncoder::new(std::fs::File::create(dest)?, 6);
     {
         let mut tar = tar::Builder::new(&mut xz);
-        for entry in read_dir(dir)? {
+        for entry in sh.read_dir(dir)? {
             let filename = entry.file_name().ok_or_else(|| eyre::eyre!("not a file"))?;
             tar.append_path_with_name(&entry, filename)?;
         }

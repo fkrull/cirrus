@@ -2,11 +2,12 @@ use std::path::Path;
 use xshell::*;
 
 fn main() -> eyre::Result<()> {
-    status_icons()?;
+    let sh = Shell::new()?;
+    status_icons(&sh)?;
     Ok(())
 }
 
-fn status_icons() -> eyre::Result<()> {
+fn status_icons(sh: &Shell) -> eyre::Result<()> {
     let icons = [
         ("cirrus-idle.light", vec!["light"]),
         ("cirrus-idle.dark", vec!["dark"]),
@@ -21,16 +22,21 @@ fn status_icons() -> eyre::Result<()> {
         let mut pngs = Vec::new();
         for &size in &sizes {
             let png = format!("cirrus-desktop-ui/src/resources/{}/{}.png", size, name);
-            export_merged_png("icons/symbolic-icon.svg", &png, size, &objects)?;
+            export_merged_png(sh, "icons/symbolic-icon.svg", &png, size, &objects)?;
             pngs.push(png);
         }
-        cmd!("convert {pngs...} cirrus-desktop-ui/src/resources/{name}.ico").run()?;
+        cmd!(
+            sh,
+            "convert {pngs...} cirrus-desktop-ui/src/resources/{name}.ico"
+        )
+        .run()?;
     }
 
     Ok(())
 }
 
 fn export_merged_png(
+    sh: &Shell,
     svg: impl AsRef<Path>,
     png: impl AsRef<Path>,
     size: u32,
@@ -40,12 +46,13 @@ fn export_merged_png(
     let png = png.as_ref();
     let tmp = tempfile::tempdir()?;
 
-    mkdir_p(png.parent().unwrap())?;
+    sh.create_dir(png.parent().unwrap())?;
     let mut object_filenames = Vec::new();
     let size = size.to_string();
     for &object in objects {
         let object_filename = tmp.path().join(format!("{}.png", object));
         cmd!(
+            sh,
             "inkscape {svg}
                 --export-type=png
                 --export-filename={object_filename}
@@ -58,6 +65,7 @@ fn export_merged_png(
     }
 
     cmd!(
+        sh,
         "convert
             -background transparent
             {object_filenames...}

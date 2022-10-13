@@ -12,7 +12,7 @@ tokio = { version = "1.6.1", features = ["macros", "rt-multi-thread"] }
 eyre = "0.6.5"
 
 [dev-dependencies]
-assert_cmd = "1.0.5"
+assert_cmd = "2.0.4"
 cirrus-core = { path = "../cirrus-core" }
 eyre = "0.6.5"
 futures = "0.3.15"

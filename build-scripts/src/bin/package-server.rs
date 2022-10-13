@@ -17,6 +17,7 @@ struct Args {
 }
 
 fn main() -> eyre::Result<()> {
+    let sh = Shell::new()?;
     let args: Args = argh::from_env();
     let qemu = args
         .qemu_binary
@@ -31,6 +32,7 @@ fn main() -> eyre::Result<()> {
         .file_name()
         .ok_or_else(|| eyre::eyre!("no file name"))?;
     cmd!(
+        sh,
         "buildah build-using-dockerfile
             --build-arg=IMAGE_ARCH={image_arch}
             --build-arg=TARBALL={tarball}

@@ -1,5 +1,5 @@
 use crate::shutdown::RequestShutdown;
-use shindig::{EventsBuilder, Sender};
+use shindig::{Events, Sender};
 
 #[derive(Debug)]
 pub struct SignalHandler {
@@ -7,7 +7,7 @@ pub struct SignalHandler {
 }
 
 impl SignalHandler {
-    pub fn new(events: &mut EventsBuilder) -> Self {
+    pub fn new(events: &mut Events) -> Self {
         SignalHandler {
             sender: events.sender(),
         }

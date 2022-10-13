@@ -3,7 +3,7 @@ use crate::shutdown::{ShutdownAcknowledged, ShutdownRequested};
 use crate::suspend::Suspend;
 use cirrus_core::{config, restic::Restic, secrets::Secrets};
 use futures::StreamExt as _;
-use shindig::{EventsBuilder, Sender, Subscriber};
+use shindig::{Events, Sender, Subscriber};
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
@@ -176,7 +176,7 @@ pub struct JobQueues {
 
 impl JobQueues {
     pub fn new(
-        events: &mut EventsBuilder,
+        events: &mut Events,
         restic: Arc<Restic>,
         secrets: Arc<Secrets>,
         suspend: Suspend,

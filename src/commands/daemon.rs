@@ -1,7 +1,7 @@
 use crate::cli;
 use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
-use shindig::EventsBuilder;
+use shindig::Events;
 use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
 
@@ -54,7 +54,7 @@ async fn run_daemon(
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
     let config = Arc::new(config);
-    let mut events = EventsBuilder::new_with_capacity(128);
+    let mut events = Events::new_with_capacity(128);
 
     let mut suspend_service = suspend::SuspendService::new(&mut events);
     let mut job_queues = job::queues::JobQueues::new(

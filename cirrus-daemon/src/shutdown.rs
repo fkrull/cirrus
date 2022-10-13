@@ -1,4 +1,4 @@
-use shindig::{EventsBuilder, Sender, Subscriber};
+use shindig::{Events, Sender, Subscriber};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ pub struct ShutdownService {
 }
 
 impl ShutdownService {
-    pub fn new(events: &mut EventsBuilder) -> Self {
+    pub fn new(events: &mut Events) -> Self {
         ShutdownService {
             sender: events.sender(),
             sub_request_shutdown: events.subscribe(),

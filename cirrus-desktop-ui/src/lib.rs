@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 mod model;
 pub(crate) use model::*;
-use shindig::{EventsBuilder, Subscriber};
+use shindig::{Events, Subscriber};
 
 #[cfg(windows)]
 mod windows;
@@ -25,11 +25,7 @@ pub struct StatusIcon {
 }
 
 impl StatusIcon {
-    pub fn new(
-        config: Arc<Config>,
-        events: &mut EventsBuilder,
-        suspend: Suspend,
-    ) -> eyre::Result<Self> {
+    pub fn new(config: Arc<Config>, events: &mut Events, suspend: Suspend) -> eyre::Result<Self> {
         platform_specific::check()?;
         let model = Model::new(config, events.sender(), suspend);
         Ok(StatusIcon {

@@ -1,7 +1,7 @@
 use crate::config_reload::ConfigReload;
 use crate::job;
 use cirrus_core::config;
-use shindig::{EventsBuilder, Sender, Subscriber};
+use shindig::{Events, Sender, Subscriber};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use time::PrimitiveDateTime;
 
@@ -17,7 +17,7 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub fn new(config: Arc<config::Config>, events: &mut EventsBuilder) -> Self {
+    pub fn new(config: Arc<config::Config>, events: &mut Events) -> Self {
         Scheduler {
             config,
             sender: events.sender(),

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Note that
 the version numbers are *not* semantic.
 
+## 2.0.0
+### Added
+* Graceful shutdown handling.
+* Clean shutdown on signals.
+* Initial suspend UI.
+* Option `--log-level` for `daemon` subcommand.
+
+Also I forgot I had a changelog...
+
 ## 1.4.1
 ### Added
 * Option `--log-file` for `daemon` subcommand.

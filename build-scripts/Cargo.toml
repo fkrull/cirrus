@@ -12,4 +12,4 @@ tar = "0.4.38"
 tempfile = "3.2.0"
 time = { version = "0.3.1", default-features = false, features = ["std"] }
 xshell = "0.1.8"
-xz2 = { git = "https://github.com/alexcrichton/xz2-rs.git", features = ["static"] }
+xz2 = { version = "0.1.7", features = ["static"] }

@@ -18,4 +18,4 @@ shindig = { version = "0.1.0", path = "../shindig" }
 
 [dependencies.tokio]
 version = "1.0.0"
-features = ["signal", "time"]
+features = ["signal", "time", "rt"]

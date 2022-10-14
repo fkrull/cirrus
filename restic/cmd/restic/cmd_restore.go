@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/errors"
@@ -69,6 +70,28 @@ func runRestore(opts RestoreOptions, gopts GlobalOptions, args []string) error {
 	hasExcludes := len(opts.Exclude) > 0 || len(opts.InsensitiveExclude) > 0
 	hasIncludes := len(opts.Include) > 0 || len(opts.InsensitiveInclude) > 0
 
+	// Validate provided patterns
+	if len(opts.Exclude) > 0 {
+		if valid, invalidPatterns := filter.ValidatePatterns(opts.Exclude); !valid {
+			return errors.Fatalf("--exclude: invalid pattern(s) provided:\n%s", strings.Join(invalidPatterns, "\n"))
+		}
+	}
+	if len(opts.InsensitiveExclude) > 0 {
+		if valid, invalidPatterns := filter.ValidatePatterns(opts.InsensitiveExclude); !valid {
+			return errors.Fatalf("--iexclude: invalid pattern(s) provided:\n%s", strings.Join(invalidPatterns, "\n"))
+		}
+	}
+	if len(opts.Include) > 0 {
+		if valid, invalidPatterns := filter.ValidatePatterns(opts.Include); !valid {
+			return errors.Fatalf("--include: invalid pattern(s) provided:\n%s", strings.Join(invalidPatterns, "\n"))
+		}
+	}
+	if len(opts.InsensitiveInclude) > 0 {
+		if valid, invalidPatterns := filter.ValidatePatterns(opts.InsensitiveInclude); !valid {
+			return errors.Fatalf("--iinclude: invalid pattern(s) provided:\n%s", strings.Join(invalidPatterns, "\n"))
+		}
+	}
+
 	for i, str := range opts.InsensitiveExclude {
 		opts.InsensitiveExclude[i] = strings.ToLower(str)
 	}
@@ -109,23 +132,23 @@ func runRestore(opts RestoreOptions, gopts GlobalOptions, args []string) error {
 		}
 	}
 
-	err = repo.LoadIndex(ctx)
-	if err != nil {
-		return err
-	}
-
 	var id restic.ID
 
 	if snapshotIDString == "latest" {
-		id, err = restic.FindLatestSnapshot(ctx, repo, opts.Paths, opts.Tags, opts.Hosts)
+		id, err = restic.FindLatestSnapshot(ctx, repo.Backend(), repo, opts.Paths, opts.Tags, opts.Hosts, nil)
 		if err != nil {
 			Exitf(1, "latest snapshot for criteria not found: %v Paths:%v Hosts:%v", err, opts.Paths, opts.Hosts)
 		}
 	} else {
-		id, err = restic.FindSnapshot(ctx, repo, snapshotIDString)
+		id, err = restic.FindSnapshot(ctx, repo.Backend(), snapshotIDString)
 		if err != nil {
 			Exitf(1, "invalid id %q: %v", snapshotIDString, err)
 		}
+	}
+
+	err = repo.LoadIndex(ctx)
+	if err != nil {
+		return err
 	}
 
 	res, err := restorer.NewRestorer(ctx, repo, id)
@@ -202,6 +225,7 @@ func runRestore(opts RestoreOptions, gopts GlobalOptions, args []string) error {
 	if opts.Verify {
 		Verbosef("verifying files in %s\n", opts.Target)
 		var count int
+		t0 := time.Now()
 		count, err = res.VerifyFiles(ctx, opts.Target)
 		if err != nil {
 			return err
@@ -209,7 +233,8 @@ func runRestore(opts RestoreOptions, gopts GlobalOptions, args []string) error {
 		if totalErrors > 0 {
 			return errors.Fatalf("There were %d errors\n", totalErrors)
 		}
-		Verbosef("finished verifying %d files in %s\n", count, opts.Target)
+		Verbosef("finished verifying %d files in %s (took %s)\n", count, opts.Target,
+			time.Since(t0).Round(time.Millisecond))
 	}
 
 	return nil

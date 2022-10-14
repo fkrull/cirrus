@@ -67,7 +67,7 @@ func isSymlink(fi os.FileInfo) bool {
 
 func sameModTime(fi1, fi2 os.FileInfo) bool {
 	switch runtime.GOOS {
-	case "darwin", "freebsd", "openbsd", "netbsd":
+	case "darwin", "freebsd", "openbsd", "netbsd", "solaris":
 		if isSymlink(fi1) && isSymlink(fi2) {
 			return true
 		}
@@ -198,6 +198,9 @@ func withTestEnvironment(t testing.TB) (env *testEnvironment, cleanup func()) {
 		stdout:   os.Stdout,
 		stderr:   os.Stderr,
 		extended: make(options.Options),
+
+		// replace this hook with "nil" if listing a filetype more than once is necessary
+		backendTestHook: func(r restic.Backend) (restic.Backend, error) { return newOrderedListOnceBackend(r), nil },
 	}
 
 	// always overwrite global options

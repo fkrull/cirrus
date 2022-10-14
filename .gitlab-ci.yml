@@ -195,7 +195,7 @@ server:publish:
       --build-string ${BUILD_STRING}
       --target ${TARGET}
       --features bundled-restic-support
-      --download-restic
+      --build-restic
   artifacts:
     paths:
       - public

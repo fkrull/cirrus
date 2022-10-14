@@ -17,9 +17,9 @@ struct Args {
     /// cargo features for cirrus
     #[argh(option, default = "String::new()")]
     features: String,
-    /// download and include the restic binary in the package
+    /// build the restic binary from the vendored source and include it in the package
     #[argh(switch)]
-    download_restic: bool,
+    build_restic: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -27,6 +27,21 @@ fn main() -> eyre::Result<()> {
     let args: Args = argh::from_env();
     let target = args.target;
     let tmp = TempDir::new()?;
+    let target_vars = TargetVars::for_target(&target)?;
+    let ext = target_vars.extension;
+
+    // compile restic
+    if args.build_restic {
+        let _e1 = sh.push_env("GOOS", target_vars.go_os);
+        let _e2 = sh.push_env("GOARCH", target_vars.go_arch);
+        let _e3 = sh.push_env("GOARM", target_vars.go_arm.unwrap_or(""));
+
+        let bin = format!("restic{ext}");
+        let bin_path = format!("../target/{target}/{bin}");
+        let _cd = sh.push_dir("restic");
+        cmd!(sh, "go build -ldflags '-w -s' -o {bin_path} ./cmd/restic").run()?;
+        sh.copy_file(bin_path, tmp.path().join(bin))?;
+    }
 
     // compile cirrus
     {
@@ -40,38 +55,20 @@ fn main() -> eyre::Result<()> {
             "cargo build --release --target={target} --features={features}"
         )
         .run()?;
-        copy_binary(
-            &sh,
-            Path::new(&format!("target/{}/release/cirrus", target)),
-            &tmp.path().join("cirrus"),
-        )?;
-    }
-
-    // get restic
-    if args.download_restic {
-        let restic_target = restic_bin::TargetConfig::from_triple(&target)?;
-        restic_bin::download(
-            &restic_target,
-            tmp.path().join(restic_bin::restic_filename(&restic_target)),
+        sh.copy_file(
+            format!("target/{target}/release/cirrus{ext}"),
+            tmp.path().join(format!("cirrus{ext}")),
         )?;
     }
 
     // build package
-    sh.create_dir("public")?;
-    let pkg_filename = format!("cirrus_{}.tar.xz", target);
-    let pkg_path = Path::new("public").join(&pkg_filename);
-    package_tar_xz(&sh, tmp.path(), &pkg_path)?;
+    {
+        sh.create_dir("public")?;
+        let pkg_path = Path::new("public").join(format!("cirrus_{target}.tar.xz"));
+        package_tar_xz(&sh, tmp.path(), &pkg_path)?;
+    }
 
     Ok(())
-}
-
-fn copy_binary(sh: &Shell, base_src: &Path, base_dst: &Path) -> xshell::Result<()> {
-    sh.copy_file(base_src, base_dst).or_else(|_| {
-        sh.copy_file(
-            base_src.with_extension("exe"),
-            base_dst.with_extension("exe"),
-        )
-    })
 }
 
 fn package_tar_xz(sh: &Shell, dir: &Path, dest: &Path) -> eyre::Result<()> {
@@ -86,4 +83,44 @@ fn package_tar_xz(sh: &Shell, dir: &Path, dest: &Path) -> eyre::Result<()> {
     }
     xz.finish()?;
     Ok(())
+}
+
+#[derive(Debug)]
+struct TargetVars {
+    go_os: &'static str,
+    go_arch: &'static str,
+    go_arm: Option<&'static str>,
+    extension: &'static str,
+}
+
+impl TargetVars {
+    fn for_target(target: &str) -> eyre::Result<TargetVars> {
+        Ok(match target {
+            "x86_64-unknown-linux-gnu" => TargetVars {
+                go_os: "linux",
+                go_arch: "amd64",
+                go_arm: None,
+                extension: "",
+            },
+            "armv7-unknown-linux-gnueabihf" => TargetVars {
+                go_os: "linux",
+                go_arch: "arm",
+                go_arm: Some("7"),
+                extension: "",
+            },
+            "aarch64-unknown-linux-gnu" => TargetVars {
+                go_os: "linux",
+                go_arch: "arm64",
+                go_arm: None,
+                extension: "",
+            },
+            "x86_64-pc-windows-gnu" | "x86_64-pc-windows-msvc" => TargetVars {
+                go_os: "windows",
+                go_arch: "amd64",
+                go_arm: None,
+                extension: ".exe",
+            },
+            _ => eyre::bail!("unknown target {}", target),
+        })
+    }
 }

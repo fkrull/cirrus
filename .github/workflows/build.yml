@@ -34,9 +34,7 @@ jobs:
           profile: minimal
       - name: Install libdbus-dev
         if: ${{ matrix.platform == 'ubuntu-latest' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libdbus-dev
+        run: sudo apt-get install -y libdbus-1-dev
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo test
         uses: actions-rs/cargo@v1

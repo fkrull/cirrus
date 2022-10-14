@@ -55,9 +55,6 @@ jobs:
           toolchain: stable
           profile: minimal
       - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: build-scripts
-          cache-on-failure: true
       - name: Build build-scripts
         uses: actions-rs/cargo@v1
         with:
@@ -93,10 +90,9 @@ jobs:
           go-version: '^1.19'
           cache: true
           cache-dependency-path: restic/go.sum
+      - name: Install libdbus-dev
+        run: sudo apt-get install -y libdbus-1-dev
       - uses: Swatinem/rust-cache@v2
-      - uses: Swatinem/rust-cache@v2
-        with:
-            shared-key: build-scripts
       - uses: actions-rs/cargo@v1
         with:
           command: run

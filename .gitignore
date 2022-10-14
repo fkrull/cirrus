@@ -2,6 +2,3 @@
 /public
 /.idea
 /tarpaulin-report.*
-
-/restigo/Cargo.lock
-/restigo/target

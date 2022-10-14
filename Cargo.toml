@@ -17,14 +17,12 @@ members = [
     "selfinstaller",
     "schedule-dsl",
 ]
-exclude = ["restigo"]
 
 [dependencies]
 cirrus-core = { path = "cirrus-core" }
 cirrus-daemon = { path = "cirrus-daemon" }
 cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
 cirrus-self = { path = "cirrus-self", optional = true }
-restigo = { path = "restigo", optional = true }
 eyre = "0.6.1"
 clap = { version = "4.0.10", features = ["derive", "env"] }
 hostname = "0.3.1"
@@ -47,8 +45,5 @@ features = ["signal", "rt-multi-thread"]
 # This feature enables the CLI flag for bundled restic as well as the behavior to handle it; it does *NOT* actually
 # bundle restic on its own.
 bundled-restic-support = []
-
-# Link all of restic so that restic can be run by running the main binary with a specific environment variable set.
-internal-restic = ["bundled-restic-support", "restigo"]
 
 default = ["cirrus-core/keyring", "cirrus-self", "cirrus-desktop-ui"]

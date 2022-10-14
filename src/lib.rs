@@ -18,7 +18,7 @@ fn system_restic() -> restic::CommandConfig {
     restic::CommandConfig::from_path(PathBuf::from("restic"))
 }
 
-#[cfg(all(feature = "bundled-restic-support", not(feature = "restigo")))]
+#[cfg(feature = "bundled-restic-support")]
 fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
     let current_exe = std::env::current_exe()?;
     let bundled_path = current_exe
@@ -27,15 +27,6 @@ fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
         .join("restic")
         .with_extension(std::env::consts::EXE_EXTENSION);
     Ok(restic::CommandConfig::from_path(bundled_path))
-}
-
-#[cfg(feature = "restigo")]
-fn bundled_restic() -> eyre::Result<restic::CommandConfig> {
-    let path = std::env::current_exe()?;
-    Ok(
-        restic::CommandConfig::from_path(path)
-            .with_env_var("__CIRRUS_INTERNAL_MODE_BUNDLED_RESTIC"),
-    )
 }
 
 fn restic_config(restic_arg: ResticArg) -> eyre::Result<restic::Config> {

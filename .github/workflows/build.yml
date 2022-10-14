@@ -34,7 +34,9 @@ jobs:
           profile: minimal
       - name: Install libdbus-dev
         if: ${{ matrix.platform == 'ubuntu-latest' }}
-        run: sudo apt-get install -y libdbus-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-dev
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo test
         uses: actions-rs/cargo@v1
@@ -45,8 +47,8 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.getCirrusVersion.outputs.version }}
-      build-string: ${{ steps.getCirrusVersion.outputs.build-string }}
+      VERSION: ${{ steps.getCirrusVersion.outputs.VERSION }}
+      BUILD_STRING: ${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -56,6 +58,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: build-scripts
+          cache-on-failure: true
       - name: Build build-scripts
         uses: actions-rs/cargo@v1
         with:
@@ -65,6 +68,9 @@ jobs:
         id: getCirrusVersion
         run: |
           cargo run --package build-scripts --bin get-version > version
-          source version
-          echo "::set-output name=version::${VERSION}"
-          echo "::set-output name=build-string::${BUILD_STRING}"
+          cat version
+          cat version >> "$GITHUB_OUTPUT"
+      - name: Print version
+        run: |
+          echo VERSION=${{ steps.getCirrusVersion.outputs.VERSION }}
+          echo BUILD_STRING=${{ steps.getCirrusVersion.outputs.BUILD_STRING }}

@@ -14,7 +14,6 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-          default: true
           components: rustfmt
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
@@ -33,10 +32,36 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-          default: true
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --workspace
+
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.getCirrusVersion.outputs.version }}
+      build-string: ${{ steps.getCirrusVersion.outputs.build-string }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: build-scripts
+      - name: Build build-scripts
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package build-scripts
+      - name: Get cirrus version
+        id: getCirrusVersion
+        run: |
+          cargo run --package build-scripts --bin get-version > version
+          source version
+          echo "::set-output name=version::${VERSION}"
+          echo "::set-output name=build-string::${BUILD_STRING}"

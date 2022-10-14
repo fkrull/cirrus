@@ -68,7 +68,3 @@ jobs:
           cargo run --package build-scripts --bin get-version > version
           cat version
           cat version >> "$GITHUB_OUTPUT"
-      - name: Print version
-        run: |
-          echo VERSION=${{ steps.getCirrusVersion.outputs.VERSION }}
-          echo BUILD_STRING=${{ steps.getCirrusVersion.outputs.BUILD_STRING }}

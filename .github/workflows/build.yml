@@ -75,11 +75,12 @@ jobs:
     needs: [ version ]
     strategy:
       fail-fast: true
-      target:
-        - x86_64-unknown-linux-gnu
-        - armv7-unknown-linux-gnueabihf
-        - aarch64-unknown-linux-gnu
-        - x86_64-pc-windows-gnu
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - armv7-unknown-linux-gnueabihf
+          - aarch64-unknown-linux-gnu
+          - x86_64-pc-windows-gnu
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1

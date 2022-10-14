@@ -13,7 +13,6 @@ members = [
     "events",
     "integration-tests",
     "build-scripts",
-    "build-scripts/restic-bin",
     "selfinstaller",
     "schedule-dsl",
 ]

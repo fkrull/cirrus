@@ -1,3 +1,4 @@
+use build_scripts::TargetVars;
 use std::path::Path;
 use tempfile::TempDir;
 use xshell::*;
@@ -83,44 +84,4 @@ fn package_tar_xz(sh: &Shell, dir: &Path, dest: &Path) -> eyre::Result<()> {
     }
     xz.finish()?;
     Ok(())
-}
-
-#[derive(Debug)]
-struct TargetVars {
-    go_os: &'static str,
-    go_arch: &'static str,
-    go_arm: Option<&'static str>,
-    extension: &'static str,
-}
-
-impl TargetVars {
-    fn for_target(target: &str) -> eyre::Result<TargetVars> {
-        Ok(match target {
-            "x86_64-unknown-linux-gnu" => TargetVars {
-                go_os: "linux",
-                go_arch: "amd64",
-                go_arm: None,
-                extension: "",
-            },
-            "armv7-unknown-linux-gnueabihf" => TargetVars {
-                go_os: "linux",
-                go_arch: "arm",
-                go_arm: Some("7"),
-                extension: "",
-            },
-            "aarch64-unknown-linux-gnu" => TargetVars {
-                go_os: "linux",
-                go_arch: "arm64",
-                go_arm: None,
-                extension: "",
-            },
-            "x86_64-pc-windows-gnu" | "x86_64-pc-windows-msvc" => TargetVars {
-                go_os: "windows",
-                go_arch: "amd64",
-                go_arm: None,
-                extension: ".exe",
-            },
-            _ => eyre::bail!("unknown target {}", target),
-        })
-    }
 }

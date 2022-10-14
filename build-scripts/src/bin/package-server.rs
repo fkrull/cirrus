@@ -1,3 +1,4 @@
+use build_scripts::TargetVars;
 use std::path::Path;
 use xshell::*;
 
@@ -23,7 +24,7 @@ fn main() -> eyre::Result<()> {
         .qemu_binary
         .filter(|s| !s.is_empty())
         .unwrap_or_else(no_qemu);
-    let image_arch = image_arch(&args.target)?;
+    let image_arch = TargetVars::for_target(&args.target)?.image_arch;
     let binaries_tar = Path::new(&args.binaries_tar);
     let context_path = binaries_tar
         .parent()
@@ -43,15 +44,6 @@ fn main() -> eyre::Result<()> {
     )
     .run()?;
     Ok(())
-}
-
-fn image_arch(target: &str) -> eyre::Result<&str> {
-    Ok(match target {
-        "x86_64-unknown-linux-gnu" => "amd64",
-        "armv7-unknown-linux-gnueabihf" => "arm32v7",
-        "aarch64-unknown-linux-gnu" => "arm64v8",
-        _ => eyre::bail!("unknown target {}", target),
-    })
 }
 
 fn no_qemu() -> String {

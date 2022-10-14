@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/restic/restic/internal/pack"
 	"github.com/restic/restic/internal/repository"
 	"github.com/restic/restic/internal/restic"
 
@@ -73,11 +74,31 @@ func rebuildIndex(opts RebuildIndexOptions, gopts GlobalOptions, repo *repositor
 		}
 	} else {
 		Verbosef("loading indexes...\n")
-		err := repo.LoadIndex(gopts.ctx)
+		mi := repository.NewMasterIndex()
+		err := repository.ForAllIndexes(ctx, repo, func(id restic.ID, idx *repository.Index, oldFormat bool, err error) error {
+			if err != nil {
+				Warnf("removing invalid index %v: %v\n", id, err)
+				obsoleteIndexes = append(obsoleteIndexes, id)
+				return nil
+			}
+
+			mi.Insert(idx)
+			return nil
+		})
 		if err != nil {
 			return err
 		}
-		packSizeFromIndex = repo.Index().PackSize(ctx, false)
+
+		err = mi.MergeFinalIndexes()
+		if err != nil {
+			return err
+		}
+
+		err = repo.SetIndex(mi)
+		if err != nil {
+			return err
+		}
+		packSizeFromIndex = pack.Size(ctx, repo.Index(), false)
 	}
 
 	Verbosef("getting pack files to read...\n")

@@ -82,16 +82,6 @@ jobs:
           - armv7-unknown-linux-gnueabihf
           - aarch64-unknown-linux-gnu
           - x86_64-pc-windows-gnu
-        include:
-          - target: x86_64-unknown-linux-gnu
-          - target: x86_64-pc-windows-gnu
-            pkg: gcc-mingw-w64-x86-64
-          - target: armv7-unknown-linux-gnueabihf
-            pkg: gcc-arm-linux-gnueabihf
-            linker: arm-linux-gnueabihf-gcc
-          - target: aarch64-unknown-linux-gnu
-            pkg: gcc-aarch64-linux-gnu
-            linker: aarch64-linux-gnu-gcc
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -104,19 +94,8 @@ jobs:
           go-version: '^1.19'
           cache: true
           cache-dependency-path: restic/go.sum
-      - name: Install meson
-        run: sudo apt-get install -y meson
-      - name: Install cross-compiling toolchain
-        if: ${{ matrix.pkg }}
-        run: sudo apt-get install -y ${{ matrix.pkg }}
-      - name: Set up Rust linker
-        if: ${{ matrix.linker }}
-        run: |
-          mkdir -p "$HOME/.cargo"
-          cat > "$HOME/.cargo/config" <<EOF
-          [target.${{ matrix.target }}]
-          linker = "${{ matrix.linker }}"
-          EOF
+      - name: Install meson and cross-compiling toolchains
+        run: sudo apt-get install -y meson gcc-mingw-w64-x86-64 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{matrix.target }}

@@ -4,3 +4,10 @@
 # we only use set_env in tests and kinda want local time for log messages and scheduling,
 # so we explicitly take the risk here
 rustflags = ["--cfg=unsound_local_offset"]
+
+# GCC linker for other architectures
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+
+[target.armv7-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"

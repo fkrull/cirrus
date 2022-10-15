@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/restic/restic/internal/backend/mock"
 	"github.com/restic/restic/internal/errors"
-	"github.com/restic/restic/internal/mock"
 	"github.com/restic/restic/internal/restic"
 	"github.com/restic/restic/internal/test"
 )
@@ -36,7 +36,7 @@ func TestBackendSaveRetry(t *testing.T) {
 	retryBackend := NewRetryBackend(be, 10, nil)
 
 	data := test.Random(23, 5*1024*1024+11241)
-	err := retryBackend.Save(context.TODO(), restic.Handle{}, restic.NewByteReader(data))
+	err := retryBackend.Save(context.TODO(), restic.Handle{}, restic.NewByteReader(data, be.Hasher()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestBackendCanceledContext(t *testing.T) {
 	_, err = retryBackend.Stat(ctx, h)
 	assertIsCanceled(t, err)
 
-	err = retryBackend.Save(ctx, h, restic.NewByteReader([]byte{}))
+	err = retryBackend.Save(ctx, h, restic.NewByteReader([]byte{}, nil))
 	assertIsCanceled(t, err)
 	err = retryBackend.Remove(ctx, h)
 	assertIsCanceled(t, err)

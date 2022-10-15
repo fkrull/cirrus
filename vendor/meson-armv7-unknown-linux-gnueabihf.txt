@@ -1,8 +1,8 @@
 [binaries]
-c = 'arm-linux-gnu-gcc'
-cpp = 'arm-linux-gnu-g++'
-ar = 'arm-linux-gnu-ar'
-strip = 'arm-linux-gnu-strip'
+c = 'arm-linux-gnueabihf-gcc'
+cpp = 'arm-linux-gnueabihf-g++'
+ar = 'arm-linux-gnueabihf-ar'
+strip = 'arm-linux-gnueabihf-strip'
 
 [host_machine]
 system = 'linux'

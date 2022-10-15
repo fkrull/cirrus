@@ -30,8 +30,8 @@ jobs:
           command: run
           args: >
             --package build-scripts
-            --bin update-restic --
-            --rev ${{ steps.resticRelease.outputs.release }}
+            --bin update-vendor --
+            --restic ${{ steps.resticRelease.outputs.release }}
       - uses: peter-evans/create-pull-request@v4
         with:
           branch: update-restic

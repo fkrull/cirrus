@@ -48,10 +48,10 @@ fn main() -> eyre::Result<()> {
     }
 
     // compile dbus
-    let dbus_link_args = if args.static_dbus {
+    let dbus_link_args = if args.static_dbus && target_vars.uses_dbus {
         let dbus_build_dir = format!("./target/{target}/dbus");
         sh.create_dir(&dbus_build_dir)?;
-        cmd!(sh, "meson setup --auto-features=disabled --default-library=static --cross-file=vendor/meson-{target}.txt vendor/dbus {dbus_build_dir}").run()?;
+        cmd!(sh, "meson setup --auto-features=disabled --default-library=static --cross-file=vendor/meson-gcc-{target}.ini vendor/dbus {dbus_build_dir}").run()?;
         cmd!(sh, "meson compile -C {dbus_build_dir} dbus-1").run()?;
 
         let host_triple = host_triple(&sh)?;

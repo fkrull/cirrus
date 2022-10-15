@@ -157,6 +157,6 @@ jobs:
           command: run
           args: >
             --package build-scripts
-            --bin package-server --
+            --bin container-image --
             cirrus_${{ matrix.target }}.tar.xz
             --target ${{ matrix.target }}

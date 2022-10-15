@@ -80,12 +80,11 @@ jobs:
           - x86_64-pc-windows-gnu
         include:
           - target: x86_64-unknown-linux-gnu
-            deb_arch: amd64
+          - target: x86_64-pc-windows-gnu
           - target: armv7-unknown-linux-gnueabihf
             deb_arch: armhf
           - target: aarch64-unknown-linux-gnu
             deb_arch: arm64
-          - target: x86_64-pc-windows-gnu
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -99,14 +98,13 @@ jobs:
           cache: true
           cache-dependency-path: restic/go.sum
 
-      - name: Install Cross-Compile Support
+      - name: Install cross-compile support
         if: ${{ matrix.deb_arch }}
         uses: cyberjunk/gha-ubuntu-cross@v2
         with:
           arch: ${{ matrix.deb_arch }}
-      - name: Install libdbus-1-dev
-        if: ${{ matrix.deb_arch }}
-        run: sudo apt-get install -y libdbus-1-dev:${{ matrix.deb_arch }}
+      - name: Set up cross-compile env
+        run: .github/workflow/setup-cross-env.sh ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1

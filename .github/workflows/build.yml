@@ -73,7 +73,8 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        target:
+        target: []
+        include:
           - target: x86_64-unknown-linux-gnu
             deb_arch: amd64
           - target: armv7-unknown-linux-gnueabihf
@@ -81,7 +82,6 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             deb_arch: arm64
           - target: x86_64-pc-windows-gnu
-            deb_arch: amd64
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -94,10 +94,16 @@ jobs:
           go-version: '^1.19'
           cache: true
           cache-dependency-path: restic/go.sum
-      - name: Install Cross-Compile Support (ARM64)
+
+      - name: Install Cross-Compile Support
+        if: ${{ matrix.deb_arch }}
         uses: cyberjunk/gha-ubuntu-cross@v2
         with:
           arch: ${{ matrix.deb_arch }}
+      - name: Install libdbus-1-dev
+        if: ${{ matrix.deb_arch }}
+        run: sudo apt-get install -y libdbus-1-dev:${{ matrix.deb_arch }}
+
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:

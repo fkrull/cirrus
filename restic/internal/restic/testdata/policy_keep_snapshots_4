@@ -153,33 +153,33 @@
     {
       "time": "2015-10-22T10:20:30Z",
       "tree": null,
+      "paths": [
+        "path1",
+        "path2"
+      ],
+      "tags": [
+        "foo",
+        "bar"
+      ]
+    },
+    {
+      "time": "2015-10-22T10:20:30Z",
+      "tree": null,
+      "paths": null,
+      "tags": [
+        "foo",
+        "bar"
+      ]
+    },
+    {
+      "time": "2015-10-22T10:20:30Z",
+      "tree": null,
       "paths": null
     },
     {
       "time": "2015-10-22T10:20:30Z",
       "tree": null,
       "paths": null,
-      "tags": [
-        "foo",
-        "bar"
-      ]
-    },
-    {
-      "time": "2015-10-22T10:20:30Z",
-      "tree": null,
-      "paths": null,
-      "tags": [
-        "foo",
-        "bar"
-      ]
-    },
-    {
-      "time": "2015-10-22T10:20:30Z",
-      "tree": null,
-      "paths": [
-        "path1",
-        "path2"
-      ],
       "tags": [
         "foo",
         "bar"
@@ -975,7 +975,14 @@
       "snapshot": {
         "time": "2015-10-22T10:20:30Z",
         "tree": null,
-        "paths": null
+        "paths": [
+          "path1",
+          "path2"
+        ],
+        "tags": [
+          "foo",
+          "bar"
+        ]
       },
       "matches": [
         "last snapshot"
@@ -1005,11 +1012,7 @@
       "snapshot": {
         "time": "2015-10-22T10:20:30Z",
         "tree": null,
-        "paths": null,
-        "tags": [
-          "foo",
-          "bar"
-        ]
+        "paths": null
       },
       "matches": [
         "last snapshot"
@@ -1022,10 +1025,7 @@
       "snapshot": {
         "time": "2015-10-22T10:20:30Z",
         "tree": null,
-        "paths": [
-          "path1",
-          "path2"
-        ],
+        "paths": null,
         "tags": [
           "foo",
           "bar"

@@ -14,26 +14,18 @@
 Preparing a new repository
 ##########################
 
-The place where your backups will be saved is called a "repository". This is
-simply a directory containing a set of subdirectories and files created by
-restic to store your backups, some corresponding metadata and encryption keys.
-
-To access the repository, a password (also called a key) must be specified. A
-repository can hold multiple keys that can all be used to access the repository.
-
+The place where your backups will be saved is called a "repository".
 This chapter explains how to create ("init") such a repository. The repository
 can be stored locally, or on some remote server or service. We'll first cover
 using a local repository; the remaining sections of this chapter cover all the
 other options. You can skip to the next chapter once you've read the relevant
 section here.
 
-For automated backups, restic supports specifying the repository location in the
+For automated backups, restic accepts the repository location in the
 environment variable ``RESTIC_REPOSITORY``. Restic can also read the repository
 location from a file specified via the ``--repository-file`` option or the
-environment variable ``RESTIC_REPOSITORY_FILE``.
-
-For automating the supply of the repository password to restic, several options
-exist:
+environment variable ``RESTIC_REPOSITORY_FILE``. For the password, several
+options exist:
 
  * Setting the environment variable ``RESTIC_PASSWORD``
 
@@ -43,26 +35,6 @@ exist:
  * Configuring a program to be called when the password is needed via the
    option ``--password-command`` or the environment variable
    ``RESTIC_PASSWORD_COMMAND``
-   
-The ``init`` command has an option called ``--repository-version`` which can
-be used to explicitly set the version of the new repository. By default, the
-current stable version is used (see table below). The alias ``latest`` will
-always resolve to the latest repository version. Have a look at the `design
-documentation <https://github.com/restic/restic/blob/master/doc/design.rst>`__
-for more details.
-
-The below table shows which restic version is required to use a certain
-repository version, as well as notable features introduced in the various
-versions.
-
-+--------------------+-------------------------+---------------------+------------------+
-| Repository version | Required restic version | Major new features  | Comment          |
-+====================+=========================+=====================+==================+
-| ``1``              | Any                     |                     | Current default  |
-+--------------------+-------------------------+---------------------+------------------+
-| ``2``              | 0.14.0 or newer         | Compression support |                  |
-+--------------------+-------------------------+---------------------+------------------+
-
 
 Local
 *****
@@ -95,9 +67,9 @@ SFTP
 ****
 
 In order to backup data via SFTP, you must first set up a server with
-SSH and let it know your public key. Passwordless login is important
-since automatic backups are not possible if the server prompts for
-credentials.
+SSH and let it know your public key. Passwordless login is really
+important since restic fails to connect to the repository if the server
+prompts for credentials.
 
 Once the server is configured, the setup of the SFTP repository can
 simply be achieved by changing the URL scheme in the ``init`` command:
@@ -176,7 +148,7 @@ SFTP connection, you can specify the command to be run with the option
 .. note:: Please be aware that sftp servers close connections when no data is
           received by the client. This can happen when restic is processing huge
           amounts of unchanged data. To avoid this issue add the following lines 
-          to the client's .ssh/config file:
+          to the client’s .ssh/config file:
 
 ::
 
@@ -195,7 +167,7 @@ scheme like this:
 
 .. code-block:: console
 
-    $ restic -r rest:http://host:8000/ init
+    $ restic -r rest:http://host:8000/
 
 Depending on your REST server setup, you can use HTTPS protocol,
 password protection, multiple repositories or any combination of
@@ -204,9 +176,9 @@ are some more examples:
 
 .. code-block:: console
 
-    $ restic -r rest:https://host:8000/ init
-    $ restic -r rest:https://user:pass@host:8000/ init
-    $ restic -r rest:https://user:pass@host:8000/my_backup_repo/ init
+    $ restic -r rest:https://host:8000/
+    $ restic -r rest:https://user:pass@host:8000/
+    $ restic -r rest:https://user:pass@host:8000/my_backup_repo/
 
 If you use TLS, restic will use the system's CA certificates to verify the
 server certificate. When the verification fails, restic refuses to proceed and
@@ -254,9 +226,6 @@ parameter like ``-o s3.region="us-east-1"``. If the region is not specified,
 the default region is used. Afterwards, the S3 server (at least for AWS,
 ``s3.amazonaws.com``) will redirect restic to the correct endpoint.
 
-When using temporary credentials make sure to include the session token via
-then environment variable ``AWS_SESSION_TOKEN``.
-
 Until version 0.8.0, restic used a default prefix of ``restic``, so the files
 in the bucket were placed in a directory named ``restic``. If you want to
 access a repository created with an older version of restic, specify the path
@@ -288,7 +257,7 @@ Minio Server
 ************
 
 `Minio <https://www.minio.io>`__ is an Open Source Object Storage,
-written in Go and compatible with Amazon S3 API.
+written in Go and compatible with AWS S3 API.
 
 -  Download and Install `Minio
    Server <https://minio.io/downloads/#minio-server>`__.
@@ -318,7 +287,7 @@ this command.
 Wasabi
 ************
 
-`Wasabi <https://wasabi.com>`__ is a low cost Amazon S3 conformant object storage provider.
+`Wasabi <https://wasabi.com>`__ is a low cost AWS S3 conformant object storage provider.
 Due to it's S3 conformance, Wasabi can be used as a storage provider for a restic repository.
 
 -  Create a Wasabi bucket using the `Wasabi Console <https://console.wasabisys.com>`__.
@@ -473,14 +442,6 @@ dashboard on the "Buckets" page when signed into your B2 account:
     $ export B2_ACCOUNT_ID=<MY_APPLICATION_KEY_ID>
     $ export B2_ACCOUNT_KEY=<MY_APPLICATION_KEY>
 
-To get application keys, a user can go to the App Keys section of the Backblaze
-account portal.  You must create a master application key first.  From there, you
-can generate a standard Application Key.  Please note that the Application Key
-should be treated like a password and will only appear once.  If an Application
-Key is forgotten, you must generate a new one.
-
-For more information on application keys, refer to the Backblaze `documentation <https://www.backblaze.com/b2/docs/application_keys.html>`__.
-
 .. note:: As of version 0.9.2, restic supports both master and non-master `application keys <https://www.backblaze.com/b2/docs/application_keys.html>`__. If using a non-master application key, ensure that it is created with at least **read and write** access to the B2 bucket. On earlier versions of restic, a master application key is required.
 
 You can then initialize a repository stored at Backblaze B2. If the
@@ -513,13 +474,6 @@ account name and key as follows:
     $ export AZURE_ACCOUNT_NAME=<ACCOUNT_NAME>
     $ export AZURE_ACCOUNT_KEY=<SECRET_KEY>
 
-or
-
-.. code-block:: console
-
-    $ export AZURE_ACCOUNT_NAME=<ACCOUNT_NAME>
-    $ export AZURE_ACCOUNT_SAS=<SAS_TOKEN>
-
 Afterwards you can initialize a repository in a container called ``foo`` in the
 root path like this:
 
@@ -538,10 +492,6 @@ established.
 
 Google Cloud Storage
 ********************
-
-.. note:: Google Cloud Storage is not the same service as Google Drive - to use
-          the latter, please see :ref:`other-services` for instructions on using
-          the rclone backend.
 
 Restic supports Google Cloud Storage as a backend and connects via a `service account`_.
 
@@ -589,18 +539,16 @@ repository in the bucket ``foo`` at the root path:
     enter password for new repository:
     enter password again:
 
-    created restic repository bde47d6254 at gs:foo/
+    created restic repository bde47d6254 at gs:foo2/
     [...]
 
 The number of concurrent connections to the GCS service can be set with the
 ``-o gs.connections=10`` switch. By default, at most five parallel connections are
 established.
 
-.. _service account: https://cloud.google.com/iam/docs/service-accounts
-.. _create a service account key: https://cloud.google.com/iam/docs/creating-managing-service-account-keys#iam-service-account-keys-create-console
-.. _default authentication material: https://cloud.google.com/docs/authentication/production
-
-.. _other-services:
+.. _service account: https://cloud.google.com/storage/docs/authentication#service_accounts
+.. _create a service account key: https://cloud.google.com/storage/docs/authentication#generating-a-private-key
+.. _default authentication material: https://developers.google.com/identity/protocols/application-default-credentials
 
 Other Services via rclone
 *************************
@@ -610,7 +558,7 @@ store data there. First, you need to install and `configure`_ rclone.  The
 general backend specification format is ``rclone:<remote>:<path>``, the
 ``<remote>:<path>`` component will be directly passed to rclone. When you
 configure a remote named ``foo``, you can then call restic as follows to
-initiate a new repository in the path ``bar`` in the remote ``foo``:
+initiate a new repository in the path ``bar`` in the repo:
 
 .. code-block:: console
 
@@ -659,11 +607,10 @@ configuring a bandwidth limit for rclone can be achieved by setting the
 
 For debugging rclone, you can set the environment variable ``RCLONE_VERBOSE=2``.
 
-The rclone backend has three additional options:
+The rclone backend has two additional options:
 
  * ``-o rclone.program`` specifies the path to rclone, the default value is just ``rclone``
  * ``-o rclone.args`` allows setting the arguments passed to rclone, by default this is ``serve restic --stdio --b2-hard-delete``
- * ``-o rclone.timeout`` specifies timeout for waiting on repository opening, the default value is ``1m``
 
 The reason for the ``--b2-hard-delete`` parameters can be found in the corresponding GitHub `issue #1657`_.
 
@@ -701,8 +648,7 @@ credentials) is encrypted/decrypted locally, then sent/received via
 A more advanced version of this setup forbids specific hosts from removing
 files in a repository. See the `blog post by Simon Ruderich
 <https://ruderich.org/simon/notes/append-only-backups-with-restic-and-rclone>`_
-for details and the documentation for the ``forget`` command to learn about
-important security considerations.
+for details.
 
 The rclone command may also be hard-coded in the SSH configuration or the
 user's public key, in this case it may be sufficient to just start the SSH
@@ -728,7 +674,7 @@ interaction. If you use emulation environments like
 ``Mintty`` or ``rxvt``, you may get a password error.
 
 You can workaround this by using a special tool called ``winpty`` (look
-`here <https://www.msys2.org/wiki/Porting/>`__ and
+`here <https://github.com/msys2/msys2/wiki/Porting>`__ and
 `here <https://github.com/rprichard/winpty>`__ for detail information).
 On MSYS2, you can install ``winpty`` as follows:
 
@@ -737,55 +683,3 @@ On MSYS2, you can install ``winpty`` as follows:
     $ pacman -S winpty
     $ winpty restic -r /srv/restic-repo init
 
-
-Group accessible repositories
-*****************************
-
-Since restic version 0.14 local and SFTP repositories can be made
-accessible to members of a system group. To control this we have to change
-the group permissions of the top-level ``config`` file and restic will use
-this as a hint to determine what permissions to apply to newly created
-files. By default ``restic init`` sets repositories up to be group
-inaccessible.
-
-In order to give group members read-only access we simply add the read
-permission bit to all repository files with ``chmod``:
-
-.. code-block:: console
-
-    $ chmod -R g+r /srv/restic-repo
-
-This serves two purposes: 1) it sets the read permission bit on the
-repository config file triggering restic's logic to create new files as
-group accessible and 2) it actually allows the group read access to the
-files.
-
-.. note:: By default files on Unix systems are created with a user's
-          primary group as defined by the gid (group id) field in
-          ``/etc/passwd``. See `passwd(5)
-          <https://manpages.debian.org/latest/passwd/passwd.5.en.html>`_.
-
-For read-write access things are a bit more complicated. When users other
-than the repository creator add new files in the repository they will be
-group-owned by this user's primary group by default, not that of the
-original repository owner, meaning the original creator wouldn't have
-access to these files. That's hardly what you'd want.
-
-To make this work we can employ the help of the ``setgid`` permission bit
-available on Linux and most other Unix systems. This permission bit makes
-newly created directories inherit both the group owner (gid) and setgid bit
-from the parent directory. Setting this bit requires root but since it
-propagates down to any new directories we only have to do this priviledged
-setup once:
-
-.. code-block:: console
-
-    # find /srv/restic-repo -type d -exec chmod g+s '{}' \;
-    $ chmod -R g+rw /srv/restic-repo
-
-This sets the ``setgid`` bit on all existing directories in the repository
-and then grants read/write permissions for group access.
-
-.. note:: To manage who has access to the repository you can use
-          ``usermod`` on Linux systems, to change which group controls
-          repository access ``chgrp -R`` is your friend.

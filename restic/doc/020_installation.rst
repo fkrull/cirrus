@@ -131,14 +131,7 @@ On openSUSE (leap 15.0 and greater, and tumbleweed), you can install restic usin
 RHEL & CentOS
 =============
 
-For RHEL / CentOS Stream 8 & 9 restic can be installed from the EPEL repository:
-
-.. code-block:: console
-
-    $ dnf install epel-release
-    $ dnf install restic
-
-For RHEL7/CentOS there is a copr repository available, you can try the following:
+restic can be installed via copr repository, for RHEL7/CentOS you can try the following:
 
 .. code-block:: console
 
@@ -195,20 +188,8 @@ are considered stable and releases are made regularly in a controlled manner.
 There's both pre-compiled binaries for different platforms as well as the source
 code available for download. Just download and run the one matching your system.
 
-On your first installation, if you desire, you can verify the integrity of your
-downloads by testing the SHA-256 checksums listed in ``SHA256SUMS`` and verifying
-the integrity of the file ``SHA256SUMS`` with the PGP signature in ``SHA256SUMS.asc``. 
-The PGP signature was created using the key (`0x91A6868BD3F7A907 <https://restic.net/gpg-key-alex.asc>`__):
-
-::
-
-    pub   4096R/91A6868BD3F7A907 2014-11-01
-          Key fingerprint = CF8F 18F2 8445 7597 3F79  D4E1 91A6 868B D3F7 A907
-          uid                          Alexander Neumann <alexander@bumpern.de>
-          sub   4096R/D5FC2ACF4043FDF1 2014-11-01
-
-Once downloaded, the official binaries can be updated in place using the 
-``restic self-update`` command (needs restic 0.9.3 or later):
+The official binaries can be updated in place using the ``restic self-update``
+command (needs restic 0.9.3 or later):
 
 .. code-block:: console
 
@@ -274,7 +255,7 @@ From Source
 ***********
 
 restic is written in the Go programming language and you need at least
-Go version 1.15. Building restic may also work with older versions of Go,
+Go version 1.13. Building restic may also work with older versions of Go,
 but that's not supported. See the `Getting
 started <https://golang.org/doc/install>`__ guide of the Go project for
 instructions how to install Go.
@@ -301,8 +282,6 @@ supply the target OS and platform via the command-line options like this
     $ go run build.go --goos freebsd --goarch 386
 
     $ go run build.go --goos linux --goarch arm --goarm 6
-
-    $ go run build.go --goos solaris --goarch amd64
 
 The resulting binary is statically linked and does not require any
 libraries.
@@ -338,13 +317,6 @@ Example for using sudo to write a bash completion script directly to the system-
 
     $ sudo ./restic generate --bash-completion /etc/bash_completion.d/restic
     writing bash completion file to /etc/bash_completion.d/restic
-
-Example for using sudo to write a zsh completion script directly to the system-wide location:
-
-.. code-block:: console
-
-    $ sudo ./restic generate --zsh-completion /usr/local/share/zsh/site-functions/_restic
-    writing zsh completion file to /usr/local/share/zsh/site-functions/_restic
 
 .. note:: The path for the ``--bash-completion`` option may vary depending on
    the operating system used, e.g. ``/usr/share/bash-completion/completions/restic``

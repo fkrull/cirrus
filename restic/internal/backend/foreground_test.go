@@ -1,4 +1,3 @@
-//go:build !windows
 // +build !windows
 
 package backend_test

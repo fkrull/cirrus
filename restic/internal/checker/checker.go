@@ -1,23 +1,14 @@
 package checker
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"runtime"
-	"sort"
+	"os"
 	"sync"
 
-	"github.com/minio/sha256-simd"
-	"github.com/restic/restic/internal/backend"
-	"github.com/restic/restic/internal/backend/s3"
-	"github.com/restic/restic/internal/cache"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/errors"
-	"github.com/restic/restic/internal/hashing"
 	"github.com/restic/restic/internal/pack"
 	"github.com/restic/restic/internal/repository"
 	"github.com/restic/restic/internal/restic"
@@ -39,7 +30,6 @@ type Checker struct {
 	trackUnused bool
 
 	masterIndex *repository.MasterIndex
-	snapshots   restic.Lister
 
 	repo restic.Repository
 }
@@ -58,12 +48,7 @@ func New(repo restic.Repository, trackUnused bool) *Checker {
 	return c
 }
 
-// ErrLegacyLayout is returned when the repository uses the S3 legacy layout.
-type ErrLegacyLayout struct{}
-
-func (e *ErrLegacyLayout) Error() string {
-	return "repository uses S3 legacy layout"
-}
+const defaultParallelism = 5
 
 // ErrDuplicatePacks is returned when a pack is found in more than one index.
 type ErrDuplicatePacks struct {
@@ -71,17 +56,8 @@ type ErrDuplicatePacks struct {
 	Indexes restic.IDSet
 }
 
-func (e *ErrDuplicatePacks) Error() string {
-	return fmt.Sprintf("pack %v contained in several indexes: %v", e.PackID, e.Indexes)
-}
-
-// ErrMixedPack is returned when a pack is found that contains both tree and data blobs.
-type ErrMixedPack struct {
-	PackID restic.ID
-}
-
-func (e *ErrMixedPack) Error() string {
-	return fmt.Sprintf("pack %v contains a mix of tree and data blobs", e.PackID.Str())
+func (e ErrDuplicatePacks) Error() string {
+	return fmt.Sprintf("pack %v contained in several indexes: %v", e.PackID.Str(), e.Indexes)
 }
 
 // ErrOldIndexFormat is returned when an index with the old format is
@@ -90,14 +66,8 @@ type ErrOldIndexFormat struct {
 	restic.ID
 }
 
-func (err *ErrOldIndexFormat) Error() string {
-	return fmt.Sprintf("index %v has old format", err.ID)
-}
-
-func (c *Checker) LoadSnapshots(ctx context.Context) error {
-	var err error
-	c.snapshots, err = backend.MemorizeList(ctx, c.repo.Backend(), restic.SnapshotFile)
-	return err
+func (err ErrOldIndexFormat) Error() string {
+	return fmt.Sprintf("index %v has old format", err.ID.Str())
 }
 
 // LoadIndex loads all index files.
@@ -109,11 +79,11 @@ func (c *Checker) LoadIndex(ctx context.Context) (hints []error, errs []error) {
 		debug.Log("process index %v, err %v", id, err)
 
 		if oldFormat {
-			debug.Log("index %v has old format", id)
-			hints = append(hints, &ErrOldIndexFormat{id})
+			debug.Log("index %v has old format", id.Str())
+			hints = append(hints, ErrOldIndexFormat{id})
 		}
 
-		err = errors.Wrapf(err, "error loading index %v", id)
+		err = errors.Wrapf(err, "error loading index %v", id.Str())
 
 		if err != nil {
 			errs = append(errs, err)
@@ -148,20 +118,15 @@ func (c *Checker) LoadIndex(ctx context.Context) (hints []error, errs []error) {
 	}
 
 	// compute pack size using index entries
-	c.packs = pack.Size(ctx, c.masterIndex, false)
+	c.packs = c.masterIndex.PackSize(ctx, false)
 
 	debug.Log("checking for duplicate packs")
 	for packID := range c.packs {
 		debug.Log("  check pack %v: contained in %d indexes", packID, len(packToIndex[packID]))
 		if len(packToIndex[packID]) > 1 {
-			hints = append(hints, &ErrDuplicatePacks{
+			hints = append(hints, ErrDuplicatePacks{
 				PackID:  packID,
 				Indexes: packToIndex[packID],
-			})
-		}
-		if c.masterIndex.IsMixedPack(packID) {
-			hints = append(hints, &ErrMixedPack{
-				PackID: packID,
 			})
 		}
 	}
@@ -182,29 +147,18 @@ type PackError struct {
 	Err      error
 }
 
-func (e *PackError) Error() string {
-	return "pack " + e.ID.String() + ": " + e.Err.Error()
+func (e PackError) Error() string {
+	return "pack " + e.ID.Str() + ": " + e.Err.Error()
 }
 
 // IsOrphanedPack returns true if the error describes a pack which is not
 // contained in any index.
 func IsOrphanedPack(err error) bool {
-	var e *PackError
-	return errors.As(err, &e) && e.Orphaned
-}
-
-func isS3Legacy(b restic.Backend) bool {
-	// unwrap cache
-	if be, ok := b.(*cache.Backend); ok {
-		b = be.Backend
+	if e, ok := errors.Cause(err).(PackError); ok && e.Orphaned {
+		return true
 	}
 
-	be, ok := b.(*s3.Backend)
-	if !ok {
-		return false
-	}
-
-	return be.Layout.Name() == "s3legacy"
+	return false
 }
 
 // Packs checks that all packs referenced in the index are still available and
@@ -212,10 +166,6 @@ func isS3Legacy(b restic.Backend) bool {
 // packs have been checked.
 func (c *Checker) Packs(ctx context.Context, errChan chan<- error) {
 	defer close(errChan)
-
-	if isS3Legacy(c.repo.Backend()) {
-		errChan <- &ErrLegacyLayout{}
-	}
 
 	debug.Log("checking for %d packs", len(c.packs))
 
@@ -241,7 +191,7 @@ func (c *Checker) Packs(ctx context.Context, errChan chan<- error) {
 			select {
 			case <-ctx.Done():
 				return
-			case errChan <- &PackError{ID: id, Err: errors.New("does not exist")}:
+			case errChan <- PackError{ID: id, Err: errors.New("does not exist")}:
 			}
 			continue
 		}
@@ -251,7 +201,7 @@ func (c *Checker) Packs(ctx context.Context, errChan chan<- error) {
 			select {
 			case <-ctx.Done():
 				return
-			case errChan <- &PackError{ID: id, Err: errors.Errorf("unexpected file size: got %d, expected %d", reposize, size)}:
+			case errChan <- PackError{ID: id, Err: errors.Errorf("unexpected file size: got %d, expected %d", reposize, size)}:
 			}
 		}
 	}
@@ -261,7 +211,7 @@ func (c *Checker) Packs(ctx context.Context, errChan chan<- error) {
 		select {
 		case <-ctx.Done():
 			return
-		case errChan <- &PackError{ID: orphanID, Orphaned: true, Err: errors.New("not referenced in any index")}:
+		case errChan <- PackError{ID: orphanID, Orphaned: true, Err: errors.New("not referenced in any index")}:
 		}
 	}
 }
@@ -269,12 +219,20 @@ func (c *Checker) Packs(ctx context.Context, errChan chan<- error) {
 // Error is an error that occurred while checking a repository.
 type Error struct {
 	TreeID restic.ID
+	BlobID restic.ID
 	Err    error
 }
 
 func (e Error) Error() string {
+	if !e.BlobID.IsNull() && !e.TreeID.IsNull() {
+		msg := "tree " + e.TreeID.Str()
+		msg += ", blob " + e.BlobID.Str()
+		msg += ": " + e.Err.Error()
+		return msg
+	}
+
 	if !e.TreeID.IsNull() {
-		return "tree " + e.TreeID.String() + ": " + e.Err.Error()
+		return "tree " + e.TreeID.Str() + ": " + e.Err.Error()
 	}
 
 	return e.Err.Error()
@@ -286,8 +244,8 @@ type TreeError struct {
 	Errors []error
 }
 
-func (e *TreeError) Error() string {
-	return fmt.Sprintf("tree %v: %v", e.ID, e.Errors)
+func (e TreeError) Error() string {
+	return fmt.Sprintf("tree %v: %v", e.ID.Str(), e.Errors)
 }
 
 // checkTreeWorker checks the trees received and sends out errors to errChan.
@@ -305,7 +263,7 @@ func (c *Checker) checkTreeWorker(ctx context.Context, trees <-chan restic.TreeI
 		if len(errs) == 0 {
 			continue
 		}
-		treeError := &TreeError{ID: job.ID, Errors: errs}
+		treeError := TreeError{ID: job.ID, Errors: errs}
 		select {
 		case <-ctx.Done():
 			return
@@ -315,8 +273,8 @@ func (c *Checker) checkTreeWorker(ctx context.Context, trees <-chan restic.TreeI
 	}
 }
 
-func loadSnapshotTreeIDs(ctx context.Context, lister restic.Lister, repo restic.Repository) (ids restic.IDs, errs []error) {
-	err := restic.ForAllSnapshots(ctx, lister, repo, nil, func(id restic.ID, sn *restic.Snapshot, err error) error {
+func loadSnapshotTreeIDs(ctx context.Context, repo restic.Repository) (ids restic.IDs, errs []error) {
+	err := restic.ForAllSnapshots(ctx, repo, nil, func(id restic.ID, sn *restic.Snapshot, err error) error {
 		if err != nil {
 			errs = append(errs, err)
 			return nil
@@ -337,7 +295,7 @@ func loadSnapshotTreeIDs(ctx context.Context, lister restic.Lister, repo restic.
 // subtrees are available in the index. errChan is closed after all trees have
 // been traversed.
 func (c *Checker) Structure(ctx context.Context, p *progress.Counter, errChan chan<- error) {
-	trees, errs := loadSnapshotTreeIDs(ctx, c.snapshots, c.repo)
+	trees, errs := loadSnapshotTreeIDs(ctx, c.repo)
 	p.SetMax(uint64(len(trees)))
 	debug.Log("need to check %d trees from snapshots, %d errs returned", len(trees), len(errs))
 
@@ -362,9 +320,7 @@ func (c *Checker) Structure(ctx context.Context, p *progress.Counter, errChan ch
 	}, p)
 
 	defer close(errChan)
-	// The checkTree worker only processes already decoded trees and is thus CPU-bound
-	workerCount := runtime.GOMAXPROCS(0)
-	for i := 0; i < workerCount; i++ {
+	for i := 0; i < defaultParallelism; i++ {
 		wg.Go(func() error {
 			c.checkTreeWorker(ctx, treeStream, errChan)
 			return nil
@@ -480,120 +436,99 @@ func (c *Checker) GetPacks() map[restic.ID]int64 {
 }
 
 // checkPack reads a pack and checks the integrity of all blobs.
-func checkPack(ctx context.Context, r restic.Repository, id restic.ID, blobs []restic.Blob, size int64, bufRd *bufio.Reader) error {
-	debug.Log("checking pack %v", id.String())
+func checkPack(ctx context.Context, r restic.Repository, id restic.ID, size int64) error {
+	debug.Log("checking pack %v", id)
+	h := restic.Handle{Type: restic.PackFile, Name: id.String()}
 
-	if len(blobs) == 0 {
-		return errors.Errorf("pack %v is empty or not indexed", id)
-	}
-
-	// sanity check blobs in index
-	sort.Slice(blobs, func(i, j int) bool {
-		return blobs[i].Offset < blobs[j].Offset
-	})
-	idxHdrSize := pack.CalculateHeaderSize(blobs)
-	lastBlobEnd := 0
-	nonContinuousPack := false
-	for _, blob := range blobs {
-		if lastBlobEnd != int(blob.Offset) {
-			nonContinuousPack = true
-		}
-		lastBlobEnd = int(blob.Offset + blob.Length)
-	}
-	// size was calculated by masterindex.PackSize, thus there's no need to recalculate it here
-
-	var errs []error
-	if nonContinuousPack {
-		debug.Log("Index for pack contains gaps / overlaps, blobs: %v", blobs)
-		errs = append(errs, errors.New("Index for pack contains gaps / overlapping blobs"))
-	}
-
-	// calculate hash on-the-fly while reading the pack and capture pack header
-	var hash restic.ID
-	var hdrBuf []byte
-	hashingLoader := func(ctx context.Context, h restic.Handle, length int, offset int64, fn func(rd io.Reader) error) error {
-		return r.Backend().Load(ctx, h, int(size), 0, func(rd io.Reader) error {
-			hrd := hashing.NewReader(rd, sha256.New())
-			bufRd.Reset(hrd)
-
-			// skip to start of first blob, offset == 0 for correct pack files
-			_, err := bufRd.Discard(int(offset))
-			if err != nil {
-				return err
-			}
-
-			err = fn(bufRd)
-			if err != nil {
-				return err
-			}
-
-			// skip enough bytes until we reach the possible header start
-			curPos := length + int(offset)
-			minHdrStart := int(size) - pack.MaxHeaderSize
-			if minHdrStart > curPos {
-				_, err := bufRd.Discard(minHdrStart - curPos)
-				if err != nil {
-					return err
-				}
-			}
-
-			// read remainder, which should be the pack header
-			hdrBuf, err = ioutil.ReadAll(bufRd)
-			if err != nil {
-				return err
-			}
-
-			hash = restic.IDFromHash(hrd.Sum(nil))
-			return nil
-		})
-	}
-
-	err := repository.StreamPack(ctx, hashingLoader, r.Key(), id, blobs, func(blob restic.BlobHandle, buf []byte, err error) error {
-		debug.Log("  check blob %v: %v", blob.ID, blob)
-		if err != nil {
-			debug.Log("  error verifying blob %v: %v", blob.ID, err)
-			errs = append(errs, errors.Errorf("blob %v: %v", blob.ID, err))
-		}
-		return nil
-	})
+	packfile, hash, realSize, err := repository.DownloadAndHash(ctx, r.Backend(), h)
 	if err != nil {
-		// failed to load the pack file, return as further checks cannot succeed anyways
-		debug.Log("  error streaming pack: %v", err)
-		return errors.Errorf("pack %v failed to download: %v", id, err)
+		return errors.Wrap(err, "checkPack")
 	}
+
+	defer func() {
+		_ = packfile.Close()
+		_ = os.Remove(packfile.Name())
+	}()
+
+	debug.Log("hash for pack %v is %v", id, hash)
+
 	if !hash.Equal(id) {
 		debug.Log("Pack ID does not match, want %v, got %v", id, hash)
-		return errors.Errorf("Pack ID does not match, want %v, got %v", id, hash)
+		return errors.Errorf("Pack ID does not match, want %v, got %v", id.Str(), hash.Str())
 	}
 
-	blobs, hdrSize, err := pack.List(r.Key(), bytes.NewReader(hdrBuf), int64(len(hdrBuf)))
+	if realSize != size {
+		debug.Log("Pack size does not match, want %v, got %v", size, realSize)
+		return errors.Errorf("Pack size does not match, want %v, got %v", size, realSize)
+	}
+
+	blobs, hdrSize, err := pack.List(r.Key(), packfile, size)
 	if err != nil {
 		return err
 	}
 
-	if uint32(idxHdrSize) != hdrSize {
-		debug.Log("Pack header size does not match, want %v, got %v", idxHdrSize, hdrSize)
-		errs = append(errs, errors.Errorf("Pack header size does not match, want %v, got %v", idxHdrSize, hdrSize))
-	}
-
+	var errs []error
+	var buf []byte
+	sizeFromBlobs := uint(hdrSize)
 	idx := r.Index()
-	for _, blob := range blobs {
+	for i, blob := range blobs {
+		sizeFromBlobs += blob.Length
+		debug.Log("  check blob %d: %v", i, blob)
+
+		buf = buf[:cap(buf)]
+		if uint(len(buf)) < blob.Length {
+			buf = make([]byte, blob.Length)
+		}
+		buf = buf[:blob.Length]
+
+		_, err := packfile.Seek(int64(blob.Offset), 0)
+		if err != nil {
+			return errors.Errorf("Seek(%v): %v", blob.Offset, err)
+		}
+
+		_, err = io.ReadFull(packfile, buf)
+		if err != nil {
+			debug.Log("  error loading blob %v: %v", blob.ID, err)
+			errs = append(errs, errors.Errorf("blob %v: %v", i, err))
+			continue
+		}
+
+		nonce, ciphertext := buf[:r.Key().NonceSize()], buf[r.Key().NonceSize():]
+		plaintext, err := r.Key().Open(ciphertext[:0], nonce, ciphertext, nil)
+		if err != nil {
+			debug.Log("  error decrypting blob %v: %v", blob.ID, err)
+			errs = append(errs, errors.Errorf("blob %v: %v", i, err))
+			continue
+		}
+
+		hash := restic.Hash(plaintext)
+		if !hash.Equal(blob.ID) {
+			debug.Log("  Blob ID does not match, want %v, got %v", blob.ID, hash)
+			errs = append(errs, errors.Errorf("Blob ID does not match, want %v, got %v", blob.ID.Str(), hash.Str()))
+			continue
+		}
+
 		// Check if blob is contained in index and position is correct
 		idxHas := false
 		for _, pb := range idx.Lookup(blob.BlobHandle) {
-			if pb.PackID == id && pb.Blob == blob {
+			if pb.PackID == id && pb.Offset == blob.Offset && pb.Length == blob.Length {
 				idxHas = true
 				break
 			}
 		}
 		if !idxHas {
-			errs = append(errs, errors.Errorf("Blob %v is not contained in index or position is incorrect", blob.ID))
+			errs = append(errs, errors.Errorf("Blob %v is not contained in index or position is incorrect", blob.ID.Str()))
 			continue
 		}
 	}
 
+	if int64(sizeFromBlobs) != size {
+		debug.Log("Pack size does not match, want %v, got %v", size, sizeFromBlobs)
+		errs = append(errs, errors.Errorf("Pack size does not match, want %v, got %v", size, sizeFromBlobs))
+	}
+
 	if len(errs) > 0 {
-		return errors.Errorf("pack %v contains %v errors: %v", id, len(errs), errs)
+		return errors.Errorf("pack %v contains %v errors: %v", id.Str(), len(errs), errs)
 	}
 
 	return nil
@@ -609,23 +544,17 @@ func (c *Checker) ReadPacks(ctx context.Context, packs map[restic.ID]int64, p *p
 	defer close(errChan)
 
 	g, ctx := errgroup.WithContext(ctx)
-	type checkTask struct {
-		id    restic.ID
-		size  int64
-		blobs []restic.Blob
+	type packsize struct {
+		id   restic.ID
+		size int64
 	}
-	ch := make(chan checkTask)
+	ch := make(chan packsize)
 
-	// as packs are streamed the concurrency is limited by IO
-	workerCount := int(c.repo.Connections())
 	// run workers
-	for i := 0; i < workerCount; i++ {
+	for i := 0; i < defaultParallelism; i++ {
 		g.Go(func() error {
-			// create a buffer that is large enough to be reused by repository.StreamPack
-			// this ensures that we can read the pack header later on
-			bufRd := bufio.NewReaderSize(nil, repository.MaxStreamBufferSize)
 			for {
-				var ps checkTask
+				var ps packsize
 				var ok bool
 
 				select {
@@ -636,8 +565,7 @@ func (c *Checker) ReadPacks(ctx context.Context, packs map[restic.ID]int64, p *p
 						return nil
 					}
 				}
-
-				err := checkPack(ctx, c.repo, ps.id, ps.blobs, ps.size, bufRd)
+				err := checkPack(ctx, c.repo, ps.id, ps.size)
 				p.Add(1)
 				if err == nil {
 					continue
@@ -652,17 +580,10 @@ func (c *Checker) ReadPacks(ctx context.Context, packs map[restic.ID]int64, p *p
 		})
 	}
 
-	packSet := restic.NewIDSet()
-	for pack := range packs {
-		packSet.Insert(pack)
-	}
-
 	// push packs to ch
-	for pbs := range c.repo.Index().ListPacks(ctx, packSet) {
-		size := packs[pbs.PackID]
-		debug.Log("listed %v", pbs.PackID)
+	for pack, size := range packs {
 		select {
-		case ch <- checkTask{id: pbs.PackID, size: size, blobs: pbs.Blobs}:
+		case ch <- packsize{id: pack, size: size}:
 		case <-ctx.Done():
 		}
 	}

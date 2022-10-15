@@ -1,4 +1,3 @@
-//go:build darwin || freebsd || linux
 // +build darwin freebsd linux
 
 package fuse
@@ -55,7 +54,7 @@ func replaceSpecialNodes(ctx context.Context, repo restic.Repository, node *rest
 		return []*restic.Node{node}, nil
 	}
 
-	tree, err := restic.LoadTree(ctx, repo, *node.Subtree)
+	tree, err := repo.LoadTree(ctx, *node.Subtree)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +87,7 @@ func (d *dir) open(ctx context.Context) error {
 
 	debug.Log("open dir %v (%v)", d.node.Name, d.node.Subtree)
 
-	tree, err := restic.LoadTree(ctx, d.root.repo, *d.node.Subtree)
+	tree, err := d.root.repo.LoadTree(ctx, *d.node.Subtree)
 	if err != nil {
 		debug.Log("  error loading tree %v: %v", d.node.Subtree, err)
 		return err

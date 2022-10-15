@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/restic/restic/internal/crypto"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/fs"
 	"github.com/restic/restic/internal/restic"
@@ -226,7 +225,7 @@ func TestEnsureFileContent(ctx context.Context, t testing.TB, repo restic.Reposi
 		return
 	}
 
-	content := make([]byte, crypto.CiphertextLength(len(file.Content)))
+	content := make([]byte, restic.CiphertextLength(len(file.Content)))
 	pos := 0
 	for _, id := range node.Content {
 		part, err := repo.LoadBlob(ctx, restic.DataBlob, id, content[pos:])
@@ -235,7 +234,6 @@ func TestEnsureFileContent(ctx context.Context, t testing.TB, repo restic.Reposi
 			return
 		}
 
-		copy(content[pos:pos+len(part)], part)
 		pos += len(part)
 	}
 
@@ -251,7 +249,7 @@ func TestEnsureFileContent(ctx context.Context, t testing.TB, repo restic.Reposi
 func TestEnsureTree(ctx context.Context, t testing.TB, prefix string, repo restic.Repository, treeID restic.ID, dir TestDir) {
 	t.Helper()
 
-	tree, err := restic.LoadTree(ctx, repo, treeID)
+	tree, err := repo.LoadTree(ctx, treeID)
 	if err != nil {
 		t.Fatal(err)
 		return

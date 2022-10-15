@@ -71,7 +71,7 @@ func runSelfUpdate(opts SelfUpdateOptions, gopts GlobalOptions, args []string) e
 		}
 	}
 
-	Verbosef("writing restic to %v\n", opts.Output)
+	Printf("writing restic to %v\n", opts.Output)
 
 	v, err := selfupdate.DownloadLatestStableRelease(gopts.ctx, opts.Output, version, Verbosef)
 	if err != nil {

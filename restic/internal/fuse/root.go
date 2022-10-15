@@ -1,12 +1,11 @@
-//go:build darwin || freebsd || linux
 // +build darwin freebsd linux
 
 package fuse
 
 import (
 	"os"
+	"time"
 
-	"github.com/restic/restic/internal/bloblru"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/restic"
 
@@ -15,21 +14,25 @@ import (
 
 // Config holds settings for the fuse mount.
 type Config struct {
-	OwnerIsRoot   bool
-	Hosts         []string
-	Tags          []restic.TagList
-	Paths         []string
-	TimeTemplate  string
-	PathTemplates []string
+	OwnerIsRoot      bool
+	Hosts            []string
+	Tags             []restic.TagList
+	Paths            []string
+	SnapshotTemplate string
 }
 
 // Root is the root node of the fuse mount of a repository.
 type Root struct {
 	repo      restic.Repository
 	cfg       Config
-	blobCache *bloblru.Cache
+	inode     uint64
+	snapshots restic.Snapshots
+	blobCache *blobCache
 
-	*SnapshotsDir
+	snCount   int
+	lastCheck time.Time
+
+	*MetaDir
 
 	uid, gid uint32
 }
@@ -49,8 +52,9 @@ func NewRoot(repo restic.Repository, cfg Config) *Root {
 
 	root := &Root{
 		repo:      repo,
+		inode:     rootInode,
 		cfg:       cfg,
-		blobCache: bloblru.New(blobCacheSize),
+		blobCache: newBlobCache(blobCacheSize),
 	}
 
 	if !cfg.OwnerIsRoot {
@@ -58,17 +62,14 @@ func NewRoot(repo restic.Repository, cfg Config) *Root {
 		root.gid = uint32(os.Getgid())
 	}
 
-	// set defaults, if PathTemplates is not set
-	if len(cfg.PathTemplates) == 0 {
-		cfg.PathTemplates = []string{
-			"ids/%i",
-			"snapshots/%T",
-			"hosts/%h/%T",
-			"tags/%t/%T",
-		}
+	entries := map[string]fs.Node{
+		"snapshots": NewSnapshotsDir(root, fs.GenerateDynamicInode(root.inode, "snapshots"), "", ""),
+		"tags":      NewTagsDir(root, fs.GenerateDynamicInode(root.inode, "tags")),
+		"hosts":     NewHostsDir(root, fs.GenerateDynamicInode(root.inode, "hosts")),
+		"ids":       NewSnapshotsIDSDir(root, fs.GenerateDynamicInode(root.inode, "ids")),
 	}
 
-	root.SnapshotsDir = NewSnapshotsDir(root, rootInode, rootInode, NewSnapshotsDirStructure(root, cfg.PathTemplates, cfg.TimeTemplate), "")
+	root.MetaDir = NewMetaDir(root, rootInode, entries)
 
 	return root
 }

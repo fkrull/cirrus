@@ -58,7 +58,7 @@ func RunCleanupHandlers() {
 func CleanupHandler(c <-chan os.Signal) {
 	for s := range c {
 		debug.Log("signal %v received, cleaning up", s)
-		Warnf("%ssignal %v received, cleaning up\n", clearLine(0), s)
+		Warnf("%ssignal %v received, cleaning up\n", ClearLine(), s)
 
 		code := 0
 

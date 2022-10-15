@@ -21,7 +21,7 @@ Setting up restic with Amazon S3
 Preface
 =======
 
-This tutorial will show you how to use restic with Amazon S3. It will show you how
+This tutorial will show you how to use restic with AWS S3. It will show you how
 to navigate the AWS web interface, create an S3 bucket, create a user with
 access to only this bucket, and finally how to connect restic to this bucket.
 
@@ -202,12 +202,11 @@ configuration of restic will be placed into environment variables. This will
 include sensitive information, such as your AWS secret and repository password.
 Therefore, make sure the next commands **do not** end up in your shell's
 history file. Adjust the contents of the environment variables to fit your
-bucket's name, region, and your user's API credentials.
+bucket's name and your user's API credentials.
 
 .. code-block:: console
 
    $ unset HISTFILE
-   $ export AWS_DEFAULT_REGION="eu-west-1"
    $ export RESTIC_REPOSITORY="s3:https://s3.amazonaws.com/restic-demo"
    $ export AWS_ACCESS_KEY_ID="AKIAJAJSLTZCAZ4SRI5Q"
    $ export AWS_SECRET_ACCESS_KEY="LaJtZPoVvGbXsaD2LsxvJZF/7LRi4FhT0TK4gDQq"
@@ -227,7 +226,7 @@ repository:
    the repository. Losing your password means that your data is
    irrecoverably lost.
 
-restic is now ready to be used with Amazon S3. Try to create a backup:
+restic is now ready to be used with AWS S3. Try to create a backup:
 
 .. code-block:: console
 
@@ -248,7 +247,7 @@ restic is now ready to be used with Amazon S3. Try to create a backup:
    ----------------------------------------------------------------------
    10fdbace  2017-03-26 16:41:50  blackbox                /home/philip/restic-demo/test.bin
 
-A snapshot was created and stored in the S3 bucket. By default backups to Amazon S3 will use the ``STANDARD`` storage class. Available storage classes include ``STANDARD``, ``STANDARD_IA``, ``ONEZONE_IA``, ``INTELLIGENT_TIERING``, and ``REDUCED_REDUNDANCY``. A different storage class could have been specified in the above command by using ``-o`` or ``--option``:
+A snapshot was created and stored in the S3 bucket. By default backups to AWS S3 will use the ``STANDARD`` storage class. Available storage classes include ``STANDARD``, ``STANDARD_IA``, ``ONEZONE_IA``, ``INTELLIGENT_TIERING``, and ``REDUCED_REDUNDANCY``. A different storage class could have been specified in the above command by using ``-o`` or ``--option``:
 
 .. code-block:: console
 
@@ -310,7 +309,7 @@ the backups:
 
 .. code-block:: console
 
-   root@a3e580b6369d:/# useradd --system --create-home --shell /sbin/nologin restic
+   root@a3e580b6369d:/# useradd -m restic
 
 Then we download and install the restic binary into the user's home 
 directory (please adjust the URL to refer to the latest restic version).
@@ -318,7 +317,7 @@ directory (please adjust the URL to refer to the latest restic version).
 .. code-block:: console
 
    root@a3e580b6369d:/# mkdir ~restic/bin
-   root@a3e580b6369d:/# curl -L https://github.com/restic/restic/releases/download/v0.12.1/restic_0.12.1_linux_amd64.bz2 | bunzip2 > ~restic/bin/restic
+   root@a3e580b6369d:/# curl -L https://github.com/restic/restic/releases/download/v0.9.6/restic_0.9.6_linux_amd64.bz2 | bunzip2 > ~restic/bin/restic
 
 Before we assign any special capability to the restic binary we
 restrict its permissions so that only root and the newly created

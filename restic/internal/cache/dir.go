@@ -6,15 +6,10 @@ import (
 	"path/filepath"
 )
 
-// EnvDir return $RESTIC_CACHE_DIR env
-func EnvDir() string {
-	return os.Getenv("RESTIC_CACHE_DIR")
-}
-
 // DefaultDir returns $RESTIC_CACHE_DIR, or the default cache directory
 // for the current OS if that variable is not set.
 func DefaultDir() (cachedir string, err error) {
-	cachedir = EnvDir()
+	cachedir = os.Getenv("RESTIC_CACHE_DIR")
 	if cachedir != "" {
 		return cachedir, nil
 	}

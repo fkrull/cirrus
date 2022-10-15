@@ -14,12 +14,18 @@
 Participating
 #############
 
-**********
-Debug Logs
-**********
+*********
+Debugging
+*********
 
-Set the environment variable ``DEBUG_LOG`` to let restic write extensive debug
-messages to the specified filed, e.g.:
+The program can be built with debug support like this:
+
+.. code-block:: console
+
+    $ go run build.go -tags debug
+
+Afterwards, extensive debug messages are written to the file in
+environment variable ``DEBUG_LOG``, e.g.:
 
 .. code-block:: console
 
@@ -60,21 +66,6 @@ statements originating in functions that match the pattern ``*unlock*``
     $ DEBUG_FUNCS=*unlock* restic check
 
 
-*********
-Debugging
-*********
-
-The program can be built with debug support like this:
-
-.. code-block:: console
-
-    $ go run build.go -tags debug
-
-This will make the ``restic debug <subcommand>`` available which can be used to
-inspect internal data structures. In addition, this enables profiling support
-which can help with investigation performance and memory usage issues.
-
-
 ************
 Contributing
 ************
@@ -92,9 +83,10 @@ back end is contained in `Design <https://restic.readthedocs.io/en/latest/design
 If you'd like to start contributing to restic, but don't know exactly
 what do to, have a look at this great article by Dave Cheney:
 `Suggestions for contributing to an Open Source
-project <https://dave.cheney.net/2016/03/12/suggestions-for-contributing-to-an-open-source-project>`__.
+project <https://dave.cheney.net/2016/03/12/suggestions-for-contributing-to-an-open-source-project>`__
 A few issues have been tagged with the label ``help wanted``, you can
-start looking at `those <https://github.com/restic/restic/labels/help%3A%20wanted>`_.
+start looking at those:
+https://github.com/restic/restic/labels/help%20wanted
 
 ********
 Security

@@ -29,8 +29,7 @@ func newTestSuite(t testing.TB) *test.Suite {
 			t.Logf("Create()")
 			cfg := config.(rclone.Config)
 			be, err := rclone.Create(context.TODO(), cfg)
-			var e *exec.Error
-			if errors.As(err, &e) && e.Err == exec.ErrNotFound {
+			if e, ok := errors.Cause(err).(*exec.Error); ok && e.Err == exec.ErrNotFound {
 				t.Skipf("program %q not found", e.Name)
 				return nil, nil
 			}

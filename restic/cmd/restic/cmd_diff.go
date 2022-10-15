@@ -2,14 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"path"
 	"reflect"
 	"sort"
 
-	"github.com/restic/restic/internal/backend"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/errors"
+	"github.com/restic/restic/internal/repository"
 	"github.com/restic/restic/internal/restic"
 	"github.com/spf13/cobra"
 )
@@ -53,8 +52,8 @@ func init() {
 	f.BoolVar(&diffOptions.ShowMetadata, "metadata", false, "print changes in metadata")
 }
 
-func loadSnapshot(ctx context.Context, be restic.Lister, repo restic.Repository, desc string) (*restic.Snapshot, error) {
-	id, err := restic.FindSnapshot(ctx, be, desc)
+func loadSnapshot(ctx context.Context, repo *repository.Repository, desc string) (*restic.Snapshot, error) {
+	id, err := restic.FindSnapshot(ctx, repo, desc)
 	if err != nil {
 		return nil, errors.Fatal(err.Error())
 	}
@@ -63,29 +62,15 @@ func loadSnapshot(ctx context.Context, be restic.Lister, repo restic.Repository,
 
 // Comparer collects all things needed to compare two snapshots.
 type Comparer struct {
-	repo        restic.Repository
-	opts        DiffOptions
-	printChange func(change *Change)
-}
-
-type Change struct {
-	MessageType string `json:"message_type"` // "change"
-	Path        string `json:"path"`
-	Modifier    string `json:"modifier"`
-}
-
-func NewChange(path string, mode string) *Change {
-	return &Change{MessageType: "change", Path: path, Modifier: mode}
+	repo restic.Repository
+	opts DiffOptions
 }
 
 // DiffStat collects stats for all types of items.
 type DiffStat struct {
-	Files     int    `json:"files"`
-	Dirs      int    `json:"dirs"`
-	Others    int    `json:"others"`
-	DataBlobs int    `json:"data_blobs"`
-	TreeBlobs int    `json:"tree_blobs"`
-	Bytes     uint64 `json:"bytes"`
+	Files, Dirs, Others  int
+	DataBlobs, TreeBlobs int
+	Bytes                uint64
 }
 
 // Add adds stats information for node to s.
@@ -128,14 +113,21 @@ func addBlobs(bs restic.BlobSet, node *restic.Node) {
 	}
 }
 
-type DiffStatsContainer struct {
-	MessageType                          string         `json:"message_type"` // "statistics"
-	SourceSnapshot                       string         `json:"source_snapshot"`
-	TargetSnapshot                       string         `json:"target_snapshot"`
-	ChangedFiles                         int            `json:"changed_files"`
-	Added                                DiffStat       `json:"added"`
-	Removed                              DiffStat       `json:"removed"`
-	BlobsBefore, BlobsAfter, BlobsCommon restic.BlobSet `json:"-"`
+// DiffStats collects the differences between two snapshots.
+type DiffStats struct {
+	ChangedFiles                         int
+	Added                                DiffStat
+	Removed                              DiffStat
+	BlobsBefore, BlobsAfter, BlobsCommon restic.BlobSet
+}
+
+// NewDiffStats creates new stats for a diff run.
+func NewDiffStats() *DiffStats {
+	return &DiffStats{
+		BlobsBefore: restic.NewBlobSet(),
+		BlobsAfter:  restic.NewBlobSet(),
+		BlobsCommon: restic.NewBlobSet(),
+	}
 }
 
 // updateBlobs updates the blob counters in the stats struct.
@@ -160,7 +152,7 @@ func updateBlobs(repo restic.Repository, blobs restic.BlobSet, stats *DiffStat) 
 
 func (c *Comparer) printDir(ctx context.Context, mode string, stats *DiffStat, blobs restic.BlobSet, prefix string, id restic.ID) error {
 	debug.Log("print %v tree %v", mode, id)
-	tree, err := restic.LoadTree(ctx, c.repo, id)
+	tree, err := c.repo.LoadTree(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -170,7 +162,7 @@ func (c *Comparer) printDir(ctx context.Context, mode string, stats *DiffStat, b
 		if node.Type == "dir" {
 			name += "/"
 		}
-		c.printChange(NewChange(name, mode))
+		Printf("%-5s%v\n", mode, name)
 		stats.Add(node)
 		addBlobs(blobs, node)
 
@@ -187,7 +179,7 @@ func (c *Comparer) printDir(ctx context.Context, mode string, stats *DiffStat, b
 
 func (c *Comparer) collectDir(ctx context.Context, blobs restic.BlobSet, id restic.ID) error {
 	debug.Log("print tree %v", id)
-	tree, err := restic.LoadTree(ctx, c.repo, id)
+	tree, err := c.repo.LoadTree(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -229,14 +221,14 @@ func uniqueNodeNames(tree1, tree2 *restic.Tree) (tree1Nodes, tree2Nodes map[stri
 	return tree1Nodes, tree2Nodes, uniqueNames
 }
 
-func (c *Comparer) diffTree(ctx context.Context, stats *DiffStatsContainer, prefix string, id1, id2 restic.ID) error {
+func (c *Comparer) diffTree(ctx context.Context, stats *DiffStats, prefix string, id1, id2 restic.ID) error {
 	debug.Log("diffing %v to %v", id1, id2)
-	tree1, err := restic.LoadTree(ctx, c.repo, id1)
+	tree1, err := c.repo.LoadTree(ctx, id1)
 	if err != nil {
 		return err
 	}
 
-	tree2, err := restic.LoadTree(ctx, c.repo, id2)
+	tree2, err := c.repo.LoadTree(ctx, id2)
 	if err != nil {
 		return err
 	}
@@ -273,7 +265,7 @@ func (c *Comparer) diffTree(ctx context.Context, stats *DiffStatsContainer, pref
 			}
 
 			if mod != "" {
-				c.printChange(NewChange(name, mod))
+				Printf("%-5s%v\n", mod, name)
 			}
 
 			if node1.Type == "dir" && node2.Type == "dir" {
@@ -292,7 +284,7 @@ func (c *Comparer) diffTree(ctx context.Context, stats *DiffStatsContainer, pref
 			if node1.Type == "dir" {
 				prefix += "/"
 			}
-			c.printChange(NewChange(prefix, "-"))
+			Printf("%-5s%v\n", "-", prefix)
 			stats.Removed.Add(node1)
 
 			if node1.Type == "dir" {
@@ -306,7 +298,7 @@ func (c *Comparer) diffTree(ctx context.Context, stats *DiffStatsContainer, pref
 			if node2.Type == "dir" {
 				prefix += "/"
 			}
-			c.printChange(NewChange(prefix, "+"))
+			Printf("%-5s%v\n", "+", prefix)
 			stats.Added.Add(node2)
 
 			if node2.Type == "dir" {
@@ -334,6 +326,10 @@ func runDiff(opts DiffOptions, gopts GlobalOptions, args []string) error {
 		return err
 	}
 
+	if err = repo.LoadIndex(ctx); err != nil {
+		return err
+	}
+
 	if !gopts.NoLock {
 		lock, err := lockRepo(ctx, repo)
 		defer unlockRepo(lock)
@@ -342,28 +338,17 @@ func runDiff(opts DiffOptions, gopts GlobalOptions, args []string) error {
 		}
 	}
 
-	// cache snapshots listing
-	be, err := backend.MemorizeList(ctx, repo.Backend(), restic.SnapshotFile)
-	if err != nil {
-		return err
-	}
-	sn1, err := loadSnapshot(ctx, be, repo, args[0])
+	sn1, err := loadSnapshot(ctx, repo, args[0])
 	if err != nil {
 		return err
 	}
 
-	sn2, err := loadSnapshot(ctx, be, repo, args[1])
+	sn2, err := loadSnapshot(ctx, repo, args[1])
 	if err != nil {
 		return err
 	}
 
-	if !gopts.JSON {
-		Verbosef("comparing snapshot %v to %v:\n\n", sn1.ID().Str(), sn2.ID().Str())
-	}
-
-	if err = repo.LoadIndex(ctx); err != nil {
-		return err
-	}
+	Verbosef("comparing snapshot %v to %v:\n\n", sn1.ID().Str(), sn2.ID().Str())
 
 	if sn1.Tree == nil {
 		return errors.Errorf("snapshot %v has nil tree", sn1.ID().Str())
@@ -376,33 +361,9 @@ func runDiff(opts DiffOptions, gopts GlobalOptions, args []string) error {
 	c := &Comparer{
 		repo: repo,
 		opts: diffOptions,
-		printChange: func(change *Change) {
-			Printf("%-5s%v\n", change.Modifier, change.Path)
-		},
 	}
 
-	if gopts.JSON {
-		enc := json.NewEncoder(gopts.stdout)
-		c.printChange = func(change *Change) {
-			err := enc.Encode(change)
-			if err != nil {
-				Warnf("JSON encode failed: %v\n", err)
-			}
-		}
-	}
-
-	if gopts.Quiet {
-		c.printChange = func(change *Change) {}
-	}
-
-	stats := &DiffStatsContainer{
-		MessageType:    "statistics",
-		SourceSnapshot: args[0],
-		TargetSnapshot: args[1],
-		BlobsBefore:    restic.NewBlobSet(),
-		BlobsAfter:     restic.NewBlobSet(),
-		BlobsCommon:    restic.NewBlobSet(),
-	}
+	stats := NewDiffStats()
 	stats.BlobsBefore.Insert(restic.BlobHandle{Type: restic.TreeBlob, ID: *sn1.Tree})
 	stats.BlobsAfter.Insert(restic.BlobHandle{Type: restic.TreeBlob, ID: *sn2.Tree})
 
@@ -415,21 +376,14 @@ func runDiff(opts DiffOptions, gopts GlobalOptions, args []string) error {
 	updateBlobs(repo, stats.BlobsBefore.Sub(both).Sub(stats.BlobsCommon), &stats.Removed)
 	updateBlobs(repo, stats.BlobsAfter.Sub(both).Sub(stats.BlobsCommon), &stats.Added)
 
-	if gopts.JSON {
-		err := json.NewEncoder(gopts.stdout).Encode(stats)
-		if err != nil {
-			Warnf("JSON encode failed: %v\n", err)
-		}
-	} else {
-		Printf("\n")
-		Printf("Files:       %5d new, %5d removed, %5d changed\n", stats.Added.Files, stats.Removed.Files, stats.ChangedFiles)
-		Printf("Dirs:        %5d new, %5d removed\n", stats.Added.Dirs, stats.Removed.Dirs)
-		Printf("Others:      %5d new, %5d removed\n", stats.Added.Others, stats.Removed.Others)
-		Printf("Data Blobs:  %5d new, %5d removed\n", stats.Added.DataBlobs, stats.Removed.DataBlobs)
-		Printf("Tree Blobs:  %5d new, %5d removed\n", stats.Added.TreeBlobs, stats.Removed.TreeBlobs)
-		Printf("  Added:   %-5s\n", formatBytes(uint64(stats.Added.Bytes)))
-		Printf("  Removed: %-5s\n", formatBytes(uint64(stats.Removed.Bytes)))
-	}
+	Printf("\n")
+	Printf("Files:       %5d new, %5d removed, %5d changed\n", stats.Added.Files, stats.Removed.Files, stats.ChangedFiles)
+	Printf("Dirs:        %5d new, %5d removed\n", stats.Added.Dirs, stats.Removed.Dirs)
+	Printf("Others:      %5d new, %5d removed\n", stats.Added.Others, stats.Removed.Others)
+	Printf("Data Blobs:  %5d new, %5d removed\n", stats.Added.DataBlobs, stats.Removed.DataBlobs)
+	Printf("Tree Blobs:  %5d new, %5d removed\n", stats.Added.TreeBlobs, stats.Removed.TreeBlobs)
+	Printf("  Added:   %-5s\n", formatBytes(uint64(stats.Added.Bytes)))
+	Printf("  Removed: %-5s\n", formatBytes(uint64(stats.Removed.Bytes)))
 
 	return nil
 }

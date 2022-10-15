@@ -4,14 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"sync/atomic"
+
+	"github.com/restic/restic/internal/errors"
 
 	"github.com/restic/restic/internal/debug"
-	"github.com/restic/restic/internal/errors"
 	"github.com/restic/restic/internal/fs"
 	"github.com/restic/restic/internal/restic"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // Restorer is used to restore a snapshot to a directory.
@@ -53,7 +51,7 @@ type treeVisitor struct {
 // target is the path in the file system, location within the snapshot.
 func (res *Restorer) traverseTree(ctx context.Context, target, location string, treeID restic.ID, visitor treeVisitor) (hasRestored bool, err error) {
 	debug.Log("%v %v %v", target, location, treeID)
-	tree, err := restic.LoadTree(ctx, res.repo, treeID)
+	tree, err := res.repo.LoadTree(ctx, treeID)
 	if err != nil {
 		debug.Log("error loading tree %v: %v", treeID, err)
 		return hasRestored, res.Error(location, err)
@@ -99,13 +97,10 @@ func (res *Restorer) traverseTree(ctx context.Context, target, location string, 
 		}
 
 		sanitizeError := func(err error) error {
-			switch err {
-			case nil, context.Canceled, context.DeadlineExceeded:
-				// Context errors are permanent.
-				return err
-			default:
-				return res.Error(nodeLocation, err)
+			if err != nil {
+				err = res.Error(nodeLocation, err)
 			}
+			return err
 		}
 
 		if node.Type == "dir" {
@@ -113,7 +108,7 @@ func (res *Restorer) traverseTree(ctx context.Context, target, location string, 
 				return hasRestored, errors.Errorf("Dir without subtree in tree %v", treeID.Str())
 			}
 
-			if selectedForRestore && visitor.enterDir != nil {
+			if selectedForRestore {
 				err = sanitizeError(visitor.enterDir(node, nodeTarget, nodeLocation))
 				if err != nil {
 					return hasRestored, err
@@ -138,7 +133,7 @@ func (res *Restorer) traverseTree(ctx context.Context, target, location string, 
 
 			// metadata need to be restore when leaving the directory in both cases
 			// selected for restore or any child of any subtree have been restored
-			if (selectedForRestore || childHasRestored) && visitor.leaveDir != nil {
+			if selectedForRestore || childHasRestored {
 				err = sanitizeError(visitor.leaveDir(node, nodeTarget, nodeLocation))
 				if err != nil {
 					return hasRestored, err
@@ -218,8 +213,9 @@ func (res *Restorer) RestoreTo(ctx context.Context, dst string) error {
 		}
 	}
 
-	idx := NewHardlinkIndex()
-	filerestorer := newFileRestorer(dst, res.repo.Backend().Load, res.repo.Key(), res.repo.Index().Lookup, res.repo.Connections())
+	idx := restic.NewHardlinkIndex()
+
+	filerestorer := newFileRestorer(dst, res.repo.Backend().Load, res.repo.Key(), res.repo.Index().Lookup)
 	filerestorer.Error = res.Error
 
 	debug.Log("first pass for %q", dst)
@@ -261,6 +257,9 @@ func (res *Restorer) RestoreTo(ctx context.Context, dst string) error {
 
 			return nil
 		},
+		leaveDir: func(node *restic.Node, target, location string) error {
+			return nil
+		},
 	})
 	if err != nil {
 		return err
@@ -275,6 +274,9 @@ func (res *Restorer) RestoreTo(ctx context.Context, dst string) error {
 
 	// second tree pass: restore special files and filesystem metadata
 	_, err = res.traverseTree(ctx, dst, string(filepath.Separator), *res.sn.Tree, treeVisitor{
+		enterDir: func(node *restic.Node, target, location string) error {
+			return nil
+		},
 		visitNode: func(node *restic.Node, target, location string) error {
 			debug.Log("second pass, visitNode: restore node %q", location)
 			if node.Type != "file" {
@@ -295,7 +297,10 @@ func (res *Restorer) RestoreTo(ctx context.Context, dst string) error {
 
 			return res.restoreNodeMetadataTo(node, target, location)
 		},
-		leaveDir: res.restoreNodeMetadataTo,
+		leaveDir: func(node *restic.Node, target, location string) error {
+			debug.Log("second pass, leaveDir restore metadata %q", location)
+			return res.restoreNodeMetadataTo(node, target, location)
+		},
 	})
 	return err
 }
@@ -305,112 +310,52 @@ func (res *Restorer) Snapshot() *restic.Snapshot {
 	return res.sn
 }
 
-// Number of workers in VerifyFiles.
-const nVerifyWorkers = 8
-
-// VerifyFiles checks whether all regular files in the snapshot res.sn
-// have been successfully written to dst. It stops when it encounters an
-// error. It returns that error and the number of files it has successfully
-// verified.
+// VerifyFiles reads all snapshot files and verifies their contents
 func (res *Restorer) VerifyFiles(ctx context.Context, dst string) (int, error) {
-	type mustCheck struct {
-		node *restic.Node
-		path string
-	}
+	// TODO multithreaded?
 
-	var (
-		nchecked uint64
-		work     = make(chan mustCheck, 2*nVerifyWorkers)
-	)
+	count := 0
+	_, err := res.traverseTree(ctx, dst, string(filepath.Separator), *res.sn.Tree, treeVisitor{
+		enterDir: func(node *restic.Node, target, location string) error { return nil },
+		visitNode: func(node *restic.Node, target, location string) error {
+			if node.Type != "file" {
+				return nil
+			}
 
-	g, ctx := errgroup.WithContext(ctx)
+			count++
+			stat, err := os.Stat(target)
+			if err != nil {
+				return err
+			}
+			if int64(node.Size) != stat.Size() {
+				return errors.Errorf("Invalid file size: expected %d got %d", node.Size, stat.Size())
+			}
 
-	// Traverse tree and send jobs to work.
-	g.Go(func() error {
-		defer close(work)
+			file, err := os.Open(target)
+			if err != nil {
+				return err
+			}
 
-		_, err := res.traverseTree(ctx, dst, string(filepath.Separator), *res.sn.Tree, treeVisitor{
-			visitNode: func(node *restic.Node, target, location string) error {
-				if node.Type != "file" {
-					return nil
+			offset := int64(0)
+			for _, blobID := range node.Content {
+				length, _ := res.repo.LookupBlobSize(blobID, restic.DataBlob)
+				buf := make([]byte, length) // TODO do I want to reuse the buffer somehow?
+				_, err = file.ReadAt(buf, offset)
+				if err != nil {
+					_ = file.Close()
+					return err
 				}
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case work <- mustCheck{node, target}:
-					return nil
+				if !blobID.Equal(restic.Hash(buf)) {
+					_ = file.Close()
+					return errors.Errorf("Unexpected contents starting at offset %d", offset)
 				}
-			},
-		})
-		return err
+				offset += int64(length)
+			}
+
+			return file.Close()
+		},
+		leaveDir: func(node *restic.Node, target, location string) error { return nil },
 	})
 
-	for i := 0; i < nVerifyWorkers; i++ {
-		g.Go(func() (err error) {
-			var buf []byte
-			for job := range work {
-				buf, err = res.verifyFile(job.path, job.node, buf)
-				if err != nil {
-					err = res.Error(job.path, err)
-				}
-				if err != nil || ctx.Err() != nil {
-					break
-				}
-				atomic.AddUint64(&nchecked, 1)
-			}
-			return err
-		})
-	}
-
-	return int(nchecked), g.Wait()
-}
-
-// Verify that the file target has the contents of node.
-//
-// buf and the first return value are scratch space, passed around for reuse.
-// Reusing buffers prevents the verifier goroutines allocating all of RAM and
-// flushing the filesystem cache (at least on Linux).
-func (res *Restorer) verifyFile(target string, node *restic.Node, buf []byte) ([]byte, error) {
-	f, err := os.Open(target)
-	if err != nil {
-		return buf, err
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	fi, err := f.Stat()
-	switch {
-	case err != nil:
-		return buf, err
-	case int64(node.Size) != fi.Size():
-		return buf, errors.Errorf("Invalid file size for %s: expected %d, got %d",
-			target, node.Size, fi.Size())
-	}
-
-	var offset int64
-	for _, blobID := range node.Content {
-		length, found := res.repo.LookupBlobSize(blobID, restic.DataBlob)
-		if !found {
-			return buf, errors.Errorf("Unable to fetch blob %s", blobID)
-		}
-
-		if length > uint(cap(buf)) {
-			buf = make([]byte, 2*length)
-		}
-		buf = buf[:length]
-
-		_, err = f.ReadAt(buf, offset)
-		if err != nil {
-			return buf, err
-		}
-		if !blobID.Equal(restic.Hash(buf)) {
-			return buf, errors.Errorf(
-				"Unexpected content in %s, starting at offset %d",
-				target, offset)
-		}
-		offset += int64(length)
-	}
-
-	return buf, nil
+	return count, err
 }

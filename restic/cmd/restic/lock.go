@@ -16,7 +16,6 @@ var globalLocks struct {
 	cancelRefresh chan struct{}
 	refreshWG     sync.WaitGroup
 	sync.Mutex
-	sync.Once
 }
 
 func lockRepo(ctx context.Context, repo *repository.Repository) (*restic.Lock, error) {
@@ -28,12 +27,6 @@ func lockRepoExclusive(ctx context.Context, repo *repository.Repository) (*resti
 }
 
 func lockRepository(ctx context.Context, repo *repository.Repository, exclusive bool) (*restic.Lock, error) {
-	// make sure that a repository is unlocked properly and after cancel() was
-	// called by the cleanup handler in global.go
-	globalLocks.Do(func() {
-		AddCleanupHandler(unlockAll)
-	})
-
 	lockFn := restic.NewLock
 	if exclusive {
 		lockFn = restic.NewExclusiveLock
@@ -134,4 +127,8 @@ func unlockAll() error {
 	globalLocks.locks = globalLocks.locks[:0]
 
 	return nil
+}
+
+func init() {
+	AddCleanupHandler(unlockAll)
 }

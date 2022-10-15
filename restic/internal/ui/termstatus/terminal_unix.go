@@ -1,4 +1,3 @@
-//go:build !windows
 // +build !windows
 
 package termstatus
@@ -7,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"golang.org/x/term"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // clearCurrentLine removes all characters from the current line and resets the
@@ -24,7 +23,7 @@ func moveCursorUp(wr io.Writer, fd uintptr) func(io.Writer, uintptr, int) {
 // CanUpdateStatus returns true if status lines can be printed, the process
 // output is not redirected to a file or pipe.
 func CanUpdateStatus(fd uintptr) bool {
-	if !term.IsTerminal(int(fd)) {
+	if !terminal.IsTerminal(int(fd)) {
 		return false
 	}
 	term := os.Getenv("TERM")

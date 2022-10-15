@@ -3,7 +3,6 @@ package local
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"syscall"
 	"testing"
@@ -15,19 +14,21 @@ import (
 )
 
 func TestNoSpacePermanent(t *testing.T) {
-	oldTempFile := tempFile
+	oldOpenFile := openFile
 	defer func() {
-		tempFile = oldTempFile
+		openFile = oldOpenFile
 	}()
 
-	tempFile = func(_, _ string) (*os.File, error) {
-		return nil, fmt.Errorf("not creating tempfile, %w", syscall.ENOSPC)
+	openFile = func(name string, flags int, mode os.FileMode) (*os.File, error) {
+		// The actual error from os.OpenFile is *os.PathError.
+		// Other functions called inside Save may return *os.SyscallError.
+		return nil, os.NewSyscallError("open", syscall.ENOSPC)
 	}
 
 	dir, cleanup := rtest.TempDir(t)
 	defer cleanup()
 
-	be, err := Open(context.Background(), Config{Path: dir, Connections: 2})
+	be, err := Open(context.Background(), Config{Path: dir})
 	rtest.OK(t, err)
 	defer func() {
 		rtest.OK(t, be.Close())

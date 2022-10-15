@@ -15,7 +15,7 @@ import (
 )
 
 func TestWriteZip(t *testing.T) {
-	WriteTest(t, "zip", checkZip)
+	WriteTest(t, WriteZip, checkZip)
 }
 
 func readZipFile(f *zip.File) ([]byte, error) {

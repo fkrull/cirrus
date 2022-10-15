@@ -2,8 +2,6 @@ name: Update restic
 on:
   schedule:
     - cron: 0 6 * * SAT
-  push:
-    branches: [ main ]
 
 jobs:
   update-restic:

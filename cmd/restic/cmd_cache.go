@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/restic/restic/internal/cache"
@@ -141,13 +140,8 @@ func runCache(opts CacheOptions, gopts GlobalOptions, args []string) error {
 			size = fmt.Sprintf("%11s", formatBytes(uint64(bytes)))
 		}
 
-		name := entry.Name()
-		if !strings.HasPrefix(name, "restic-check-cache-") {
-			name = name[:10]
-		}
-
 		tab.AddRow(data{
-			name,
+			entry.Name()[:10],
 			fmt.Sprintf("%d days ago", uint(time.Since(entry.ModTime()).Hours()/24)),
 			old,
 			size,

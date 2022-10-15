@@ -35,7 +35,6 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//go:build ignore_build_go
 // +build ignore_build_go
 
 package main
@@ -59,7 +58,7 @@ var config = Config{
 	Main:             "./cmd/restic",                           // package name for the main package
 	DefaultBuildTags: []string{"selfupdate"},                   // specify build tags which are always used
 	Tests:            []string{"./..."},                        // tests to run
-	MinVersion:       GoVersion{Major: 1, Minor: 14, Patch: 0}, // minimum Go version supported
+	MinVersion:       GoVersion{Major: 1, Minor: 11, Patch: 0}, // minimum Go version supported
 }
 
 // Config configures the build.
@@ -124,8 +123,17 @@ func printEnv(env []string) {
 
 // build runs "go build args..." with GOPATH set to gopath.
 func build(cwd string, env map[string]string, args ...string) error {
-	// -trimpath removes all absolute paths from the binary.
-	a := []string{"build", "-trimpath"}
+	a := []string{"build"}
+
+	// try to remove all absolute paths from resulting binary
+	if goVersion.AtLeast(GoVersion{1, 13, 0}) {
+		// use the new flag introduced by Go 1.13
+		a = append(a, "-trimpath")
+	} else {
+		// otherwise try to trim as many paths as possible
+		a = append(a, "-asmflags", fmt.Sprintf("all=-trimpath=%s", cwd))
+		a = append(a, "-gcflags", fmt.Sprintf("all=-trimpath=%s", cwd))
+	}
 
 	if enablePIE {
 		a = append(a, "-buildmode=pie")

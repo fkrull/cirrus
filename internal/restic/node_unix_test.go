@@ -1,4 +1,3 @@
-//go:build !windows
 // +build !windows
 
 package restic
@@ -94,9 +93,7 @@ func TestNodeFromFileInfo(t *testing.T) {
 
 	// on darwin, users are not permitted to list the extended attributes of
 	// /dev/null, therefore skip it.
-	// on solaris, /dev/null is a symlink to a device node in /devices
-	// which does not support extended attributes, therefore skip it.
-	if runtime.GOOS != "darwin" && runtime.GOOS != "solaris" {
+	if runtime.GOOS != "darwin" {
 		tests = append(tests, Test{"/dev/null", true})
 	}
 

@@ -20,7 +20,7 @@ func findSFTPServerBinary() string {
 	for _, dir := range strings.Split(rtest.TestSFTPPath, ":") {
 		testpath := filepath.Join(dir, "sftp-server")
 		_, err := os.Stat(testpath)
-		if !errors.Is(err, os.ErrNotExist) {
+		if !os.IsNotExist(errors.Cause(err)) {
 			return testpath
 		}
 	}
@@ -42,9 +42,8 @@ func newTestSuite(t testing.TB) *test.Suite {
 			t.Logf("create new backend at %v", dir)
 
 			cfg := sftp.Config{
-				Path:        dir,
-				Command:     fmt.Sprintf("%q -e", sftpServer),
-				Connections: 5,
+				Path:    dir,
+				Command: fmt.Sprintf("%q -e", sftpServer),
 			}
 			return cfg, nil
 		},

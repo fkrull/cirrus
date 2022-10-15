@@ -3,8 +3,6 @@ package gs
 
 import (
 	"context"
-	"crypto/md5"
-	"hash"
 	"io"
 	"net/http"
 	"os"
@@ -14,7 +12,6 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/pkg/errors"
 	"github.com/restic/restic/internal/backend"
-	"github.com/restic/restic/internal/backend/sema"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/restic"
 
@@ -28,15 +25,14 @@ import (
 // Backend stores data in a GCS bucket.
 //
 // The service account used to access the bucket must have these permissions:
-//   - storage.objects.create
-//   - storage.objects.delete
-//   - storage.objects.get
-//   - storage.objects.list
+//  * storage.objects.create
+//  * storage.objects.delete
+//  * storage.objects.get
+//  * storage.objects.list
 type Backend struct {
 	gcsClient    *storage.Client
 	projectID    string
-	connections  uint
-	sem          sema.Semaphore
+	sem          *backend.Semaphore
 	bucketName   string
 	bucket       *storage.BucketHandle
 	prefix       string
@@ -98,19 +94,18 @@ func open(cfg Config, rt http.RoundTripper) (*Backend, error) {
 		return nil, errors.Wrap(err, "getStorageClient")
 	}
 
-	sem, err := sema.New(cfg.Connections)
+	sem, err := backend.NewSemaphore(cfg.Connections)
 	if err != nil {
 		return nil, err
 	}
 
 	be := &Backend{
-		gcsClient:   gcsClient,
-		projectID:   cfg.ProjectID,
-		connections: cfg.Connections,
-		sem:         sem,
-		bucketName:  cfg.Bucket,
-		bucket:      gcsClient.Bucket(cfg.Bucket),
-		prefix:      cfg.Prefix,
+		gcsClient:  gcsClient,
+		projectID:  cfg.ProjectID,
+		sem:        sem,
+		bucketName: cfg.Bucket,
+		bucket:     gcsClient.Bucket(cfg.Bucket),
+		prefix:     cfg.Prefix,
 		Layout: &backend.DefaultLayout{
 			Path: cfg.Prefix,
 			Join: path.Join,
@@ -188,23 +183,9 @@ func (be *Backend) Join(p ...string) string {
 	return path.Join(p...)
 }
 
-func (be *Backend) Connections() uint {
-	return be.connections
-}
-
 // Location returns this backend's location (the bucket name).
 func (be *Backend) Location() string {
 	return be.Join(be.bucketName, be.prefix)
-}
-
-// Hasher may return a hash function for calculating a content hash for the backend
-func (be *Backend) Hasher() hash.Hash {
-	return md5.New()
-}
-
-// HasAtomicReplace returns whether Save() can atomically replace files
-func (be *Backend) HasAtomicReplace() bool {
-	return true
 }
 
 // Path returns the path in the bucket that is used for this backend.
@@ -253,7 +234,6 @@ func (be *Backend) Save(ctx context.Context, h restic.Handle, rd restic.RewindRe
 	// uploads are not providing significant benefit anyways.
 	w := be.bucket.Object(objName).NewWriter(ctx)
 	w.ChunkSize = 0
-	w.MD5 = rd.Hash()
 	wbytes, err := io.Copy(w, rd)
 	cerr := w.Close()
 	if err == nil {
@@ -273,6 +253,18 @@ func (be *Backend) Save(ctx context.Context, h restic.Handle, rd restic.RewindRe
 		return errors.Errorf("wrote %d bytes instead of the expected %d bytes", wbytes, rd.Length())
 	}
 	return nil
+}
+
+// wrapReader wraps an io.ReadCloser to run an additional function on Close.
+type wrapReader struct {
+	io.ReadCloser
+	f func()
+}
+
+func (wr wrapReader) Close() error {
+	err := wr.ReadCloser.Close()
+	wr.f()
+	return err
 }
 
 // Load runs fn with a reader that yields the contents of the file at h at the
@@ -303,16 +295,21 @@ func (be *Backend) openReader(ctx context.Context, h restic.Handle, length int, 
 
 	be.sem.GetToken()
 
-	ctx, cancel := context.WithCancel(ctx)
-
 	r, err := be.bucket.Object(objName).NewRangeReader(ctx, offset, int64(length))
 	if err != nil {
-		cancel()
 		be.sem.ReleaseToken()
 		return nil, err
 	}
 
-	return be.sem.ReleaseTokenOnClose(r, cancel), err
+	closeRd := wrapReader{
+		ReadCloser: r,
+		f: func() {
+			debug.Log("Close()")
+			be.sem.ReleaseToken()
+		},
+	}
+
+	return closeRd, err
 }
 
 // Stat returns information about a blob.

@@ -104,12 +104,15 @@ func build(sourceDir, outputDir, goos, goarch string) (filename string) {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Dir = sourceDir
+
+	verbose("run %v %v in %v", "go", c.Args, c.Dir)
+
+	c.Dir = sourceDir
 	c.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
 		"GOOS="+goos,
 		"GOARCH="+goarch,
 	)
-	verbose("run %v %v in %v", "go", c.Args, c.Dir)
 
 	err := c.Run()
 	if err != nil {
@@ -148,9 +151,11 @@ func compress(goos, inputDir, filename string) (outputFile string) {
 	case "windows":
 		outputFile = strings.TrimSuffix(filename, ".exe") + ".zip"
 		c = exec.Command("zip", "-q", "-X", outputFile, filename)
+		c.Dir = inputDir
 	default:
 		outputFile = filename + ".bz2"
 		c = exec.Command("bzip2", filename)
+		c.Dir = inputDir
 	}
 
 	rm(filepath.Join(inputDir, outputFile))
@@ -158,6 +163,7 @@ func compress(goos, inputDir, filename string) (outputFile string) {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Dir = inputDir
+
 	verbose("run %v %v in %v", "go", c.Args, c.Dir)
 
 	err := c.Run()
@@ -182,19 +188,14 @@ func buildForTarget(sourceDir, outputDir, goos, goarch string) (filename string)
 
 func buildTargets(sourceDir, outputDir string, targets map[string][]string) {
 	start := time.Now()
-	// the go compiler is already parallelized, thus reduce the concurrency a bit
-	workers := runtime.GOMAXPROCS(0) / 4
-	if workers < 1 {
-		workers = 1
-	}
-	msg("building with %d workers", workers)
+	msg("building with %d workers", runtime.NumCPU())
 
 	type Job struct{ GOOS, GOARCH string }
 
 	var wg errgroup.Group
 	ch := make(chan Job)
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Go(func() error {
 			for job := range ch {
 				start := time.Now()
@@ -232,18 +233,6 @@ var defaultBuildTargets = map[string][]string{
 	"solaris": {"amd64"},
 }
 
-func downloadModules(sourceDir string) {
-	c := exec.Command("go", "mod", "download")
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	c.Dir = sourceDir
-
-	err := c.Run()
-	if err != nil {
-		die("error downloading modules: %v", err)
-	}
-}
-
 func main() {
 	if len(pflag.Args()) != 0 {
 		die("USAGE: build-release-binaries [OPTIONS]")
@@ -253,6 +242,5 @@ func main() {
 	outputDir := abs(opts.OutputDir)
 	mkdir(outputDir)
 
-	downloadModules(sourceDir)
 	buildTargets(sourceDir, outputDir, defaultBuildTargets)
 }

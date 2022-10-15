@@ -5,12 +5,10 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/restic/restic/internal/cache"
 	"github.com/restic/restic/internal/checker"
 	"github.com/restic/restic/internal/errors"
 	"github.com/restic/restic/internal/fs"
@@ -56,14 +54,8 @@ func init() {
 
 	f := cmdCheck.Flags()
 	f.BoolVar(&checkOptions.ReadData, "read-data", false, "read all data blobs")
-	f.StringVar(&checkOptions.ReadDataSubset, "read-data-subset", "", "read a `subset` of data packs, specified as 'n/t' for specific part, or either 'x%' or 'x.y%' or a size in bytes with suffixes k/K, m/M, g/G, t/T for a random subset")
-	var ignored bool
-	f.BoolVar(&ignored, "check-unused", false, "find unused blobs")
-	err := f.MarkDeprecated("check-unused", "`--check-unused` is deprecated and will be ignored")
-	if err != nil {
-		// MarkDeprecated only returns an error when the flag is not found
-		panic(err)
-	}
+	f.StringVar(&checkOptions.ReadDataSubset, "read-data-subset", "", "read a `subset` of data packs, specified as 'n/t' for specific subset or either 'x%' or 'x.y%' for random subset")
+	f.BoolVar(&checkOptions.CheckUnused, "check-unused", false, "find unused blobs")
 	f.BoolVar(&checkOptions.WithCache, "with-cache", false, "use the cache")
 }
 
@@ -73,7 +65,7 @@ func checkFlags(opts CheckOptions) error {
 	}
 	if opts.ReadDataSubset != "" {
 		dataSubset, err := stringToIntSlice(opts.ReadDataSubset)
-		argumentError := errors.Fatal("check flag --read-data-subset has invalid value, please see documentation")
+		argumentError := errors.Fatal("check flag --read-data-subset must have two positive integer values or a percentage, e.g. --read-data-subset=1/2 or --read-data-subset=2.5%%")
 		if err == nil {
 			if len(dataSubset) != 2 {
 				return argumentError
@@ -84,7 +76,7 @@ func checkFlags(opts CheckOptions) error {
 			if dataSubset[1] > totalBucketsMax {
 				return errors.Fatalf("check flag --read-data-subset=n/t t must be at most %d", totalBucketsMax)
 			}
-		} else if strings.HasSuffix(opts.ReadDataSubset, "%") {
+		} else {
 			percentage, err := parsePercentage(opts.ReadDataSubset)
 			if err != nil {
 				return argumentError
@@ -92,19 +84,8 @@ func checkFlags(opts CheckOptions) error {
 
 			if percentage <= 0.0 || percentage > 100.0 {
 				return errors.Fatal(
-					"check flag --read-data-subset=x% x must be above 0.0% and at most 100.0%")
+					"check flag --read-data-subset=n% n must be above 0.0% and at most 100.0%")
 			}
-
-		} else {
-			fileSize, err := parseSizeStr(opts.ReadDataSubset)
-			if err != nil {
-				return argumentError
-			}
-			if fileSize <= 0.0 {
-				return errors.Fatal(
-					"check flag --read-data-subset=n n must be above 0")
-			}
-
 		}
 	}
 
@@ -148,10 +129,10 @@ func parsePercentage(s string) (float64, error) {
 
 // prepareCheckCache configures a special cache directory for check.
 //
-//   - if --with-cache is specified, the default cache is used
-//   - if the user explicitly requested --no-cache, we don't use any cache
-//   - if the user provides --cache-dir, we use a cache in a temporary sub-directory of the specified directory and the sub-directory is deleted after the check
-//   - by default, we use a cache in a temporary directory that is deleted after the check
+//  * if --with-cache is specified, the default cache is used
+//  * if the user explicitly requested --no-cache, we don't use any cache
+//  * if the user provides --cache-dir, we use a cache in a temporary sub-directory of the specified directory and the sub-directory is deleted after the check
+//  * by default, we use a cache in a temporary directory that is deleted after the check
 func prepareCheckCache(opts CheckOptions, gopts *GlobalOptions) (cleanup func()) {
 	cleanup = func() {}
 	if opts.WithCache {
@@ -165,9 +146,6 @@ func prepareCheckCache(opts CheckOptions, gopts *GlobalOptions) (cleanup func())
 	}
 
 	cachedir := gopts.CacheDir
-	if cachedir == "" {
-		cachedir = cache.EnvDir()
-	}
 
 	// use a cache in a temporary directory
 	tempdir, err := ioutil.TempDir(cachedir, "restic-check-cache-")
@@ -217,36 +195,20 @@ func runCheck(opts CheckOptions, gopts GlobalOptions, args []string) error {
 	}
 
 	chkr := checker.New(repo, opts.CheckUnused)
-	err = chkr.LoadSnapshots(gopts.ctx)
-	if err != nil {
-		return err
-	}
 
 	Verbosef("load indexes\n")
 	hints, errs := chkr.LoadIndex(gopts.ctx)
 
-	errorsFound := false
-	suggestIndexRebuild := false
-	mixedFound := false
+	dupFound := false
 	for _, hint := range hints {
-		switch hint.(type) {
-		case *checker.ErrDuplicatePacks, *checker.ErrOldIndexFormat:
-			Printf("%v\n", hint)
-			suggestIndexRebuild = true
-		case *checker.ErrMixedPack:
-			Printf("%v\n", hint)
-			mixedFound = true
-		default:
-			Warnf("error: %v\n", hint)
-			errorsFound = true
+		Printf("%v\n", hint)
+		if _, ok := hint.(checker.ErrDuplicatePacks); ok {
+			dupFound = true
 		}
 	}
 
-	if suggestIndexRebuild {
+	if dupFound {
 		Printf("This is non-critical, you can run `restic rebuild-index' to correct this\n")
-	}
-	if mixedFound {
-		Printf("Mixed packs with tree and data blobs are non-critical, you can run `restic prune` to correct this.\n")
 	}
 
 	if len(errs) > 0 {
@@ -256,6 +218,7 @@ func runCheck(opts CheckOptions, gopts GlobalOptions, args []string) error {
 		return errors.Fatal("LoadIndex returned errors")
 	}
 
+	errorsFound := false
 	orphanedPacks := 0
 	errChan := make(chan error)
 
@@ -266,25 +229,19 @@ func runCheck(opts CheckOptions, gopts GlobalOptions, args []string) error {
 		if checker.IsOrphanedPack(err) {
 			orphanedPacks++
 			Verbosef("%v\n", err)
-		} else if _, ok := err.(*checker.ErrLegacyLayout); ok {
-			Verbosef("repository still uses the S3 legacy layout\nPlease run `restic migrate s3legacy` to correct this.\n")
-		} else {
-			errorsFound = true
-			Warnf("%v\n", err)
+			continue
 		}
+		errorsFound = true
+		Warnf("%v\n", err)
 	}
 
 	if orphanedPacks > 0 {
-		Verbosef("%d additional files were found in the repo, which likely contain duplicate data.\nThis is non-critical, you can run `restic prune` to correct this.\n", orphanedPacks)
+		Verbosef("%d additional files were found in the repo, which likely contain duplicate data.\nYou can run `restic prune` to correct this.\n", orphanedPacks)
 	}
 
 	Verbosef("check snapshots, trees and blobs\n")
 	errChan = make(chan error)
-	var wg sync.WaitGroup
-
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		bar := newProgressMax(!gopts.Quiet, 0, "snapshots")
 		defer bar.Done()
 		chkr.Structure(gopts.ctx, bar, errChan)
@@ -292,7 +249,7 @@ func runCheck(opts CheckOptions, gopts GlobalOptions, args []string) error {
 
 	for err := range errChan {
 		errorsFound = true
-		if e, ok := err.(*checker.TreeError); ok {
+		if e, ok := err.(checker.TreeError); ok {
 			Warnf("error for tree %v:\n", e.ID.Str())
 			for _, treeErr := range e.Errors {
 				Warnf("  %v\n", treeErr)
@@ -301,11 +258,6 @@ func runCheck(opts CheckOptions, gopts GlobalOptions, args []string) error {
 			Warnf("error: %v\n", err)
 		}
 	}
-
-	// Wait for the progress bar to be complete before printing more below.
-	// Must happen after `errChan` is read from in the above loop to avoid
-	// deadlocking in the case of errors.
-	wg.Wait()
 
 	if opts.CheckUnused {
 		for _, id := range chkr.UnusedBlobs(gopts.ctx) {
@@ -342,27 +294,10 @@ func runCheck(opts CheckOptions, gopts GlobalOptions, args []string) error {
 			packs = selectPacksByBucket(chkr.GetPacks(), bucket, totalBuckets)
 			packCount := uint64(len(packs))
 			Verbosef("read group #%d of %d data packs (out of total %d packs in %d groups)\n", bucket, packCount, chkr.CountPacks(), totalBuckets)
-		} else if strings.HasSuffix(opts.ReadDataSubset, "%") {
-			percentage, err := parsePercentage(opts.ReadDataSubset)
-			if err == nil {
-				packs = selectRandomPacksByPercentage(chkr.GetPacks(), percentage)
-				Verbosef("read %.1f%% of data packs\n", percentage)
-			}
 		} else {
-			repoSize := int64(0)
-			allPacks := chkr.GetPacks()
-			for _, size := range allPacks {
-				repoSize += size
-			}
-			if repoSize == 0 {
-				return errors.Fatal("Cannot read from a repository having size 0")
-			}
-			subsetSize, _ := parseSizeStr(opts.ReadDataSubset)
-			if subsetSize > repoSize {
-				subsetSize = repoSize
-			}
-			packs = selectRandomPacksByFileSize(chkr.GetPacks(), subsetSize, repoSize)
-			Verbosef("read %d bytes of data packs\n", subsetSize)
+			percentage, _ := parsePercentage(opts.ReadDataSubset)
+			packs = selectRandomPacksByPercentage(chkr.GetPacks(), percentage)
+			Verbosef("read %.1f%% of data packs\n", percentage)
 		}
 		if packs == nil {
 			return errors.Fatal("internal error: failed to select packs to check")
@@ -414,11 +349,6 @@ func selectRandomPacksByPercentage(allPacks map[restic.ID]int64, percentage floa
 		id := keys[idx[i]]
 		packs[id] = allPacks[id]
 	}
-	return packs
-}
 
-func selectRandomPacksByFileSize(allPacks map[restic.ID]int64, subsetSize int64, repoSize int64) map[restic.ID]int64 {
-	subsetPercentage := (float64(subsetSize) / float64(repoSize)) * 100.0
-	packs := selectRandomPacksByPercentage(allPacks, subsetPercentage)
 	return packs
 }

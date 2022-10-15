@@ -17,9 +17,10 @@ import (
 
 // Cache manages a local cache.
 type Cache struct {
-	path    string
-	Base    string
-	Created bool
+	path             string
+	Base             string
+	Created          bool
+	PerformReadahead func(restic.Handle) bool
 }
 
 const dirMode = 0700
@@ -27,7 +28,7 @@ const fileMode = 0644
 
 func readVersion(dir string) (v uint, err error) {
 	buf, err := ioutil.ReadFile(filepath.Join(dir, "version"))
-	if errors.Is(err, os.ErrNotExist) {
+	if os.IsNotExist(err) {
 		return 0, nil
 	}
 
@@ -59,9 +60,14 @@ func writeCachedirTag(dir string) error {
 	}
 
 	tagfile := filepath.Join(dir, "CACHEDIR.TAG")
+	_, err := fs.Lstat(tagfile)
+	if err != nil && !os.IsNotExist(err) {
+		return errors.WithStack(err)
+	}
+
 	f, err := fs.OpenFile(tagfile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, fileMode)
 	if err != nil {
-		if errors.Is(err, os.ErrExist) {
+		if os.IsExist(errors.Cause(err)) {
 			return nil
 		}
 
@@ -115,7 +121,7 @@ func New(id string, basedir string) (c *Cache, err error) {
 	// create the repo cache dir if it does not exist yet
 	var created bool
 	_, err = fs.Lstat(cachedir)
-	if errors.Is(err, os.ErrNotExist) {
+	if os.IsNotExist(err) {
 		err = fs.MkdirAll(cachedir, dirMode)
 		if err != nil {
 			return nil, errors.WithStack(err)
@@ -146,6 +152,10 @@ func New(id string, basedir string) (c *Cache, err error) {
 		path:    cachedir,
 		Base:    basedir,
 		Created: created,
+		PerformReadahead: func(restic.Handle) bool {
+			// do not perform readahead by default
+			return false
+		},
 	}
 
 	return c, nil
@@ -162,17 +172,18 @@ func updateTimestamp(d string) error {
 const MaxCacheAge = 30 * 24 * time.Hour
 
 func validCacheDirName(s string) bool {
-	r := regexp.MustCompile(`^[a-fA-F0-9]{64}$|^restic-check-cache-[0-9]+$`)
+	r := regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
 	return r.MatchString(s)
 }
 
 // listCacheDirs returns the list of cache directories.
 func listCacheDirs(basedir string) ([]os.FileInfo, error) {
 	f, err := fs.Open(basedir)
+	if err != nil && os.IsNotExist(errors.Cause(err)) {
+		return nil, nil
+	}
+
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			err = nil
-		}
 		return nil, err
 	}
 

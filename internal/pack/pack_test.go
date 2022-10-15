@@ -5,11 +5,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"testing"
 
-	"github.com/restic/restic/internal/backend"
 	"github.com/restic/restic/internal/backend/mem"
 	"github.com/restic/restic/internal/crypto"
 	"github.com/restic/restic/internal/pack"
@@ -39,11 +39,11 @@ func newPack(t testing.TB, k *crypto.Key, lengths []int) ([]Buf, []byte, uint) {
 	var buf bytes.Buffer
 	p := pack.NewPacker(k, &buf)
 	for _, b := range bufs {
-		_, err := p.Add(restic.TreeBlob, b.id, b.data, 2*len(b.data))
+		_, err := p.Add(restic.TreeBlob, b.id, b.data)
 		rtest.OK(t, err)
 	}
 
-	err := p.Finalize()
+	_, err := p.Finalize()
 	rtest.OK(t, err)
 
 	return bufs, buf.Bytes(), p.Size()
@@ -54,18 +54,17 @@ func verifyBlobs(t testing.TB, bufs []Buf, k *crypto.Key, rd io.ReaderAt, packSi
 	for _, buf := range bufs {
 		written += len(buf.data)
 	}
+	// header length + header + header crypto
+	headerSize := binary.Size(uint32(0)) + restic.CiphertextLength(len(bufs)*int(pack.EntrySize))
+	written += headerSize
+
+	// check length
+	rtest.Equals(t, uint(written), packSize)
 
 	// read and parse it again
 	entries, hdrSize, err := pack.List(k, rd, int64(packSize))
 	rtest.OK(t, err)
 	rtest.Equals(t, len(entries), len(bufs))
-
-	// check the head size calculation for consistency
-	headerSize := pack.CalculateHeaderSize(entries)
-	written += headerSize
-
-	// check length
-	rtest.Equals(t, uint(written), packSize)
 	rtest.Equals(t, headerSize, int(hdrSize))
 
 	var buf []byte
@@ -128,8 +127,8 @@ func TestUnpackReadSeeker(t *testing.T) {
 	id := restic.Hash(packData)
 
 	handle := restic.Handle{Type: restic.PackFile, Name: id.String()}
-	rtest.OK(t, b.Save(context.TODO(), handle, restic.NewByteReader(packData, b.Hasher())))
-	verifyBlobs(t, bufs, k, backend.ReaderAt(context.TODO(), b, handle), packSize)
+	rtest.OK(t, b.Save(context.TODO(), handle, restic.NewByteReader(packData)))
+	verifyBlobs(t, bufs, k, restic.ReaderAt(context.TODO(), b, handle), packSize)
 }
 
 func TestShortPack(t *testing.T) {
@@ -141,6 +140,6 @@ func TestShortPack(t *testing.T) {
 	id := restic.Hash(packData)
 
 	handle := restic.Handle{Type: restic.PackFile, Name: id.String()}
-	rtest.OK(t, b.Save(context.TODO(), handle, restic.NewByteReader(packData, b.Hasher())))
-	verifyBlobs(t, bufs, k, backend.ReaderAt(context.TODO(), b, handle), packSize)
+	rtest.OK(t, b.Save(context.TODO(), handle, restic.NewByteReader(packData)))
+	verifyBlobs(t, bufs, k, restic.ReaderAt(context.TODO(), b, handle), packSize)
 }

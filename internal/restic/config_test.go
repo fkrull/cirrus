@@ -8,56 +8,47 @@ import (
 	rtest "github.com/restic/restic/internal/test"
 )
 
-type saver struct {
-	fn func(restic.FileType, []byte) (restic.ID, error)
+type saver func(restic.FileType, interface{}) (restic.ID, error)
+
+func (s saver) SaveJSONUnpacked(t restic.FileType, arg interface{}) (restic.ID, error) {
+	return s(t, arg)
 }
 
-func (s saver) SaveUnpacked(ctx context.Context, t restic.FileType, buf []byte) (restic.ID, error) {
-	return s.fn(t, buf)
-}
+type loader func(context.Context, restic.FileType, restic.ID, interface{}) error
 
-func (s saver) Connections() uint {
-	return 2
-}
-
-type loader struct {
-	fn func(restic.FileType, restic.ID, []byte) ([]byte, error)
-}
-
-func (l loader) LoadUnpacked(ctx context.Context, t restic.FileType, id restic.ID, buf []byte) (data []byte, err error) {
-	return l.fn(t, id, buf)
-}
-
-func (l loader) Connections() uint {
-	return 2
+func (l loader) LoadJSONUnpacked(ctx context.Context, t restic.FileType, id restic.ID, arg interface{}) error {
+	return l(ctx, t, id, arg)
 }
 
 func TestConfig(t *testing.T) {
-	var resultBuf []byte
-	save := func(tpe restic.FileType, buf []byte) (restic.ID, error) {
+	resultConfig := restic.Config{}
+	save := func(tpe restic.FileType, arg interface{}) (restic.ID, error) {
 		rtest.Assert(t, tpe == restic.ConfigFile,
 			"wrong backend type: got %v, wanted %v",
 			tpe, restic.ConfigFile)
 
-		resultBuf = buf
+		cfg := arg.(restic.Config)
+		resultConfig = cfg
 		return restic.ID{}, nil
 	}
 
-	cfg1, err := restic.CreateConfig(restic.MaxRepoVersion)
+	cfg1, err := restic.CreateConfig()
 	rtest.OK(t, err)
 
-	err = restic.SaveConfig(context.TODO(), saver{save}, cfg1)
+	_, err = saver(save).SaveJSONUnpacked(restic.ConfigFile, cfg1)
 	rtest.OK(t, err)
 
-	load := func(tpe restic.FileType, id restic.ID, in []byte) ([]byte, error) {
+	load := func(ctx context.Context, tpe restic.FileType, id restic.ID, arg interface{}) error {
 		rtest.Assert(t, tpe == restic.ConfigFile,
 			"wrong backend type: got %v, wanted %v",
 			tpe, restic.ConfigFile)
 
-		return resultBuf, nil
+		cfg := arg.(*restic.Config)
+		*cfg = resultConfig
+		return nil
 	}
 
-	cfg2, err := restic.LoadConfig(context.TODO(), loader{load})
+	cfg2, err := restic.LoadConfig(context.TODO(), loader(load))
 	rtest.OK(t, err)
 
 	rtest.Assert(t, cfg1 == cfg2,

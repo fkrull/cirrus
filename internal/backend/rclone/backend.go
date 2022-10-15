@@ -15,12 +15,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/restic/restic/internal/backend"
-	"github.com/restic/restic/internal/backend/limiter"
 	"github.com/restic/restic/internal/backend/rest"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/errors"
+	"github.com/restic/restic/internal/limiter"
 	"golang.org/x/net/context/ctxhttp"
 	"golang.org/x/net/http2"
 )
@@ -37,12 +36,12 @@ type Backend struct {
 }
 
 // run starts command with args and initializes the StdioConn.
-func run(command string, args ...string) (*StdioConn, *sync.WaitGroup, func() error, error) {
+func run(command string, args ...string) (*StdioConn, *exec.Cmd, *sync.WaitGroup, func() error, error) {
 	cmd := exec.Command(command, args...)
 
 	p, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	var wg sync.WaitGroup
@@ -59,7 +58,7 @@ func run(command string, args ...string) (*StdioConn, *sync.WaitGroup, func() er
 
 	r, stdin, err := os.Pipe()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	stdout, w, err := os.Pipe()
@@ -67,7 +66,7 @@ func run(command string, args ...string) (*StdioConn, *sync.WaitGroup, func() er
 		// close first pipe and ignore subsequent errors
 		_ = r.Close()
 		_ = stdin.Close()
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	cmd.Stdin = r
@@ -85,7 +84,7 @@ func run(command string, args ...string) (*StdioConn, *sync.WaitGroup, func() er
 		err = errW
 	}
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	c := &StdioConn{
@@ -94,7 +93,7 @@ func run(command string, args ...string) (*StdioConn, *sync.WaitGroup, func() er
 		cmd:     cmd,
 	}
 
-	return c, &wg, bg, nil
+	return c, cmd, &wg, bg, nil
 }
 
 // wrappedConn adds bandwidth limiting capabilities to the StdioConn by
@@ -105,16 +104,16 @@ type wrappedConn struct {
 	io.Writer
 }
 
-func (c *wrappedConn) Read(p []byte) (int, error) {
+func (c wrappedConn) Read(p []byte) (int, error) {
 	return c.Reader.Read(p)
 }
 
-func (c *wrappedConn) Write(p []byte) (int, error) {
+func (c wrappedConn) Write(p []byte) (int, error) {
 	return c.Writer.Write(p)
 }
 
-func wrapConn(c *StdioConn, lim limiter.Limiter) *wrappedConn {
-	wc := &wrappedConn{
+func wrapConn(c *StdioConn, lim limiter.Limiter) wrappedConn {
+	wc := wrappedConn{
 		StdioConn: c,
 		Reader:    c,
 		Writer:    c,
@@ -158,7 +157,7 @@ func newBackend(cfg Config, lim limiter.Limiter) (*Backend, error) {
 	arg0, args := args[0], args[1:]
 
 	debug.Log("running command: %v %v", arg0, args)
-	stdioConn, wg, bg, err := run(arg0, args...)
+	stdioConn, cmd, wg, bg, err := run(arg0, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,14 +174,13 @@ func newBackend(cfg Config, lim limiter.Limiter) (*Backend, error) {
 			debug.Log("new connection requested, %v %v", network, address)
 			if dialCount > 0 {
 				// the connection to the child process is already closed
-				return nil, backoff.Permanent(errors.New("rclone stdio connection already closed"))
+				return nil, errors.New("rclone stdio connection already closed")
 			}
 			dialCount++
 			return conn, nil
 		},
 	}
 
-	cmd := stdioConn.cmd
 	waitCh := make(chan struct{})
 	be := &Backend{
 		tr:     tr,
@@ -223,7 +221,7 @@ func newBackend(cfg Config, lim limiter.Limiter) (*Backend, error) {
 	// send an HTTP request to the base URL, see if the server is there
 	client := &http.Client{
 		Transport: debug.RoundTripper(tr),
-		Timeout:   cfg.Timeout,
+		Timeout:   60 * time.Second,
 	}
 
 	// request a random file which does not exist. we just want to test when

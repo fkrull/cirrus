@@ -1,9 +1,12 @@
 package repository
 
 import (
-	"hash/maphash"
+	"crypto/rand"
+	"encoding/binary"
 
 	"github.com/restic/restic/internal/restic"
+
+	"github.com/dchest/siphash"
 )
 
 // An indexMap is a chained hash table that maps blob IDs to indexEntries.
@@ -20,7 +23,7 @@ type indexMap struct {
 	buckets    []*indexEntry
 	numentries uint
 
-	mh maphash.Hash
+	key0, key1 uint64 // Key for hash randomization.
 
 	free *indexEntry // Free list.
 }
@@ -32,7 +35,7 @@ const (
 
 // add inserts an indexEntry for the given arguments into the map,
 // using id as the key.
-func (m *indexMap) add(id restic.ID, packIdx int, offset, length uint32, uncompressedLength uint32) {
+func (m *indexMap) add(id restic.ID, packIdx int, offset, length uint32) {
 	switch {
 	case m.numentries == 0: // Lazy initialization.
 		m.init()
@@ -47,7 +50,6 @@ func (m *indexMap) add(id restic.ID, packIdx int, offset, length uint32, uncompr
 	e.packIndex = packIdx
 	e.offset = offset
 	e.length = length
-	e.uncompressedLength = uncompressedLength
 
 	m.buckets[h] = e
 	m.numentries++
@@ -111,60 +113,56 @@ func (m *indexMap) grow() {
 }
 
 func (m *indexMap) hash(id restic.ID) uint {
-	// We use maphash to prevent backups of specially crafted inputs
-	// from degrading performance.
+	// We use siphash with a randomly generated 128-bit key, to prevent
+	// backups of specially crafted inputs from degrading performance.
 	// While SHA-256 should be collision-resistant, for hash table indices
 	// we use only a few bits of it and finding collisions for those is
 	// much easier than breaking the whole algorithm.
-	m.mh.Reset()
-	_, _ = m.mh.Write(id[:])
-	h := uint(m.mh.Sum64())
+	h := uint(siphash.Hash(m.key0, m.key1, id[:]))
 	return h & uint(len(m.buckets)-1)
 }
 
 func (m *indexMap) init() {
 	const initialBuckets = 64
 	m.buckets = make([]*indexEntry, initialBuckets)
+
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		panic(err) // Very little we can do here.
+	}
+	m.key0 = binary.LittleEndian.Uint64(buf[:8])
+	m.key1 = binary.LittleEndian.Uint64(buf[8:])
 }
 
 func (m *indexMap) len() uint { return m.numentries }
 
 func (m *indexMap) newEntry() *indexEntry {
-	// We keep a free list of objects to speed up allocation and GC.
-	// There's an obvious trade-off here: allocating in larger batches
-	// means we allocate faster and the GC has to keep fewer bits to track
-	// what we have in use, but it means we waste some space.
+	// Allocating in batches means that we get closer to optimal space usage,
+	// as Go's malloc will overallocate for structures of size 56 (indexEntry
+	// on amd64).
 	//
-	// Then again, allocating each indexEntry separately also wastes space
-	// on 32-bit platforms, because the Go malloc has no size class for
-	// exactly 52 bytes, so it puts the indexEntry in a 64-byte slot instead.
-	// See src/runtime/sizeclasses.go in the Go source repo.
-	//
-	// The batch size of 4 means we hit the size classes for 4×64=256 bytes
-	// (64-bit) and 4×52=208 bytes (32-bit), wasting nothing in malloc on
-	// 64-bit and relatively little on 32-bit.
-	const entryAllocBatch = 4
+	// 256*56 and 256*48 both have minimal malloc overhead among reasonable sizes.
+	// See src/runtime/sizeclasses.go in the standard library.
+	const entryAllocBatch = 256
 
-	e := m.free
-	if e != nil {
-		m.free = e.next
-	} else {
+	if m.free == nil {
 		free := new([entryAllocBatch]indexEntry)
-		e = &free[0]
-		for i := 1; i < len(free)-1; i++ {
+		for i := range free[:len(free)-1] {
 			free[i].next = &free[i+1]
 		}
-		m.free = &free[1]
+		m.free = &free[0]
 	}
+
+	e := m.free
+	m.free = m.free.next
 
 	return e
 }
 
 type indexEntry struct {
-	id                 restic.ID
-	next               *indexEntry
-	packIndex          int // Position in containing Index's packs field.
-	offset             uint32
-	length             uint32
-	uncompressedLength uint32
+	id        restic.ID
+	next      *indexEntry
+	packIndex int // Position in containing Index's packs field.
+	offset    uint32
+	length    uint32
 }

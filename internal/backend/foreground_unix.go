@@ -1,4 +1,3 @@
-//go:build !aix && !solaris && !windows
 // +build !aix,!solaris,!windows
 
 package backend

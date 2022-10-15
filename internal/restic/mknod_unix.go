@@ -1,4 +1,3 @@
-//go:build !freebsd && !windows
 // +build !freebsd,!windows
 
 package restic

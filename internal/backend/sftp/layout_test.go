@@ -43,10 +43,9 @@ func TestLayout(t *testing.T) {
 
 			repo := filepath.Join(path, "repo")
 			be, err := sftp.Open(context.TODO(), sftp.Config{
-				Command:     fmt.Sprintf("%q -e", sftpServer),
-				Path:        repo,
-				Layout:      test.layout,
-				Connections: 5,
+				Command: fmt.Sprintf("%q -e", sftpServer),
+				Path:    repo,
+				Layout:  test.layout,
 			})
 			if err != nil {
 				t.Fatal(err)

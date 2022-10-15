@@ -23,7 +23,7 @@ func BuildTreeMap(tree TestTree) (m TreeMap, root restic.ID) {
 }
 
 func buildTreeMap(tree TestTree, m TreeMap) restic.ID {
-	res := restic.NewTree(0)
+	res := restic.NewTree()
 
 	for name, item := range tree {
 		switch elem := item.(type) {
@@ -67,26 +67,13 @@ func buildTreeMap(tree TestTree, m TreeMap) restic.ID {
 // TreeMap returns the trees from the map on LoadTree.
 type TreeMap map[restic.ID]*restic.Tree
 
-func (t TreeMap) LoadBlob(ctx context.Context, tpe restic.BlobType, id restic.ID, buf []byte) ([]byte, error) {
-	if tpe != restic.TreeBlob {
-		return nil, errors.New("can only load trees")
-	}
+func (t TreeMap) LoadTree(ctx context.Context, id restic.ID) (*restic.Tree, error) {
 	tree, ok := t[id]
 	if !ok {
 		return nil, errors.New("tree not found")
 	}
 
-	tbuf, err := json.Marshal(tree)
-	if err != nil {
-		panic(err)
-	}
-	tbuf = append(tbuf, '\n')
-
-	return tbuf, nil
-}
-
-func (t TreeMap) Connections() uint {
-	return 2
+	return tree, nil
 }
 
 // checkFunc returns a function suitable for walking the tree to check

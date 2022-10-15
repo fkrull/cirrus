@@ -2,8 +2,6 @@ package restic
 
 import (
 	"bytes"
-	"crypto/md5"
-	"hash"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -17,12 +15,10 @@ import (
 
 func TestByteReader(t *testing.T) {
 	buf := []byte("foobar")
-	for _, hasher := range []hash.Hash{nil, md5.New()} {
-		fn := func() RewindReader {
-			return NewByteReader(buf, hasher)
-		}
-		testRewindReader(t, fn, buf)
+	fn := func() RewindReader {
+		return NewByteReader(buf)
 	}
+	testRewindReader(t, fn, buf)
 }
 
 func TestFileReader(t *testing.T) {
@@ -32,7 +28,7 @@ func TestFileReader(t *testing.T) {
 	defer cleanup()
 
 	filename := filepath.Join(d, "file-reader-test")
-	err := ioutil.WriteFile(filename, buf, 0600)
+	err := ioutil.WriteFile(filename, []byte("foobar"), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,26 +45,15 @@ func TestFileReader(t *testing.T) {
 		}
 	}()
 
-	for _, hasher := range []hash.Hash{nil, md5.New()} {
-		fn := func() RewindReader {
-			var hash []byte
-			if hasher != nil {
-				// must never fail according to interface
-				_, err := hasher.Write(buf)
-				if err != nil {
-					panic(err)
-				}
-				hash = hasher.Sum(nil)
-			}
-			rd, err := NewFileReader(f, hash)
-			if err != nil {
-				t.Fatal(err)
-			}
-			return rd
+	fn := func() RewindReader {
+		rd, err := NewFileReader(f)
+		if err != nil {
+			t.Fatal(err)
 		}
-
-		testRewindReader(t, fn, buf)
+		return rd
 	}
+
+	testRewindReader(t, fn, buf)
 }
 
 func testRewindReader(t *testing.T, fn func() RewindReader, data []byte) {
@@ -118,15 +103,6 @@ func testRewindReader(t *testing.T, fn func() RewindReader, data []byte) {
 
 			if rd.Length() != int64(len(data)) {
 				t.Fatalf("wrong length returned, want %d, got %d", int64(len(data)), rd.Length())
-			}
-
-			if rd.Hash() != nil {
-				hasher := md5.New()
-				// must never fail according to interface
-				_, _ = hasher.Write(buf2)
-				if !bytes.Equal(rd.Hash(), hasher.Sum(nil)) {
-					t.Fatal("hash does not match data")
-				}
 			}
 		},
 		func(t testing.TB, rd RewindReader, data []byte) {

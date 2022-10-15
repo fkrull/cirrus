@@ -2,7 +2,6 @@ package restic
 
 import (
 	"context"
-	"hash"
 	"io"
 )
 
@@ -17,15 +16,6 @@ type Backend interface {
 	// Location returns a string that describes the type and location of the
 	// repository.
 	Location() string
-
-	// Connections returns the maxmimum number of concurrent backend operations.
-	Connections() uint
-
-	// Hasher may return a hash function for calculating a content hash for the backend
-	Hasher() hash.Hash
-
-	// HasAtomicReplace returns whether Save() can atomically replace files
-	HasAtomicReplace() bool
 
 	// Test a boolean value whether a File with the name and type exists.
 	Test(ctx context.Context, h Handle) (bool, error)

@@ -1,4 +1,3 @@
-//go:build darwin || freebsd || linux
 // +build darwin freebsd linux
 
 package main
@@ -55,7 +54,7 @@ func waitForMount(t testing.TB, dir string) {
 
 func testRunMount(t testing.TB, gopts GlobalOptions, dir string) {
 	opts := MountOptions{
-		TimeTemplate: time.RFC3339,
+		SnapshotTemplate: time.RFC3339,
 	}
 	rtest.OK(t, runMount(opts, gopts, []string{dir}))
 }
@@ -154,8 +153,6 @@ func TestMount(t *testing.T) {
 	}
 
 	env, cleanup := withTestEnvironment(t)
-	// must list snapshots more than once
-	env.gopts.backendTestHook = nil
 	defer cleanup()
 
 	testRunInit(t, env.gopts)
@@ -199,8 +196,6 @@ func TestMountSameTimestamps(t *testing.T) {
 	}
 
 	env, cleanup := withTestEnvironment(t)
-	// must list snapshots more than once
-	env.gopts.backendTestHook = nil
 	defer cleanup()
 
 	rtest.SetupTarTestFixture(t, env.base, filepath.Join("testdata", "repo-same-timestamps.tar.gz"))

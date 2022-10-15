@@ -39,7 +39,7 @@ func runList(cmd *cobra.Command, opts GlobalOptions, args []string) error {
 		return err
 	}
 
-	if !opts.NoLock && args[0] != "locks" {
+	if !opts.NoLock {
 		lock, err := lockRepo(opts.ctx, repo)
 		defer unlockRepo(lock)
 		if err != nil {

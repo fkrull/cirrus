@@ -1,4 +1,3 @@
-//go:build darwin || freebsd || linux
 // +build darwin freebsd linux
 
 package main
@@ -31,13 +30,10 @@ read-only mount.
 Snapshot Directories
 ====================
 
-If you need a different template for directories that contain snapshots,
-you can pass a time template via --time-template and path templates via
---path-template.
+If you need a different template for all directories that contain snapshots,
+you can pass a template via --snapshot-template. Example without colons:
 
-Example time template without colons:
-
-    --time-template "2006-01-02_15-04-05"
+    --snapshot-template "2006-01-02_15-04-05"
 
 You need to specify a sample format for exactly the following timestamp:
 
@@ -45,20 +41,6 @@ You need to specify a sample format for exactly the following timestamp:
 
 For details please see the documentation for time.Format() at:
   https://godoc.org/time#Time.Format
-
-For path templates, you can use the following patterns which will be replaced:
-    %i by short snapshot ID
-    %I by long snapshot ID
-    %u by username
-    %h by hostname
-    %t by tags
-    %T by timestamp as specified by --time-template
-
-The default path templates are:
-    "ids/%i"
-    "snapshots/%T"
-    "hosts/%h/%T"
-    "tags/%t/%T"
 
 EXIT STATUS
 ===========
@@ -79,8 +61,7 @@ type MountOptions struct {
 	Hosts                []string
 	Tags                 restic.TagLists
 	Paths                []string
-	TimeTemplate         string
-	PathTemplates        []string
+	SnapshotTemplate     string
 }
 
 var mountOptions MountOptions
@@ -97,21 +78,16 @@ func init() {
 	mountFlags.Var(&mountOptions.Tags, "tag", "only consider snapshots which include this `taglist`")
 	mountFlags.StringArrayVar(&mountOptions.Paths, "path", nil, "only consider snapshots which include this (absolute) `path`")
 
-	mountFlags.StringArrayVar(&mountOptions.PathTemplates, "path-template", nil, "set `template` for path names (can be specified multiple times)")
-	mountFlags.StringVar(&mountOptions.TimeTemplate, "snapshot-template", time.RFC3339, "set `template` to use for snapshot dirs")
-	mountFlags.StringVar(&mountOptions.TimeTemplate, "time-template", time.RFC3339, "set `template` to use for times")
-	_ = mountFlags.MarkDeprecated("snapshot-template", "use --time-template")
+	mountFlags.StringVar(&mountOptions.SnapshotTemplate, "snapshot-template", time.RFC3339, "set `template` to use for snapshot dirs")
 }
 
 func runMount(opts MountOptions, gopts GlobalOptions, args []string) error {
-	if opts.TimeTemplate == "" {
-		return errors.Fatal("time template string cannot be empty")
+	if opts.SnapshotTemplate == "" {
+		return errors.Fatal("snapshot template string cannot be empty")
 	}
-
-	if strings.HasPrefix(opts.TimeTemplate, "/") || strings.HasSuffix(opts.TimeTemplate, "/") {
-		return errors.Fatal("time template string cannot start or end with '/'")
+	if strings.ContainsAny(opts.SnapshotTemplate, `\/`) {
+		return errors.Fatal("snapshot template string contains a slash (/) or backslash (\\) character")
 	}
-
 	if len(args) == 0 {
 		return errors.Fatal("wrong number of parameters")
 	}
@@ -139,7 +115,7 @@ func runMount(opts MountOptions, gopts GlobalOptions, args []string) error {
 
 	mountpoint := args[0]
 
-	if _, err := resticfs.Stat(mountpoint); errors.Is(err, os.ErrNotExist) {
+	if _, err := resticfs.Stat(mountpoint); os.IsNotExist(errors.Cause(err)) {
 		Verbosef("Mountpoint %s doesn't exist\n", mountpoint)
 		return err
 	}
@@ -177,18 +153,16 @@ func runMount(opts MountOptions, gopts GlobalOptions, args []string) error {
 	}
 
 	cfg := fuse.Config{
-		OwnerIsRoot:   opts.OwnerRoot,
-		Hosts:         opts.Hosts,
-		Tags:          opts.Tags,
-		Paths:         opts.Paths,
-		TimeTemplate:  opts.TimeTemplate,
-		PathTemplates: opts.PathTemplates,
+		OwnerIsRoot:      opts.OwnerRoot,
+		Hosts:            opts.Hosts,
+		Tags:             opts.Tags,
+		Paths:            opts.Paths,
+		SnapshotTemplate: opts.SnapshotTemplate,
 	}
 	root := fuse.NewRoot(repo, cfg)
 
 	Printf("Now serving the repository at %s\n", mountpoint)
-	Printf("Use another terminal or tool to browse the contents of this folder.\n")
-	Printf("When finished, quit with Ctrl-c here or umount the mountpoint.\n")
+	Printf("When finished, quit with Ctrl-c or umount the mountpoint.\n")
 
 	debug.Log("serving mount at %v", mountpoint)
 	err = fs.Serve(c, root)

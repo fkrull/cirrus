@@ -40,21 +40,18 @@ looks like this:
 ::
 
     $ restic check
-    create exclusive lock for repository
-    load indexes
-    check all packs
+    Create exclusive lock for repository
+    Load indexes
+    Check all packs
     pack 819a9a52e4f51230afa89aefbf90df37fb70996337ae57e6f7a822959206a85e: not referenced in any index
     pack de299e69fb075354a3775b6b045d152387201f1cdc229c31d1caa34c3b340141: not referenced in any index
-    2 additional files were found in the repo, which likely contain duplicate data.
-    You can run `restic prune` to correct this.
-    check snapshots, trees and blobs
-    [0:00] 100.00%  16 / 16 snapshots
-    no errors were found
+    Check snapshots, trees and blobs
+    Fatal: repository contains errors
 
-The message means that there is more data stored in the repository than
-strictly necessary. This is uncritical. With high probability this is duplicate data
-caused by an interrupted backup run or upload operation. In
-order to clean it up, the command ``restic prune`` can be used.
+The message means that there is more data stored in the repo than
+strictly necessary. With high probability this is duplicate data. In
+order to clean it up, the command ``restic prune`` can be used. The
+cause of this bug is not yet known.
 
 I ran a ``restic`` command but it is not working as intended, what do I do now?
 -------------------------------------------------------------------------------
@@ -168,8 +165,8 @@ scheduling algorithm to give it the least favorable niceness (19).
 The above example makes sure that the system the backup runs on
 is not slowed down, which is particularly useful for servers.
 
-Creating new repository on a Synology NAS via sftp fails
---------------------------------------------------------
+Creating new repo on a Synology NAS via sftp fails
+--------------------------------------------------
 
 For using restic with a Synology NAS via sftp, please make sure that the
 specified path is absolute, it must start with a slash (``/``).
@@ -210,21 +207,3 @@ temporarily disable your antivirus software to find out if it is the cause for
 your performance problems. If you are certain that the antivirus software is
 the cause for this and you want to gain maximum performance, you have to add
 the restic binary to an exclusions list within the antivirus software.
-
-How do I choose a strong password?
-----------------------------------
-
-Length is the single most important component in password strength.  That doesn't
-mean that other components such as complexity and entropy (or randomness) are not
-important to consider.  A strong password includes Alphabetical, Numerical and
-Special characters. For example, ``nk3E9Rr26md6GGySyyWMrfakw8Jck4$&vVY6`` would
-be a very strong password, if not for being in this documentation.
-
-There are plenty of tools out there, such as OpenSSL, pwgen or KeePass that can
-generate a sufficiently complex, random and long password.
-
-Restic backup command fails to find a valid file in Windows
------------------------------------------------------------
-
-If the name of a file in Windows contains an invalid character, Restic will not be
-able to read the file. To solve this issue, consider renaming the particular file.

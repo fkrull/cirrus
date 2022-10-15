@@ -37,9 +37,8 @@ func TestLayout(t *testing.T) {
 
 			repo := filepath.Join(path, "repo")
 			be, err := Open(context.TODO(), Config{
-				Path:        repo,
-				Layout:      test.layout,
-				Connections: 2,
+				Path:   repo,
+				Layout: test.layout,
 			})
 			if err != nil {
 				t.Fatal(err)

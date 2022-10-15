@@ -22,8 +22,8 @@ EOF
 }
 
 case "$1" in
-  "aarch64-unknown-linux-gnu")
-    setup_cross_env_linux "$1" arm64 aarch64-linux-gnu;;
+  "aarch64-unknown-linux-gnu") setup_cross_env_linux "$1" arm64 aarch64-linux-gnu;;
+  "armv7-unknown-linux-gnueabihf") setup_cross_env_linux "$1" armhf armv7-linux-gnueabihf;;
   "x86_64-unknown-linux-gnu")
     apt-get install -y libdbus-1-dev;;
   "x86_64-pc-windows-gnu")

@@ -18,6 +18,6 @@ EOF
 case "$1" in
   "aarch64-unknown-linux-gnu") setup_cross_env_linux "$1" arm64 aarch64-linux-gnu;;
   "armv7-unknown-linux-gnueabihf") setup_cross_env_linux "$1" armhf armv7-linux-gnueabihf;;
-  "x86_64-unknown-linux-gnu") setup_cross_env_linux "$1" amd64 x86_64-linux-gnueabihf;;
+  "x86_64-unknown-linux-gnu") setup_cross_env_linux "$1" amd64 x86_64-linux-gnu;;
   "x86_64-pc-windows-gnu") sudo apt-get install -y gcc-mingw-w64-x86-64;;
 esac

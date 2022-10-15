@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -130,6 +131,12 @@ func testRunRestoreIncludes(t testing.TB, gopts GlobalOptions, dir string, snaps
 	rtest.OK(t, runRestore(opts, gopts, []string{snapshotID.String()}))
 }
 
+func testRunRestoreAssumeFailure(t testing.TB, snapshotID string, opts RestoreOptions, gopts GlobalOptions) error {
+	err := runRestore(opts, gopts, []string{snapshotID})
+
+	return err
+}
+
 func testRunCheck(t testing.TB, gopts GlobalOptions) {
 	opts := CheckOptions{
 		ReadData:    true,
@@ -158,8 +165,11 @@ func testRunDiffOutput(gopts GlobalOptions, firstSnapshotID string, secondSnapsh
 	buf := bytes.NewBuffer(nil)
 
 	globalOptions.stdout = buf
+	oldStdout := gopts.stdout
+	gopts.stdout = buf
 	defer func() {
 		globalOptions.stdout = os.Stdout
+		gopts.stdout = oldStdout
 	}()
 
 	opts := DiffOptions{
@@ -271,6 +281,11 @@ func testRunForgetJSON(t testing.TB, gopts GlobalOptions, args ...string) {
 }
 
 func testRunPrune(t testing.TB, gopts GlobalOptions, opts PruneOptions) {
+	oldHook := gopts.backendTestHook
+	gopts.backendTestHook = func(r restic.Backend) (restic.Backend, error) { return newListOnceBackend(r), nil }
+	defer func() {
+		gopts.backendTestHook = oldHook
+	}()
 	rtest.OK(t, runPrune(opts, gopts))
 }
 
@@ -345,6 +360,57 @@ func testBackup(t *testing.T, useFsSnapshot bool) {
 	testRunCheck(t, env.gopts)
 }
 
+func TestDryRunBackup(t *testing.T) {
+	env, cleanup := withTestEnvironment(t)
+	defer cleanup()
+
+	testSetupBackupData(t, env)
+	opts := BackupOptions{}
+	dryOpts := BackupOptions{DryRun: true}
+
+	// dry run before first backup
+	testRunBackup(t, filepath.Dir(env.testdata), []string{"testdata"}, dryOpts, env.gopts)
+	snapshotIDs := testRunList(t, "snapshots", env.gopts)
+	rtest.Assert(t, len(snapshotIDs) == 0,
+		"expected no snapshot, got %v", snapshotIDs)
+	packIDs := testRunList(t, "packs", env.gopts)
+	rtest.Assert(t, len(packIDs) == 0,
+		"expected no data, got %v", snapshotIDs)
+	indexIDs := testRunList(t, "index", env.gopts)
+	rtest.Assert(t, len(indexIDs) == 0,
+		"expected no index, got %v", snapshotIDs)
+
+	// first backup
+	testRunBackup(t, filepath.Dir(env.testdata), []string{"testdata"}, opts, env.gopts)
+	snapshotIDs = testRunList(t, "snapshots", env.gopts)
+	packIDs = testRunList(t, "packs", env.gopts)
+	indexIDs = testRunList(t, "index", env.gopts)
+
+	// dry run between backups
+	testRunBackup(t, filepath.Dir(env.testdata), []string{"testdata"}, dryOpts, env.gopts)
+	snapshotIDsAfter := testRunList(t, "snapshots", env.gopts)
+	rtest.Equals(t, snapshotIDs, snapshotIDsAfter)
+	dataIDsAfter := testRunList(t, "packs", env.gopts)
+	rtest.Equals(t, packIDs, dataIDsAfter)
+	indexIDsAfter := testRunList(t, "index", env.gopts)
+	rtest.Equals(t, indexIDs, indexIDsAfter)
+
+	// second backup, implicit incremental
+	testRunBackup(t, filepath.Dir(env.testdata), []string{"testdata"}, opts, env.gopts)
+	snapshotIDs = testRunList(t, "snapshots", env.gopts)
+	packIDs = testRunList(t, "packs", env.gopts)
+	indexIDs = testRunList(t, "index", env.gopts)
+
+	// another dry run
+	testRunBackup(t, filepath.Dir(env.testdata), []string{"testdata"}, dryOpts, env.gopts)
+	snapshotIDsAfter = testRunList(t, "snapshots", env.gopts)
+	rtest.Equals(t, snapshotIDs, snapshotIDsAfter)
+	dataIDsAfter = testRunList(t, "packs", env.gopts)
+	rtest.Equals(t, packIDs, dataIDsAfter)
+	indexIDsAfter = testRunList(t, "index", env.gopts)
+	rtest.Equals(t, indexIDs, indexIDsAfter)
+}
+
 func TestBackupNonExistingFile(t *testing.T) {
 	env, cleanup := withTestEnvironment(t)
 	defer cleanup()
@@ -374,10 +440,11 @@ func removePacksExcept(gopts GlobalOptions, t *testing.T, keep restic.IDSet, rem
 
 	// Get all tree packs
 	rtest.OK(t, r.LoadIndex(gopts.ctx))
+
 	treePacks := restic.NewIDSet()
-	for _, idx := range r.Index().(*repository.MasterIndex).All() {
-		for _, id := range idx.TreePacks() {
-			treePacks.Insert(id)
+	for pb := range r.Index().Each(context.TODO()) {
+		if pb.Type == restic.TreeBlob {
+			treePacks.Insert(pb.PackID)
 		}
 	}
 
@@ -436,11 +503,10 @@ func TestBackupTreeLoadError(t *testing.T) {
 	r, err := OpenRepository(env.gopts)
 	rtest.OK(t, err)
 	rtest.OK(t, r.LoadIndex(env.gopts.ctx))
-	// collect tree packs of subdirectory
-	subTreePacks := restic.NewIDSet()
-	for _, idx := range r.Index().(*repository.MasterIndex).All() {
-		for _, id := range idx.TreePacks() {
-			subTreePacks.Insert(id)
+	treePacks := restic.NewIDSet()
+	for pb := range r.Index().Each(context.TODO()) {
+		if pb.Type == restic.TreeBlob {
+			treePacks.Insert(pb.PackID)
 		}
 	}
 
@@ -448,7 +514,7 @@ func TestBackupTreeLoadError(t *testing.T) {
 	testRunCheck(t, env.gopts)
 
 	// delete the subdirectory pack first
-	for id := range subTreePacks {
+	for id := range treePacks {
 		rtest.OK(t, r.Backend().Remove(env.gopts.ctx, restic.Handle{Type: restic.PackFile, Name: id.String()}))
 	}
 	testRunRebuildIndex(t, env.gopts)
@@ -683,14 +749,17 @@ func TestBackupTags(t *testing.T) {
 }
 
 func testRunCopy(t testing.TB, srcGopts GlobalOptions, dstGopts GlobalOptions) {
+	gopts := srcGopts
+	gopts.Repo = dstGopts.Repo
+	gopts.password = dstGopts.password
 	copyOpts := CopyOptions{
 		secondaryRepoOptions: secondaryRepoOptions{
-			Repo:     dstGopts.Repo,
-			password: dstGopts.password,
+			Repo:     srcGopts.Repo,
+			password: srcGopts.password,
 		},
 	}
 
-	rtest.OK(t, runCopy(copyOpts, srcGopts, nil))
+	rtest.OK(t, runCopy(copyOpts, gopts, nil))
 }
 
 func TestCopy(t *testing.T) {
@@ -980,7 +1049,7 @@ func testRunKeyAddNewKeyUserHost(t testing.TB, gopts GlobalOptions) {
 
 	repo, err := OpenRepository(gopts)
 	rtest.OK(t, err)
-	key, err := repository.SearchKey(gopts.ctx, repo, testKeyNewPassword, 1, "")
+	key, err := repository.SearchKey(gopts.ctx, repo, testKeyNewPassword, 2, "")
 	rtest.OK(t, err)
 
 	rtest.Equals(t, "john", key.Username)
@@ -1010,6 +1079,8 @@ func TestKeyAddRemove(t *testing.T) {
 	}
 
 	env, cleanup := withTestEnvironment(t)
+	// must list keys more than once
+	env.gopts.backendTestHook = nil
 	defer cleanup()
 
 	testRunInit(t, env.gopts)
@@ -1031,6 +1102,41 @@ func TestKeyAddRemove(t *testing.T) {
 	testRunCheck(t, env.gopts)
 
 	testRunKeyAddNewKeyUserHost(t, env.gopts)
+}
+
+type emptySaveBackend struct {
+	restic.Backend
+}
+
+func (b *emptySaveBackend) Save(ctx context.Context, h restic.Handle, rd restic.RewindReader) error {
+	return b.Backend.Save(ctx, h, restic.NewByteReader([]byte{}, nil))
+}
+
+func TestKeyProblems(t *testing.T) {
+	env, cleanup := withTestEnvironment(t)
+	defer cleanup()
+
+	testRunInit(t, env.gopts)
+	env.gopts.backendTestHook = func(r restic.Backend) (restic.Backend, error) {
+		return &emptySaveBackend{r}, nil
+	}
+
+	testKeyNewPassword = "geheim2"
+	defer func() {
+		testKeyNewPassword = ""
+	}()
+
+	err := runKey(env.gopts, []string{"passwd"})
+	t.Log(err)
+	rtest.Assert(t, err != nil, "expected passwd change to fail")
+
+	err = runKey(env.gopts, []string{"add"})
+	t.Log(err)
+	rtest.Assert(t, err != nil, "expected key adding to fail")
+
+	t.Logf("testing access with initial password %q\n", env.gopts.password)
+	rtest.OK(t, runKey(env.gopts, []string{"list"}))
+	testRunCheck(t, env.gopts)
 }
 
 func testFileSize(filename string, size int64) error {
@@ -1330,7 +1436,7 @@ func TestFindJSON(t *testing.T) {
 	rtest.Assert(t, matches[0].Hits == 3, "expected hits to show 3 matches (%v)", datafile)
 }
 
-func TestRebuildIndex(t *testing.T) {
+func testRebuildIndex(t *testing.T, backendTestHook backendWrapper) {
 	env, cleanup := withTestEnvironment(t)
 	defer cleanup()
 
@@ -1350,8 +1456,10 @@ func TestRebuildIndex(t *testing.T) {
 		t.Fatalf("did not find hint for rebuild-index command")
 	}
 
+	env.gopts.backendTestHook = backendTestHook
 	testRunRebuildIndex(t, env.gopts)
 
+	env.gopts.backendTestHook = nil
 	out, err = testRunCheckOutput(env.gopts)
 	if len(out) != 0 {
 		t.Fatalf("expected no output from the checker, got: %v", out)
@@ -1362,9 +1470,57 @@ func TestRebuildIndex(t *testing.T) {
 	}
 }
 
+func TestRebuildIndex(t *testing.T) {
+	testRebuildIndex(t, nil)
+}
+
 func TestRebuildIndexAlwaysFull(t *testing.T) {
-	repository.IndexFull = func(*repository.Index) bool { return true }
-	TestRebuildIndex(t)
+	indexFull := repository.IndexFull
+	defer func() {
+		repository.IndexFull = indexFull
+	}()
+	repository.IndexFull = func(*repository.Index, bool) bool { return true }
+	testRebuildIndex(t, nil)
+}
+
+// indexErrorBackend modifies the first index after reading.
+type indexErrorBackend struct {
+	restic.Backend
+	lock     sync.Mutex
+	hasErred bool
+}
+
+func (b *indexErrorBackend) Load(ctx context.Context, h restic.Handle, length int, offset int64, consumer func(rd io.Reader) error) error {
+	return b.Backend.Load(ctx, h, length, offset, func(rd io.Reader) error {
+		// protect hasErred
+		b.lock.Lock()
+		defer b.lock.Unlock()
+		if !b.hasErred && h.Type == restic.IndexFile {
+			b.hasErred = true
+			return consumer(errorReadCloser{rd})
+		}
+		return consumer(rd)
+	})
+}
+
+type errorReadCloser struct {
+	io.Reader
+}
+
+func (erd errorReadCloser) Read(p []byte) (int, error) {
+	n, err := erd.Reader.Read(p)
+	if n > 0 {
+		p[0] ^= 1
+	}
+	return n, err
+}
+
+func TestRebuildIndexDamage(t *testing.T) {
+	testRebuildIndex(t, func(r restic.Backend) (restic.Backend, error) {
+		return &indexErrorBackend{
+			Backend: r,
+		}, nil
+	})
 }
 
 type appendOnlyBackend struct {
@@ -1426,27 +1582,41 @@ func TestCheckRestoreNoLock(t *testing.T) {
 }
 
 func TestPrune(t *testing.T) {
-	t.Run("0", func(t *testing.T) {
-		opts := PruneOptions{MaxUnused: "0%"}
+	testPruneVariants(t, false)
+	testPruneVariants(t, true)
+}
+
+func testPruneVariants(t *testing.T, unsafeNoSpaceRecovery bool) {
+	suffix := ""
+	if unsafeNoSpaceRecovery {
+		suffix = "-recovery"
+	}
+	t.Run("0"+suffix, func(t *testing.T) {
+		opts := PruneOptions{MaxUnused: "0%", unsafeRecovery: unsafeNoSpaceRecovery}
 		checkOpts := CheckOptions{ReadData: true, CheckUnused: true}
 		testPrune(t, opts, checkOpts)
 	})
 
-	t.Run("50", func(t *testing.T) {
-		opts := PruneOptions{MaxUnused: "50%"}
+	t.Run("50"+suffix, func(t *testing.T) {
+		opts := PruneOptions{MaxUnused: "50%", unsafeRecovery: unsafeNoSpaceRecovery}
 		checkOpts := CheckOptions{ReadData: true}
 		testPrune(t, opts, checkOpts)
 	})
 
-	t.Run("unlimited", func(t *testing.T) {
-		opts := PruneOptions{MaxUnused: "unlimited"}
+	t.Run("unlimited"+suffix, func(t *testing.T) {
+		opts := PruneOptions{MaxUnused: "unlimited", unsafeRecovery: unsafeNoSpaceRecovery}
 		checkOpts := CheckOptions{ReadData: true}
 		testPrune(t, opts, checkOpts)
 	})
 
-	t.Run("CachableOnly", func(t *testing.T) {
-		opts := PruneOptions{MaxUnused: "5%", RepackCachableOnly: true}
+	t.Run("CachableOnly"+suffix, func(t *testing.T) {
+		opts := PruneOptions{MaxUnused: "5%", RepackCachableOnly: true, unsafeRecovery: unsafeNoSpaceRecovery}
 		checkOpts := CheckOptions{ReadData: true}
+		testPrune(t, opts, checkOpts)
+	})
+	t.Run("Small", func(t *testing.T) {
+		opts := PruneOptions{MaxUnused: "unlimited", RepackSmall: true}
+		checkOpts := CheckOptions{ReadData: true, CheckUnused: true}
 		testPrune(t, opts, checkOpts)
 	})
 }
@@ -1519,6 +1689,11 @@ func TestPruneWithDamagedRepository(t *testing.T) {
 	rtest.Assert(t, len(snapshotIDs) == 1,
 		"expected one snapshot, got %v", snapshotIDs)
 
+	oldHook := env.gopts.backendTestHook
+	env.gopts.backendTestHook = func(r restic.Backend) (restic.Backend, error) { return newListOnceBackend(r), nil }
+	defer func() {
+		env.gopts.backendTestHook = oldHook
+	}()
 	// prune should fail
 	rtest.Assert(t, runPrune(pruneDefaultOptions, env.gopts) == errorPacksMissing,
 		"prune should have reported index not complete error")
@@ -1607,23 +1782,36 @@ func testEdgeCaseRepo(t *testing.T, tarfile string, optionsCheck CheckOptions, o
 
 // a listOnceBackend only allows listing once per filetype
 // listing filetypes more than once may cause problems with eventually consistent
-// backends (like e.g. AWS S3) as the second listing may be inconsistent to what
+// backends (like e.g. Amazon S3) as the second listing may be inconsistent to what
 // is expected by the first listing + some operations.
 type listOnceBackend struct {
 	restic.Backend
 	listedFileType map[restic.FileType]bool
+	strictOrder    bool
 }
 
 func newListOnceBackend(be restic.Backend) *listOnceBackend {
 	return &listOnceBackend{
 		Backend:        be,
 		listedFileType: make(map[restic.FileType]bool),
+		strictOrder:    false,
+	}
+}
+
+func newOrderedListOnceBackend(be restic.Backend) *listOnceBackend {
+	return &listOnceBackend{
+		Backend:        be,
+		listedFileType: make(map[restic.FileType]bool),
+		strictOrder:    true,
 	}
 }
 
 func (be *listOnceBackend) List(ctx context.Context, t restic.FileType, fn func(restic.FileInfo) error) error {
 	if t != restic.LockFile && be.listedFileType[t] {
 		return errors.Errorf("tried listing type %v the second time", t)
+	}
+	if be.strictOrder && t == restic.SnapshotFile && be.listedFileType[restic.IndexFile] {
+		return errors.Errorf("tried listing type snapshots after index")
 	}
 	be.listedFileType[t] = true
 	return be.Backend.List(ctx, t, fn)
@@ -1835,10 +2023,8 @@ var diffOutputRegexPatterns = []string{
 	"Removed: +2[0-9]{2}\\.[0-9]{3} KiB",
 }
 
-func TestDiff(t *testing.T) {
+func setupDiffRepo(t *testing.T) (*testEnvironment, func(), string, string) {
 	env, cleanup := withTestEnvironment(t)
-	defer cleanup()
-
 	testRunInit(t, env.gopts)
 
 	datadir := filepath.Join(env.base, "testdata")
@@ -1874,19 +2060,82 @@ func TestDiff(t *testing.T) {
 	testRunBackup(t, "", []string{datadir}, opts, env.gopts)
 	_, secondSnapshotID := lastSnapshot(snapshots, loadSnapshotMap(t, env.gopts))
 
+	return env, cleanup, firstSnapshotID, secondSnapshotID
+}
+
+func TestDiff(t *testing.T) {
+	env, cleanup, firstSnapshotID, secondSnapshotID := setupDiffRepo(t)
+	defer cleanup()
+
+	// quiet suppresses the diff output except for the summary
+	env.gopts.Quiet = false
 	_, err := testRunDiffOutput(env.gopts, "", secondSnapshotID)
 	rtest.Assert(t, err != nil, "expected error on invalid snapshot id")
 
 	out, err := testRunDiffOutput(env.gopts, firstSnapshotID, secondSnapshotID)
-	if err != nil {
-		t.Fatalf("expected no error from diff for test repository, got %v", err)
-	}
+	rtest.OK(t, err)
 
 	for _, pattern := range diffOutputRegexPatterns {
 		r, err := regexp.Compile(pattern)
 		rtest.Assert(t, err == nil, "failed to compile regexp %v", pattern)
 		rtest.Assert(t, r.MatchString(out), "expected pattern %v in output, got\n%v", pattern, out)
 	}
+
+	// check quiet output
+	env.gopts.Quiet = true
+	outQuiet, err := testRunDiffOutput(env.gopts, firstSnapshotID, secondSnapshotID)
+	rtest.OK(t, err)
+
+	rtest.Assert(t, len(outQuiet) < len(out), "expected shorter output on quiet mode %v vs. %v", len(outQuiet), len(out))
+}
+
+type typeSniffer struct {
+	MessageType string `json:"message_type"`
+}
+
+func TestDiffJSON(t *testing.T) {
+	env, cleanup, firstSnapshotID, secondSnapshotID := setupDiffRepo(t)
+	defer cleanup()
+
+	// quiet suppresses the diff output except for the summary
+	env.gopts.Quiet = false
+	env.gopts.JSON = true
+	out, err := testRunDiffOutput(env.gopts, firstSnapshotID, secondSnapshotID)
+	rtest.OK(t, err)
+
+	var stat DiffStatsContainer
+	var changes int
+
+	scanner := bufio.NewScanner(strings.NewReader(out))
+	for scanner.Scan() {
+		line := scanner.Text()
+		var sniffer typeSniffer
+		rtest.OK(t, json.Unmarshal([]byte(line), &sniffer))
+		switch sniffer.MessageType {
+		case "change":
+			changes++
+		case "statistics":
+			rtest.OK(t, json.Unmarshal([]byte(line), &stat))
+		default:
+			t.Fatalf("unexpected message type %v", sniffer.MessageType)
+		}
+	}
+	rtest.Equals(t, 9, changes)
+	rtest.Assert(t, stat.Added.Files == 2 && stat.Added.Dirs == 3 && stat.Added.DataBlobs == 2 &&
+		stat.Removed.Files == 1 && stat.Removed.Dirs == 2 && stat.Removed.DataBlobs == 1 &&
+		stat.ChangedFiles == 1, "unexpected statistics")
+
+	// check quiet output
+	env.gopts.Quiet = true
+	outQuiet, err := testRunDiffOutput(env.gopts, firstSnapshotID, secondSnapshotID)
+	rtest.OK(t, err)
+
+	stat = DiffStatsContainer{}
+	rtest.OK(t, json.Unmarshal([]byte(outQuiet), &stat))
+	rtest.Assert(t, stat.Added.Files == 2 && stat.Added.Dirs == 3 && stat.Added.DataBlobs == 2 &&
+		stat.Removed.Files == 1 && stat.Removed.Dirs == 2 && stat.Removed.DataBlobs == 1 &&
+		stat.ChangedFiles == 1, "unexpected statistics")
+	rtest.Assert(t, stat.SourceSnapshot == firstSnapshotID && stat.TargetSnapshot == secondSnapshotID, "unexpected snapshot ids")
 }
 
 type writeToOnly struct {
@@ -1934,7 +2183,38 @@ func TestBackendLoadWriteTo(t *testing.T) {
 	firstSnapshot := testRunList(t, "snapshots", env.gopts)
 	rtest.Assert(t, len(firstSnapshot) == 1,
 		"expected one snapshot, got %v", firstSnapshot)
+}
 
-	// test readData using the hashing.Reader
-	testRunCheck(t, env.gopts)
+func TestFindListOnce(t *testing.T) {
+	env, cleanup := withTestEnvironment(t)
+	defer cleanup()
+
+	env.gopts.backendTestHook = func(r restic.Backend) (restic.Backend, error) {
+		return newListOnceBackend(r), nil
+	}
+
+	testSetupBackupData(t, env)
+	opts := BackupOptions{}
+
+	testRunBackup(t, "", []string{filepath.Join(env.testdata, "0", "0", "9")}, opts, env.gopts)
+	testRunBackup(t, "", []string{filepath.Join(env.testdata, "0", "0", "9", "2")}, opts, env.gopts)
+	secondSnapshot := testRunList(t, "snapshots", env.gopts)
+	testRunBackup(t, "", []string{filepath.Join(env.testdata, "0", "0", "9", "3")}, opts, env.gopts)
+	thirdSnapshot := restic.NewIDSet(testRunList(t, "snapshots", env.gopts)...)
+
+	repo, err := OpenRepository(env.gopts)
+	rtest.OK(t, err)
+
+	snapshotIDs := restic.NewIDSet()
+	// specify the two oldest snapshots explicitly and use "latest" to reference the newest one
+	for sn := range FindFilteredSnapshots(context.TODO(), repo.Backend(), repo, nil, nil, nil, []string{
+		secondSnapshot[0].String(),
+		secondSnapshot[1].String()[:8],
+		"latest",
+	}) {
+		snapshotIDs.Insert(*sn.ID())
+	}
+
+	// the snapshots can only be listed once, if both lists match then the there has been only a single List() call
+	rtest.Equals(t, thirdSnapshot, snapshotIDs)
 }

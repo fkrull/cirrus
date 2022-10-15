@@ -1,3 +1,4 @@
+//go:build darwin || freebsd || linux
 // +build darwin freebsd linux
 
 package fuse
@@ -96,7 +97,7 @@ func (f *file) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenR
 
 func (f *openFile) getBlobAt(ctx context.Context, i int) (blob []byte, err error) {
 
-	blob, ok := f.root.blobCache.get(f.node.Content[i])
+	blob, ok := f.root.blobCache.Get(f.node.Content[i])
 	if ok {
 		return blob, nil
 	}
@@ -107,7 +108,7 @@ func (f *openFile) getBlobAt(ctx context.Context, i int) (blob []byte, err error
 		return nil, err
 	}
 
-	f.root.blobCache.add(f.node.Content[i], blob)
+	f.root.blobCache.Add(f.node.Content[i], blob)
 
 	return blob, nil
 }

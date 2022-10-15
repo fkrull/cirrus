@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/restic/restic/internal/backend"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/errors"
 	"github.com/restic/restic/internal/filter"
@@ -267,7 +268,7 @@ func (f *Finder) findInSnapshot(ctx context.Context, sn *restic.Snapshot) error 
 		if err != nil {
 			debug.Log("Error loading tree %v: %v", parentTreeID, err)
 
-			Printf("Unable to load tree %s\n ... which belongs to snapshot %s.\n", parentTreeID, sn.ID())
+			Printf("Unable to load tree %s\n ... which belongs to snapshot %s\n", parentTreeID, sn.ID())
 
 			return false, walker.ErrSkipNode
 		}
@@ -351,7 +352,7 @@ func (f *Finder) findIDs(ctx context.Context, sn *restic.Snapshot) error {
 		if err != nil {
 			debug.Log("Error loading tree %v: %v", parentTreeID, err)
 
-			Printf("Unable to load tree %s\n ... which belongs to snapshot %s.\n", parentTreeID, sn.ID())
+			Printf("Unable to load tree %s\n ... which belongs to snapshot %s\n", parentTreeID, sn.ID())
 
 			return false, walker.ErrSkipNode
 		}
@@ -584,6 +585,11 @@ func runFind(opts FindOptions, gopts GlobalOptions, args []string) error {
 		}
 	}
 
+	snapshotLister, err := backend.MemorizeList(gopts.ctx, repo.Backend(), restic.SnapshotFile)
+	if err != nil {
+		return err
+	}
+
 	if err = repo.LoadIndex(gopts.ctx); err != nil {
 		return err
 	}
@@ -618,7 +624,7 @@ func runFind(opts FindOptions, gopts GlobalOptions, args []string) error {
 		}
 	}
 
-	for sn := range FindFilteredSnapshots(ctx, repo, opts.Hosts, opts.Tags, opts.Paths, opts.Snapshots) {
+	for sn := range FindFilteredSnapshots(ctx, snapshotLister, repo, opts.Hosts, opts.Tags, opts.Paths, opts.Snapshots) {
 		if f.blobIDs != nil || f.treeIDs != nil {
 			if err = f.findIDs(ctx, sn); err != nil && err.Error() != "OK" {
 				return err

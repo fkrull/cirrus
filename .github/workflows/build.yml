@@ -104,7 +104,7 @@ jobs:
         with:
           arch: ${{ matrix.deb_arch }}
       - name: Set up cross-compile env
-        run: .github/workflow/setup-cross-env.sh ${{ matrix.target }}
+        run: .github/workflows/setup-cross-env.sh ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1

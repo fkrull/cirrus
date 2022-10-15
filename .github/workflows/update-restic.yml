@@ -1,0 +1,36 @@
+name: Update restic
+on:
+  schedule:
+    - cron: 0 6 * * SAT
+
+jobs:
+  update-restic:
+    runs-on: ubuntu-latest
+    steps:
+      - id: resticRelease
+        uses: pozetroninc/github-action-get-latest-release@v0.5.0
+        with:
+          repository: restic/restic
+          excludes: prerelease, draft
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - uses: Swatinem/rust-cache@v2
+      #- name: Check out update branch
+      #  run: git switch -c update-restic-${{ steps.resticRelease.outputs.release }}
+      - name: Update restic subtree
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: >
+            --package build-scripts
+            --bin update-restic --
+            --rev ${{ steps.resticRelease.outputs.release }}
+      - uses: peter-evans/create-pull-request@v4
+        with:
+          branch: update-restic
+          delete-branch: true
+          title: Update restic to ${{ steps.resticRelease.outputs.release }}
+          body: I'm automated beep boop

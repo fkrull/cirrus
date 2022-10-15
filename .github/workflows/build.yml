@@ -33,9 +33,9 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-      - name: Install libdbus-dev
+      - name: Setup build environment
         if: ${{ matrix.platform == 'ubuntu-latest' }}
-        run: sudo apt-get install -y libdbus-1-dev
+        run: sudo .github/workflows/setup-cross-env.sh x86_64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo test
         uses: actions-rs/cargo@v1
@@ -90,8 +90,8 @@ jobs:
           go-version: '^1.19'
           cache: true
           cache-dependency-path: restic/go.sum
-      - name: Install libdbus-dev
-        run: sudo apt-get install -y libdbus-1-dev
+      - name: Setup build environment
+        run: sudo .github/workflows/setup-cross-env.sh ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:

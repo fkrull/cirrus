@@ -15,6 +15,8 @@ jobs:
           repository: restic/restic
           excludes: prerelease, draft
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable

@@ -73,7 +73,11 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        target: []
+        target:
+          - x86_64-unknown-linux-gnu
+          - armv7-unknown-linux-gnueabihf
+          - aarch64-unknown-linux-gnu
+          - x86_64-pc-windows-gnu
         include:
           - target: x86_64-unknown-linux-gnu
             deb_arch: amd64

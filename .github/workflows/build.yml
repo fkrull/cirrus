@@ -7,7 +7,7 @@ on:
 
 jobs:
   fmt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, ubuntu-latest]
+        platform: [windows-latest, ubuntu-22.04]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
@@ -34,7 +34,7 @@ jobs:
           toolchain: stable
           profile: minimal
       - name: Setup build environment
-        if: ${{ matrix.platform == 'ubuntu-latest' }}
+        if: ${{ matrix.platform == 'ubuntu-22.04' }}
         run: sudo .github/workflows/setup-cross-env.sh x86_64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo test
@@ -44,7 +44,7 @@ jobs:
           args: --workspace
 
   version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       VERSION: ${{ steps.getCirrusVersion.outputs.VERSION }}
       BUILD_STRING: ${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
@@ -68,7 +68,7 @@ jobs:
           cat version >> "$GITHUB_OUTPUT"
 
   package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [ version ]
     strategy:
       fail-fast: true

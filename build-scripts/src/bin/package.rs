@@ -41,8 +41,8 @@ fn main() -> eyre::Result<()> {
         let _e3 = sh.push_env("GOARM", target_vars.go_arm.unwrap_or(""));
 
         let bin = format!("restic{ext}");
-        let bin_path = format!("../target/{target}/{bin}");
-        let _cd = sh.push_dir("restic");
+        let bin_path = format!("../../target/{target}/{bin}");
+        let _cd = sh.push_dir("vendor/restic");
         cmd!(sh, "go build -ldflags '-w -s' -o {bin_path} ./cmd/restic").run()?;
         sh.copy_file(bin_path, tmp.path().join(bin))?;
     }

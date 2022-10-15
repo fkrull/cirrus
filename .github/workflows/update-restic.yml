@@ -20,8 +20,6 @@ jobs:
           toolchain: stable
           profile: minimal
       - uses: Swatinem/rust-cache@v2
-      #- name: Check out update branch
-      #  run: git switch -c update-restic-${{ steps.resticRelease.outputs.release }}
       - name: Set git author
         run: git config user.name "update-restic-workflow[bot]"
       - name: Update restic subtree

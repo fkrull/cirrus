@@ -72,7 +72,7 @@ jobs:
           cat version >> "$GITHUB_OUTPUT"
 
   package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [ version ]
     strategy:
       fail-fast: true
@@ -85,10 +85,13 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
           - target: x86_64-pc-windows-gnu
+            pkg: gcc-mingw-w64-x86-64
           - target: armv7-unknown-linux-gnueabihf
-            deb_arch: armhf
+            pkg: gcc-arm-linux-gnueabihf
+            linker: arm-linux-gnueabihf-gcc
           - target: aarch64-unknown-linux-gnu
-            deb_arch: arm64
+            pkg: gcc-aarch64-linux-gnu
+            linker: aarch64-linux-gnu-gcc
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -101,13 +104,19 @@ jobs:
           go-version: '^1.19'
           cache: true
           cache-dependency-path: restic/go.sum
-      - name: Install cross-compile support
-        if: ${{ matrix.deb_arch }}
-        uses: cyberjunk/gha-ubuntu-cross@v2
-        with:
-          arch: ${{ matrix.deb_arch }}
-      - name: Set up cross-compile env
-        run: .github/workflows/setup-cross-env.sh ${{ matrix.target }}
+      - name: Install meson
+        run: sudo apt-get install -y meson
+      - name: Install cross-compiling toolchain
+        if: ${{ matrix.pkg }}
+        run: sudo apt-get install -y ${{ matrix.pkg }}
+      - name: Set up Rust linker
+        if: ${{ matrix.linker }}
+        run: |
+          mkdir -p "$HOME/.cargo"
+          cat > "$HOME/.cargo/config" <<EOF
+          [target.${{ matrix.target }}]
+          linker = "${{ matrix.linker }}"
+          EOF
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{matrix.target }}
@@ -121,6 +130,7 @@ jobs:
             --build-string ${{ needs.version.outputs.BUILD_STRING }}
             --target ${{ matrix.target }}
             --features bundled-restic-support
+            --static-dbus
             --build-restic
       - uses: actions/upload-artifact@v3
         with:

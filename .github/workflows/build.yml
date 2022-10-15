@@ -37,6 +37,8 @@ jobs:
         if: ${{ matrix.platform == 'ubuntu-latest' }}
         run: sudo apt-get install -y libdbus-1-dev
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{matrix.platform }}
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
@@ -107,6 +109,8 @@ jobs:
       - name: Set up cross-compile env
         run: .github/workflows/setup-cross-env.sh ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{matrix.target }}
       - uses: actions-rs/cargo@v1
         with:
           command: run

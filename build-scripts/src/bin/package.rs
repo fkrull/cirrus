@@ -21,6 +21,9 @@ struct Args {
     /// build the restic binary from the vendored source and include it in the package
     #[argh(switch)]
     build_restic: bool,
+    /// build and statically link libdbus
+    #[argh(switch)]
+    static_dbus: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -44,6 +47,23 @@ fn main() -> eyre::Result<()> {
         sh.copy_file(bin_path, tmp.path().join(bin))?;
     }
 
+    // compile dbus
+    let dbus_link_args = if args.static_dbus {
+        let dbus_build_dir = format!("./target/{target}/dbus");
+        sh.create_dir(&dbus_build_dir)?;
+        cmd!(sh, "meson setup --auto-features=disabled --default-library=static --cross-file=vendor/meson-{target}.txt vendor/dbus {dbus_build_dir}").run()?;
+        cmd!(sh, "meson compile -C {dbus_build_dir} dbus-1").run()?;
+
+        let host_triple = host_triple(&sh)?;
+        vec![
+            format!(r#"--config=target.{host_triple}.dbus.rustc-link-lib=["dbus-1"]"#),
+            format!(r#"--config=target.{target}.dbus.rustc-link-lib=["dbus-1"]"#),
+            format!(r#"--config=target.{target}.dbus.rustc-link-search=["{dbus_build_dir}/dbus"]"#),
+        ]
+    } else {
+        vec![]
+    };
+
     // compile cirrus
     {
         let _e1 = sh.push_env("CIRRUS_VERSION", &args.version);
@@ -53,7 +73,7 @@ fn main() -> eyre::Result<()> {
         let features = args.features;
         cmd!(
             sh,
-            "cargo build --release --target={target} --features={features}"
+            "cargo build --release --target={target} --features={features} {dbus_link_args...}"
         )
         .run()?;
         sh.copy_file(
@@ -84,4 +104,14 @@ fn package_tar_xz(sh: &Shell, dir: &Path, dest: &Path) -> eyre::Result<()> {
     }
     xz.finish()?;
     Ok(())
+}
+
+fn host_triple(sh: &Shell) -> eyre::Result<String> {
+    cmd!(sh, "rustc --version --verbose")
+        .read()?
+        .lines()
+        .filter_map(|s| s.strip_prefix("host:"))
+        .next()
+        .map(|s| s.trim().to_owned())
+        .ok_or_else(|| eyre::eyre!("could not find host triple"))
 }

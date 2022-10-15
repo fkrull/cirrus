@@ -2,3 +2,6 @@
 /public
 /.idea
 /tarpaulin-report.*
+
+/vendor/dbus/subprojects/expat-*
+/vendor/dbus/subprojects/packagecache

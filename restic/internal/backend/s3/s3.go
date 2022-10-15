@@ -3,6 +3,7 @@ package s3
 import (
 	"context"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/restic/restic/internal/backend"
+	"github.com/restic/restic/internal/backend/sema"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/errors"
 	"github.com/restic/restic/internal/restic"
@@ -24,7 +26,7 @@ import (
 // Backend stores data on an S3 endpoint.
 type Backend struct {
 	client *minio.Client
-	sem    *backend.Semaphore
+	sem    sema.Semaphore
 	cfg    Config
 	backend.Layout
 }
@@ -55,7 +57,7 @@ func open(ctx context.Context, cfg Config, rt http.RoundTripper) (*Backend, erro
 		&credentials.Static{
 			Value: credentials.Value{
 				AccessKeyID:     cfg.KeyID,
-				SecretAccessKey: cfg.Secret,
+				SecretAccessKey: cfg.Secret.Unwrap(),
 			},
 		},
 		&credentials.EnvMinio{},
@@ -67,6 +69,15 @@ func open(ctx context.Context, cfg Config, rt http.RoundTripper) (*Backend, erro
 			},
 		},
 	})
+
+	c, err := creds.Get()
+	if err != nil {
+		return nil, errors.Wrap(err, "creds.Get")
+	}
+
+	if c.SignerType == credentials.SignatureAnonymous {
+		debug.Log("using anonymous access for %#v", cfg.Endpoint)
+	}
 
 	options := &minio.Options{
 		Creds:     creds,
@@ -91,7 +102,7 @@ func open(ctx context.Context, cfg Config, rt http.RoundTripper) (*Backend, erro
 		return nil, errors.Wrap(err, "minio.New")
 	}
 
-	sem, err := backend.NewSemaphore(cfg.Connections)
+	sem, err := sema.New(cfg.Connections)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +138,7 @@ func Create(ctx context.Context, cfg Config, rt http.RoundTripper) (restic.Backe
 	}
 	found, err := be.client.BucketExists(ctx, cfg.Bucket)
 
-	if err != nil && be.IsAccessDenied(err) {
+	if err != nil && isAccessDenied(err) {
 		err = nil
 		found = true
 	}
@@ -148,29 +159,23 @@ func Create(ctx context.Context, cfg Config, rt http.RoundTripper) (restic.Backe
 	return be, nil
 }
 
-// IsAccessDenied returns true if the error is caused by Access Denied.
-func (be *Backend) IsAccessDenied(err error) bool {
-	debug.Log("IsAccessDenied(%T, %#v)", err, err)
+// isAccessDenied returns true if the error is caused by Access Denied.
+func isAccessDenied(err error) bool {
+	debug.Log("isAccessDenied(%T, %#v)", err, err)
 
-	if e, ok := errors.Cause(err).(minio.ErrorResponse); ok && e.Code == "AccessDenied" {
-		return true
-	}
-
-	return false
+	var e minio.ErrorResponse
+	return errors.As(err, &e) && e.Code == "Access Denied"
 }
 
 // IsNotExist returns true if the error is caused by a not existing file.
 func (be *Backend) IsNotExist(err error) bool {
 	debug.Log("IsNotExist(%T, %#v)", err, err)
-	if os.IsNotExist(errors.Cause(err)) {
+	if errors.Is(err, os.ErrNotExist) {
 		return true
 	}
 
-	if e, ok := errors.Cause(err).(minio.ErrorResponse); ok && e.Code == "NoSuchKey" {
-		return true
-	}
-
-	return false
+	var e minio.ErrorResponse
+	return errors.As(err, &e) && e.Code == "NoSuchKey"
 }
 
 // Join combines path components with slashes.
@@ -245,9 +250,23 @@ func (be *Backend) ReadDir(ctx context.Context, dir string) (list []os.FileInfo,
 	return list, nil
 }
 
+func (be *Backend) Connections() uint {
+	return be.cfg.Connections
+}
+
 // Location returns this backend's location (the bucket name).
 func (be *Backend) Location() string {
 	return be.Join(be.cfg.Bucket, be.cfg.Prefix)
+}
+
+// Hasher may return a hash function for calculating a content hash for the backend
+func (be *Backend) Hasher() hash.Hash {
+	return nil
+}
+
+// HasAtomicReplace returns whether Save() can atomically replace files
+func (be *Backend) HasAtomicReplace() bool {
+	return true
 }
 
 // Path returns the path in the bucket that is used for this backend.
@@ -270,6 +289,10 @@ func (be *Backend) Save(ctx context.Context, h restic.Handle, rd restic.RewindRe
 
 	opts := minio.PutObjectOptions{StorageClass: be.cfg.StorageClass}
 	opts.ContentType = "application/octet-stream"
+	// the only option with the high-level api is to let the library handle the checksum computation
+	opts.SendContentMd5 = true
+	// only use multipart uploads for very large files
+	opts.PartSize = 200 * 1024 * 1024
 
 	debug.Log("PutObject(%v, %v, %v)", be.cfg.Bucket, objName, rd.Length())
 	info, err := be.client.PutObject(ctx, be.cfg.Bucket, objName, ioutil.NopCloser(rd), int64(rd.Length()), opts)
@@ -282,18 +305,6 @@ func (be *Backend) Save(ctx context.Context, h restic.Handle, rd restic.RewindRe
 	}
 
 	return errors.Wrap(err, "client.PutObject")
-}
-
-// wrapReader wraps an io.ReadCloser to run an additional function on Close.
-type wrapReader struct {
-	io.ReadCloser
-	f func()
-}
-
-func (wr wrapReader) Close() error {
-	err := wr.ReadCloser.Close()
-	wr.f()
-	return err
 }
 
 // Load runs fn with a reader that yields the contents of the file at h at the
@@ -333,22 +344,17 @@ func (be *Backend) openReader(ctx context.Context, h restic.Handle, length int, 
 	}
 
 	be.sem.GetToken()
+	ctx, cancel := context.WithCancel(ctx)
+
 	coreClient := minio.Core{Client: be.client}
 	rd, _, _, err := coreClient.GetObject(ctx, be.cfg.Bucket, objName, opts)
 	if err != nil {
+		cancel()
 		be.sem.ReleaseToken()
 		return nil, err
 	}
 
-	closeRd := wrapReader{
-		ReadCloser: rd,
-		f: func() {
-			debug.Log("Close()")
-			be.sem.ReleaseToken()
-		},
-	}
-
-	return closeRd, err
+	return be.sem.ReleaseTokenOnClose(rd, cancel), err
 }
 
 // Stat returns information about a blob.

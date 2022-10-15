@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/restic/restic/internal/backend"
 	"github.com/restic/restic/internal/errors"
 	"github.com/restic/restic/internal/fs"
 	"github.com/restic/restic/internal/restic"
@@ -61,9 +62,9 @@ func init() {
 
 	flags := cmdLs.Flags()
 	flags.BoolVarP(&lsOptions.ListLong, "long", "l", false, "use a long listing format showing size and mode")
-	flags.StringArrayVarP(&lsOptions.Hosts, "host", "H", nil, "only consider snapshots for this `host`, when no snapshot ID is given (can be specified multiple times)")
-	flags.Var(&lsOptions.Tags, "tag", "only consider snapshots which include this `taglist`, when no snapshot ID is given")
-	flags.StringArrayVar(&lsOptions.Paths, "path", nil, "only consider snapshots which include this (absolute) `path`, when no snapshot ID is given")
+	flags.StringArrayVarP(&lsOptions.Hosts, "host", "H", nil, "only consider snapshots for this `host`, when snapshot ID \"latest\" is given (can be specified multiple times)")
+	flags.Var(&lsOptions.Tags, "tag", "only consider snapshots which include this `taglist`, when snapshot ID \"latest\" is given (can be specified multiple times)")
+	flags.StringArrayVar(&lsOptions.Paths, "path", nil, "only consider snapshots which include this (absolute) `path`, when snapshot ID \"latest\" is given (can be specified multiple times)")
 	flags.BoolVar(&lsOptions.Recursive, "recursive", false, "include files in subfolders of the listed directories")
 }
 
@@ -77,31 +78,33 @@ type lsSnapshot struct {
 // Print node in our custom JSON format, followed by a newline.
 func lsNodeJSON(enc *json.Encoder, path string, node *restic.Node) error {
 	n := &struct {
-		Name       string      `json:"name"`
-		Type       string      `json:"type"`
-		Path       string      `json:"path"`
-		UID        uint32      `json:"uid"`
-		GID        uint32      `json:"gid"`
-		Size       *uint64     `json:"size,omitempty"`
-		Mode       os.FileMode `json:"mode,omitempty"`
-		ModTime    time.Time   `json:"mtime,omitempty"`
-		AccessTime time.Time   `json:"atime,omitempty"`
-		ChangeTime time.Time   `json:"ctime,omitempty"`
-		StructType string      `json:"struct_type"` // "node"
+		Name        string      `json:"name"`
+		Type        string      `json:"type"`
+		Path        string      `json:"path"`
+		UID         uint32      `json:"uid"`
+		GID         uint32      `json:"gid"`
+		Size        *uint64     `json:"size,omitempty"`
+		Mode        os.FileMode `json:"mode,omitempty"`
+		Permissions string      `json:"permissions,omitempty"`
+		ModTime     time.Time   `json:"mtime,omitempty"`
+		AccessTime  time.Time   `json:"atime,omitempty"`
+		ChangeTime  time.Time   `json:"ctime,omitempty"`
+		StructType  string      `json:"struct_type"` // "node"
 
 		size uint64 // Target for Size pointer.
 	}{
-		Name:       node.Name,
-		Type:       node.Type,
-		Path:       path,
-		UID:        node.UID,
-		GID:        node.GID,
-		size:       node.Size,
-		Mode:       node.Mode,
-		ModTime:    node.ModTime,
-		AccessTime: node.AccessTime,
-		ChangeTime: node.ChangeTime,
-		StructType: "node",
+		Name:        node.Name,
+		Type:        node.Type,
+		Path:        path,
+		UID:         node.UID,
+		GID:         node.GID,
+		size:        node.Size,
+		Mode:        node.Mode,
+		Permissions: node.Mode.String(),
+		ModTime:     node.ModTime,
+		AccessTime:  node.AccessTime,
+		ChangeTime:  node.ChangeTime,
+		StructType:  "node",
 	}
 	// Always print size for regular files, even when empty,
 	// but never for other types.
@@ -114,7 +117,7 @@ func lsNodeJSON(enc *json.Encoder, path string, node *restic.Node) error {
 
 func runLs(opts LsOptions, gopts GlobalOptions, args []string) error {
 	if len(args) == 0 {
-		return errors.Fatal("no snapshot ID specified")
+		return errors.Fatal("no snapshot ID specified, specify snapshot ID or use special ID 'latest'")
 	}
 
 	// extract any specific directories to walk
@@ -167,6 +170,11 @@ func runLs(opts LsOptions, gopts GlobalOptions, args []string) error {
 		return err
 	}
 
+	snapshotLister, err := backend.MemorizeList(gopts.ctx, repo.Backend(), restic.SnapshotFile)
+	if err != nil {
+		return err
+	}
+
 	if err = repo.LoadIndex(gopts.ctx); err != nil {
 		return err
 	}
@@ -209,7 +217,7 @@ func runLs(opts LsOptions, gopts GlobalOptions, args []string) error {
 		}
 	}
 
-	for sn := range FindFilteredSnapshots(ctx, repo, opts.Hosts, opts.Tags, opts.Paths, args[:1]) {
+	for sn := range FindFilteredSnapshots(ctx, snapshotLister, repo, opts.Hosts, opts.Tags, opts.Paths, args[:1]) {
 		printSnapshot(sn)
 
 		err := walker.Walk(ctx, repo, *sn.Tree, nil, func(_ restic.ID, nodepath string, node *restic.Node, err error) (bool, error) {

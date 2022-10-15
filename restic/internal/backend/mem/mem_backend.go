@@ -3,11 +3,15 @@ package mem
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/base64"
+	"hash"
 	"io"
 	"io/ioutil"
 	"sync"
 
 	"github.com/restic/restic/internal/backend"
+	"github.com/restic/restic/internal/backend/sema"
 	"github.com/restic/restic/internal/debug"
 	"github.com/restic/restic/internal/errors"
 	"github.com/restic/restic/internal/restic"
@@ -22,17 +26,26 @@ var _ restic.Backend = &MemoryBackend{}
 
 var errNotFound = errors.New("not found")
 
+const connectionCount = 2
+
 // MemoryBackend is a mock backend that uses a map for storing all data in
 // memory. This should only be used for tests.
 type MemoryBackend struct {
 	data memMap
 	m    sync.Mutex
+	sem  sema.Semaphore
 }
 
 // New returns a new backend that saves all data in a map in memory.
 func New() *MemoryBackend {
+	sem, err := sema.New(connectionCount)
+	if err != nil {
+		panic(err)
+	}
+
 	be := &MemoryBackend{
 		data: make(memMap),
+		sem:  sem,
 	}
 
 	debug.Log("created new memory backend")
@@ -42,6 +55,9 @@ func New() *MemoryBackend {
 
 // Test returns whether a file exists.
 func (be *MemoryBackend) Test(ctx context.Context, h restic.Handle) (bool, error) {
+	be.sem.GetToken()
+	defer be.sem.ReleaseToken()
+
 	be.m.Lock()
 	defer be.m.Unlock()
 
@@ -56,7 +72,7 @@ func (be *MemoryBackend) Test(ctx context.Context, h restic.Handle) (bool, error
 
 // IsNotExist returns true if the file does not exist.
 func (be *MemoryBackend) IsNotExist(err error) bool {
-	return errors.Cause(err) == errNotFound
+	return errors.Is(err, errNotFound)
 }
 
 // Save adds new Data to the backend.
@@ -65,9 +81,13 @@ func (be *MemoryBackend) Save(ctx context.Context, h restic.Handle, rd restic.Re
 		return backoff.Permanent(err)
 	}
 
+	be.sem.GetToken()
+	defer be.sem.ReleaseToken()
+
 	be.m.Lock()
 	defer be.m.Unlock()
 
+	h.ContainedBlobType = restic.InvalidBlob
 	if h.Type == restic.ConfigFile {
 		h.Name = ""
 	}
@@ -84,6 +104,19 @@ func (be *MemoryBackend) Save(ctx context.Context, h restic.Handle, rd restic.Re
 	// sanity check
 	if int64(len(buf)) != rd.Length() {
 		return errors.Errorf("wrote %d bytes instead of the expected %d bytes", len(buf), rd.Length())
+	}
+
+	beHash := be.Hasher()
+	// must never fail according to interface
+	_, err = beHash.Write(buf)
+	if err != nil {
+		panic(err)
+	}
+	if !bytes.Equal(beHash.Sum(nil), rd.Hash()) {
+		return errors.Errorf("invalid file hash or content, got %s expected %s",
+			base64.RawStdEncoding.EncodeToString(beHash.Sum(nil)),
+			base64.RawStdEncoding.EncodeToString(rd.Hash()),
+		)
 	}
 
 	be.data[h] = buf
@@ -103,9 +136,11 @@ func (be *MemoryBackend) openReader(ctx context.Context, h restic.Handle, length
 		return nil, backoff.Permanent(err)
 	}
 
+	be.sem.GetToken()
 	be.m.Lock()
 	defer be.m.Unlock()
 
+	h.ContainedBlobType = restic.InvalidBlob
 	if h.Type == restic.ConfigFile {
 		h.Name = ""
 	}
@@ -113,15 +148,18 @@ func (be *MemoryBackend) openReader(ctx context.Context, h restic.Handle, length
 	debug.Log("Load %v offset %v len %v", h, offset, length)
 
 	if offset < 0 {
+		be.sem.ReleaseToken()
 		return nil, errors.New("offset is negative")
 	}
 
 	if _, ok := be.data[h]; !ok {
+		be.sem.ReleaseToken()
 		return nil, errNotFound
 	}
 
 	buf := be.data[h]
 	if offset > int64(len(buf)) {
+		be.sem.ReleaseToken()
 		return nil, errors.New("offset beyond end of file")
 	}
 
@@ -130,18 +168,22 @@ func (be *MemoryBackend) openReader(ctx context.Context, h restic.Handle, length
 		buf = buf[:length]
 	}
 
-	return ioutil.NopCloser(bytes.NewReader(buf)), ctx.Err()
+	return be.sem.ReleaseTokenOnClose(ioutil.NopCloser(bytes.NewReader(buf)), nil), ctx.Err()
 }
 
 // Stat returns information about a file in the backend.
 func (be *MemoryBackend) Stat(ctx context.Context, h restic.Handle) (restic.FileInfo, error) {
-	be.m.Lock()
-	defer be.m.Unlock()
-
 	if err := h.Valid(); err != nil {
 		return restic.FileInfo{}, backoff.Permanent(err)
 	}
 
+	be.sem.GetToken()
+	defer be.sem.ReleaseToken()
+
+	be.m.Lock()
+	defer be.m.Unlock()
+
+	h.ContainedBlobType = restic.InvalidBlob
 	if h.Type == restic.ConfigFile {
 		h.Name = ""
 	}
@@ -158,11 +200,15 @@ func (be *MemoryBackend) Stat(ctx context.Context, h restic.Handle) (restic.File
 
 // Remove deletes a file from the backend.
 func (be *MemoryBackend) Remove(ctx context.Context, h restic.Handle) error {
+	be.sem.GetToken()
+	defer be.sem.ReleaseToken()
+
 	be.m.Lock()
 	defer be.m.Unlock()
 
 	debug.Log("Remove %v", h)
 
+	h.ContainedBlobType = restic.InvalidBlob
 	if _, ok := be.data[h]; !ok {
 		return errNotFound
 	}
@@ -209,9 +255,23 @@ func (be *MemoryBackend) List(ctx context.Context, t restic.FileType, fn func(re
 	return ctx.Err()
 }
 
+func (be *MemoryBackend) Connections() uint {
+	return connectionCount
+}
+
 // Location returns the location of the backend (RAM).
 func (be *MemoryBackend) Location() string {
 	return "RAM"
+}
+
+// Hasher may return a hash function for calculating a content hash for the backend
+func (be *MemoryBackend) Hasher() hash.Hash {
+	return md5.New()
+}
+
+// HasAtomicReplace returns whether Save() can atomically replace files
+func (be *MemoryBackend) HasAtomicReplace() bool {
+	return false
 }
 
 // Delete removes all data in the backend.

@@ -158,5 +158,5 @@ jobs:
           args: >
             --package build-scripts
             --bin package-server --
-            public/cirrus_${{ matrix.target }}.tar.xz
+            cirrus_${{ matrix.target }}.tar.xz
             --target ${{ matrix.target }}

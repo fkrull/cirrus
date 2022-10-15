@@ -3,9 +3,9 @@ setup_cross_env_linux() {
   RUST_TARGET="$1"
   DEB_ARCH="$2"
   GCC_ARCH="$3"
-  sudo apt-get install -y "libdbus-1-dev:$DEB_ARCH"
+  sudo apt-get install -y libdbus-1-dev "libdbus-1-dev:$DEB_ARCH"
   mkdir -p "$HOME/.cargo"
-  cat >> "$HOME/.cargo/config" <<EOF
+  cat > "$HOME/.cargo/config" <<EOF
 [target.${RUST_TARGET}]
 linker = "${GCC_ARCH}-gcc"
 

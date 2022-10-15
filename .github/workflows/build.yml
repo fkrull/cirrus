@@ -137,7 +137,7 @@ jobs:
           - aarch64-unknown-linux-gnu
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/download-artifacts@v3
+      - uses: actions/download-artifact@v3
         with:
           name: cirrus_${{ matrix.target }}
       - uses: actions-rs/toolchain@v1

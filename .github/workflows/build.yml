@@ -7,7 +7,7 @@ on:
 
 jobs:
   fmt:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, ubuntu-22.04]
+        platform: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
@@ -33,9 +33,9 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-      - name: Setup build environment
-        if: ${{ matrix.platform == 'ubuntu-22.04' }}
-        run: sudo .github/workflows/setup-cross-env.sh x86_64-unknown-linux-gnu
+      - name: Install libdbus-1-dev
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
+        run: sudo apt-get install -y libdbus-1-dev
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo test
         uses: actions-rs/cargo@v1
@@ -44,7 +44,7 @@ jobs:
           args: --workspace
 
   version:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.getCirrusVersion.outputs.VERSION }}
       BUILD_STRING: ${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
@@ -68,16 +68,20 @@ jobs:
           cat version >> "$GITHUB_OUTPUT"
 
   package:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [ version ]
     strategy:
       fail-fast: true
       matrix:
         target:
-          - x86_64-unknown-linux-gnu
-          - armv7-unknown-linux-gnueabihf
-          - aarch64-unknown-linux-gnu
-          - x86_64-pc-windows-gnu
+          - target: x86_64-unknown-linux-gnu
+            deb_arch: amd64
+          - target: armv7-unknown-linux-gnueabihf
+            deb_arch: armhf
+          - target: aarch64-unknown-linux-gnu
+            deb_arch: arm64
+          - target: x86_64-pc-windows-gnu
+            deb_arch: amd64
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -90,8 +94,10 @@ jobs:
           go-version: '^1.19'
           cache: true
           cache-dependency-path: restic/go.sum
-      - name: Setup build environment
-        run: sudo .github/workflows/setup-cross-env.sh ${{ matrix.target }}
+      - name: Install Cross-Compile Support (ARM64)
+        uses: cyberjunk/gha-ubuntu-cross@v2
+        with:
+          arch: ${{ matrix.deb_arch }}
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:

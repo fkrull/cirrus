@@ -1,7 +1,8 @@
 name: Update restic
 on:
   schedule:
-    - cron: 0 6 * * SAT
+    #- cron: 0 6 * * SAT
+    - cron: "*/5 * * * *"
 
 jobs:
   update-restic:

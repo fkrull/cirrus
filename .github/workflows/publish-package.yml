@@ -29,7 +29,7 @@ jobs:
     steps:
       - run: mkdir -p public/latest
       - name: Record version
-        run: echo - echo "${{ inputs.version }}-${{ inputs.build-string }}" > public/latest/version
+        run: echo "${{ inputs.version }}-${{ inputs.build-string }}" > public/latest/version
 
       - uses: actions/download-artifact@v3
         with:

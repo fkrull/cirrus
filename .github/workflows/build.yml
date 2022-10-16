@@ -45,11 +45,8 @@ jobs:
           command: test
           args: --workspace
 
-  version:
+  build-scripts:
     runs-on: ubuntu-latest
-    outputs:
-      VERSION: ${{ steps.getCirrusVersion.outputs.VERSION }}
-      BUILD_STRING: ${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -57,21 +54,36 @@ jobs:
           toolchain: stable
           profile: minimal
       - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: build-scripts
       - name: Build build-scripts
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --package build-scripts
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build-scripts
+          path: target/debug/build-scripts
+
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.getCirrusVersion.outputs.VERSION }}
+      BUILD_STRING: ${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-scripts
       - name: Get cirrus version
         id: getCirrusVersion
+        run: ./build-scripts get-version >> "$GITHUB_OUTPUT"
+      - name: Print versions
         run: |
-          cargo run --package build-scripts -- get-version > version
-          cat version
-          cat version >> "$GITHUB_OUTPUT"
+          echo VERSION=${{ steps.getCirrusVersion.outputs.VERSION }}
+          echo BUILD_STRING=${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
 
   package:
+    # older Ubuntu version because of glibc compatibility
     runs-on: ubuntu-20.04
     needs: [ version ]
     strategy:
@@ -84,6 +96,9 @@ jobs:
           - x86_64-pc-windows-gnu
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-scripts
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -101,18 +116,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{matrix.target }}
-      - uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: >
-            --package build-scripts --
-            package 
-            --version ${{ needs.version.outputs.VERSION }}
-            --build-string ${{ needs.version.outputs.BUILD_STRING }}
-            --target ${{ matrix.target }}
-            --features bundled-restic-support
-            --static-dbus
-            --build-restic
+      - name: Build package
+        run: >
+          ./build-scripts package 
+          --version ${{ needs.version.outputs.VERSION }}
+          --build-string ${{ needs.version.outputs.BUILD_STRING }}
+          --target ${{ matrix.target }}
+          --features bundled-restic-support
+          --static-dbus
+          --build-restic
       - uses: actions/upload-artifact@v3
         with:
           name: cirrus_${{ matrix.target }}
@@ -144,24 +156,17 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
         with:
+          name: build-scripts
+      - uses: actions/download-artifact@v3
+        with:
           name: cirrus_${{ matrix.target }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: build-scripts
       - uses: docker/setup-qemu-action@v2
-      - uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: >
-            --package build-scripts --
-            container-image
-            --binaries-tar cirrus_${{ matrix.target }}.tar.xz
-            --tag ${{ env.TAG }}
-            --target ${{ matrix.target }}
+      - name: Build container image
+        run: >
+          ./build-scripts container-image
+          --binaries-tar cirrus_${{ matrix.target }}.tar.xz
+          --tag ${{ env.TAG }}
+          --target ${{ matrix.target }}
       - name: Push image
         uses: redhat-actions/push-to-registry@v2
         with:

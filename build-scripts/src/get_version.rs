@@ -20,8 +20,9 @@ fn find_release_version<'a>(lines: impl Iterator<Item = &'a str>) -> Option<&'a 
 fn find_in_line(line: &str) -> Option<&str> {
     line.trim()
         .strip_prefix("## ")
-        .and_then(|s| s.split("-").next())
-        .map(|p| p.trim())
+        .and_then(|s| s.split('-').next())
+        .map(|s| s.trim())
+        .filter(|s| !s.eq_ignore_ascii_case("unreleased"))
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -79,6 +80,21 @@ mod tests {
         let lines = vec!["text", "## 1.0.0", "text", ""];
         let release_version = find_release_version(lines.iter().copied());
         assert_eq!(release_version, Some("1.0.0"));
+    }
+
+    #[test]
+    fn should_skip_unreleased_headings() {
+        let lines = vec![
+            "# Start",
+            "##    unReleased - huh",
+            "some line",
+            "##         unreleased        ",
+            "## UNRELEASED - TBD",
+            "## 123456 - I guess this is the version now",
+            "",
+        ];
+        let release_version = find_release_version(lines.iter().copied());
+        assert_eq!(release_version, Some("123456"));
     }
 
     #[test]

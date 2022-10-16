@@ -4,16 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Note that
 the version numbers are *not* semantic.
 
-## 2.0.0
+## UNRELEASED
+### Updated
+* Update bundled restic to 0.14.
+
+### Changed
+* Move build to Github.
+* Statically link dbus on Linux.
+
+## 2.0.0 - 2022-10-14
 ### Added
 * Graceful shutdown handling.
 * Clean shutdown on signals.
 * Initial suspend UI.
 * Option `--log-level` for `daemon` subcommand.
-
-### Changed
-* Move build to Github.
-* Statically link dbus on Linux.
 
 Also I forgot I had a changelog...
 

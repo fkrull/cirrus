@@ -1,4 +1,4 @@
-name: Publish
+name: Publish container image
 on:
   workflow_call:
     inputs:

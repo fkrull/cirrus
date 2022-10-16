@@ -1,0 +1,59 @@
+name: Publish package to GH Pages
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: cirrus main version
+        required: true
+        type: string
+      build-string:
+        description: cirrus build string
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - run: mkdir -p public/latest
+      - name: Record version
+        run: echo - echo "${{ inputs.version }}-${{ inputs.build-string }}" > public/latest/version
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: cirrus_x86_64-unknown-linux-gnu
+          path: public/latest
+      - uses: actions/download-artifact@v3
+        with:
+          name: cirrus_aarch64-unknown-linux-gnu
+          path: public/latest
+      - uses: actions/download-artifact@v3
+        with:
+          name: cirrus_armv7-unknown-linux-gnueabihf
+          path: public/latest
+      - uses: actions/download-artifact@v3
+        with:
+          name: cirrus_x86_64-pc-windows-gnu
+          path: public/latest
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v2
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: public
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1

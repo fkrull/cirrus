@@ -138,13 +138,13 @@ jobs:
           name: cirrus_${{ matrix.target }}
           path: public/*
 
-  publish:
+  publish-container-image:
     if: ${{ github.event_name == 'push' }}
     needs:
       - build-scripts
       - version
       - package
-    uses: ./.github/workflows/publish.yml
+    uses: ./.github/workflows/publish-container-image.yml
     with:
       version: ${{ needs.version.outputs.version }}
       build-string: ${{ needs.version.outputs.build-string }}
@@ -152,3 +152,13 @@ jobs:
     secrets:
       username: ${{ github.actor }}
       password: ${{ github.token }}
+
+  publish-package:
+    if: ${{ github.event_name == 'push' }}
+    needs:
+      - version
+      - package
+    uses: ./.github/workflows/publish-package.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      build-string: ${{ needs.version.outputs.build-string }}

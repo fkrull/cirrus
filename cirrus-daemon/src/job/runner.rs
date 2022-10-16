@@ -5,6 +5,7 @@ use cirrus_core::{
 };
 use futures::StreamExt;
 use std::{sync::Arc, time::Duration};
+use tokio::sync::oneshot;
 
 #[derive(Debug)]
 pub(super) struct Runner {
@@ -23,14 +24,18 @@ impl Runner {
     }
 
     #[tracing::instrument(name = "job", skip_all, fields(id = %job.id, label = job.spec.label()))]
-    pub(super) async fn run(&mut self, job: job::Job, cancellation_recv: job::cancellation::Recv) {
+    pub(super) async fn run(
+        &mut self,
+        job: job::Job,
+        cancellation: oneshot::Receiver<job::CancellationReason>,
+    ) {
         self.sender
             .send(job::StatusChange::new(job.clone(), job::Status::Started));
         let run_result = run(
             job.spec.clone(),
             self.restic.clone(),
             self.secrets.clone(),
-            cancellation_recv,
+            cancellation,
         )
         .await;
         match run_result {
@@ -41,11 +46,10 @@ impl Runner {
                     job::Status::FinishedSuccessfully,
                 ));
             }
-            Ok(Err(cancellation)) => {
-                tracing::info!(reason = ?cancellation.reason, "cancelled");
+            Ok(Err(cancellation_reason)) => {
+                tracing::info!(reason = ?cancellation_reason, "cancelled");
                 self.sender
                     .send(job::StatusChange::new(job, job::Status::Cancelled));
-                cancellation.acknowledge();
             }
             Err(error) => {
                 tracing::error!(%error, "failed");
@@ -60,11 +64,11 @@ async fn run(
     spec: job::Spec,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
-    cancellation_recv: job::cancellation::Recv,
-) -> eyre::Result<Result<(), job::cancellation::Request>> {
+    cancellation: oneshot::Receiver<job::CancellationReason>,
+) -> eyre::Result<Result<(), job::CancellationReason>> {
     match spec {
         job::Spec::Backup(backup_spec) => {
-            run_backup(&backup_spec, &restic, &secrets, cancellation_recv).await
+            run_backup(&backup_spec, &restic, &secrets, cancellation).await
         }
     }
 }
@@ -75,8 +79,8 @@ async fn run_backup(
     spec: &job::BackupSpec,
     restic: &Restic,
     secrets: &Secrets,
-    mut cancellation_recv: job::cancellation::Recv,
-) -> eyre::Result<Result<(), job::cancellation::Request>> {
+    mut cancellation: oneshot::Receiver<job::CancellationReason>,
+) -> eyre::Result<Result<(), job::CancellationReason>> {
     let repo_with_secrets = secrets.get_secrets(&spec.repo)?;
     let mut process = restic.backup(
         &repo_with_secrets,
@@ -101,9 +105,9 @@ async fn run_backup(
                     None => break
                 }
             },
-            cancellation = cancellation_recv.recv() => {
+            cancellation_reason = &mut cancellation => {
                 process.terminate(TERMINATE_GRACE_PERIOD).await?;
-                return Ok(Err(cancellation));
+                return Ok(Err(cancellation_reason?));
             }
         }
     }

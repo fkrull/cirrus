@@ -4,16 +4,16 @@ use crate::{
     suspend::Suspend,
 };
 use cirrus_core::{config, restic::Restic, secrets::Secrets};
-use futures::StreamExt as _;
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
 };
+use tokio::sync::oneshot;
 
 #[derive(Debug)]
 struct RunningJob {
     job: job::Job,
-    cancellation: Option<job::cancellation::Send>,
+    cancellation: Option<oneshot::Sender<job::CancellationReason>>,
 }
 
 #[derive(Debug)]
@@ -58,11 +58,11 @@ impl RunQueue {
                     self.secrets.clone(),
                 );
                 let cloned_job = job.clone();
-                let (cancellation_send, cancellation_recv) = job::cancellation::new();
-                tokio::spawn(async move { runner.run(cloned_job, cancellation_recv).await });
+                let (send, recv) = oneshot::channel();
+                tokio::spawn(async move { runner.run(cloned_job, recv).await });
                 self.running = Some(RunningJob {
                     job,
-                    cancellation: Some(cancellation_send),
+                    cancellation: Some(send),
                 });
             }
         }
@@ -77,9 +77,11 @@ impl RunQueue {
         }
     }
 
-    async fn cancel(&mut self, reason: job::cancellation::Reason) {
-        if let Some(cancellation) = self.running.as_mut().and_then(|j| j.cancellation.take()) {
-            cancellation.cancel(reason).await;
+    fn cancel(&mut self, reason: job::CancellationReason) {
+        if let Some(send) = self.running.as_mut().and_then(|j| j.cancellation.take()) {
+            if let Err(_) = send.send(reason) {
+                tracing::warn!("cancellation receiver was dropped, job could not be cancelled");
+            }
         }
     }
 }
@@ -145,15 +147,11 @@ impl PerRepositoryQueue {
         }
     }
 
-    async fn cancel(&mut self, reason: job::cancellation::Reason) {
-        let mut futs = futures::stream::FuturesUnordered::new();
-        futs.push(self.repo_queue.cancel(reason));
-        futs.extend(
-            self.per_backup_queues
-                .values_mut()
-                .map(|q| q.cancel(reason)),
-        );
-        futs.count().await;
+    fn cancel(&mut self, reason: job::CancellationReason) {
+        self.repo_queue.cancel(reason);
+        for queue in self.per_backup_queues.values_mut() {
+            queue.cancel(reason);
+        }
     }
 
     fn has_running_jobs(&self) -> bool {
@@ -219,7 +217,24 @@ impl JobQueues {
         Ok(())
     }
 
+    fn job_finished(&mut self, job: &job::Job) {
+        for queue in self.per_repo_queues.values_mut() {
+            queue.job_finished(job);
+        }
+    }
+
+    fn cancel(&mut self, reason: job::CancellationReason) {
+        for queue in self.per_repo_queues.values_mut() {
+            queue.cancel(reason);
+        }
+    }
+
+    fn has_running_jobs(&self) -> bool {
+        self.per_repo_queues.values().any(|q| q.has_running_jobs())
+    }
+
     fn handle_status_change(&mut self, status_change: job::StatusChange) {
+        // TODO: re-enqueue any job that was suspended
         match status_change.new_status {
             job::Status::Started => {}
             job::Status::FinishedSuccessfully
@@ -228,24 +243,22 @@ impl JobQueues {
         }
     }
 
-    async fn handle_suspend(&mut self, suspend: Suspend) {
+    fn handle_suspend(&mut self, suspend: Suspend) {
         self.suspend = suspend;
         if suspend.is_suspended() {
-            // TODO: re-enqueue any cancelled job at the head of the queue
-            self.cancel(job::cancellation::Reason::Suspend).await;
+            self.cancel(job::CancellationReason::Suspend);
         }
     }
 
-    fn job_finished(&mut self, job: &job::Job) {
-        for queue in self.per_repo_queues.values_mut() {
-            queue.job_finished(job);
+    async fn handle_shutdown(&mut self, _shutdown: ShutdownRequested) -> eyre::Result<()> {
+        tracing::debug!("received shutdown event");
+        self.cancel(job::CancellationReason::Shutdown);
+        // wait until we're out of running jobs
+        while self.has_running_jobs() {
+            let _ = self.events.StatusChange.recv().await?;
         }
-    }
-
-    async fn cancel(&mut self, reason: job::cancellation::Reason) {
-        let mut futs = futures::stream::FuturesUnordered::new();
-        futs.extend(self.per_repo_queues.values_mut().map(|q| q.cancel(reason)));
-        futs.count().await;
+        self.events.send(ShutdownAcknowledged);
+        Ok(())
     }
 
     #[tracing::instrument(name = "job_queues", skip_all)]
@@ -254,12 +267,9 @@ impl JobQueues {
             tokio::select! {
                 job = self.events.Job.recv() => self.push(job?),
                 status_change = self.events.StatusChange.recv() => self.handle_status_change(status_change?),
-                suspend = self.events.Suspend.recv() => self.handle_suspend(suspend?).await,
+                suspend = self.events.Suspend.recv() => self.handle_suspend(suspend?),
                 shutdown = self.events.ShutdownRequested.recv() => {
-                    let _ = shutdown?;
-                    tracing::debug!("received shutdown event");
-                    self.cancel(job::cancellation::Reason::Shutdown).await;
-                    self.events.send(ShutdownAcknowledged);
+                    self.handle_shutdown(shutdown?).await?;
                     break Ok(());
                 },
             }

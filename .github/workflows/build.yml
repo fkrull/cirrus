@@ -72,7 +72,7 @@ jobs:
           cat version >> "$GITHUB_OUTPUT"
 
   package:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     needs: [ version ]
     strategy:
       fail-fast: true
@@ -94,8 +94,10 @@ jobs:
           go-version: '^1.19'
           cache: true
           cache-dependency-path: vendor/restic/go.sum
-      - name: Install meson and cross-compiling toolchains
-        run: sudo apt-get install -y meson gcc-mingw-w64-x86-64 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+      - name: Install ninja and cross-compiling toolchains
+        run: sudo apt-get install -y ninja-build gcc-mingw-w64-x86-64 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+      - name: Install meson
+        run: sudo pip3 install meson
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{matrix.target }}
@@ -118,6 +120,7 @@ jobs:
 
   container-image:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     needs:
       - version
       - package
@@ -149,3 +152,4 @@ jobs:
             --bin container-image --
             cirrus_${{ matrix.target }}.tar.xz
             --target ${{ matrix.target }}
+      - name: Tag

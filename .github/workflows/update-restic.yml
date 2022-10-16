@@ -2,6 +2,7 @@ name: Update restic
 on:
   schedule:
     - cron: 0 6 * * SAT
+  workflow_dispatch:
 
 jobs:
   update-restic:

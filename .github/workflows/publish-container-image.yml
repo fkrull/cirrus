@@ -64,17 +64,17 @@ jobs:
       latest-tag: ghcr.io/${{ github.repository_owner }}/cirrus:latest
       versioned-tag: ghcr.io/${{ github.repository_owner }}/cirrus:${{ inputs.version }}-${{ inputs.build-string }}
     steps:
+      - uses: redhat-actions/podman-login@v1
+        with:
+          registry: ghcr.io/${{ github.repository_owner }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Build manifest list
         run: >
           buildah manifest create manifest-list
           docker://${{ env.versioned-tag }}-linux-amd64
           docker://${{ env.versioned-tag }}-linux-arm32v7
           docker://${{ env.versioned-tag }}-linux-arm64v8
-      - uses: redhat-actions/podman-login@v1
-        with:
-          registry: ghcr.io/${{ github.repository_owner }}
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
       - name: Push versioned manifest list
         run: buildah manifest push manifest-list docker://${{ env.versioned-tag }}
       - name: Push latest manifest list

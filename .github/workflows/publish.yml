@@ -69,24 +69,24 @@ jobs:
         with:
           tags: ${{ env.tag }}
 
-    manifest-list:
-      runs-on: ubuntu-latest
-      env:
-        latest-tag: ${{ inputs.registry }}/cirrus:latest
-        versioned-tag: ${{ inputs.registry }}/cirrus:${{ inputs.version }}-${{ inputs.build-string }}
-      steps:
-        - name: Build manifest list
-          run: >
-            buildah manifest create manifest-list
-            docker://${{ env.versioned-tag }}-linux-amd64
-            docker://${{ env.versioned-tag }}-linux-arm32v7
-            docker://${{ env.versioned-tag }}-linux-arm64v8
-        - uses: redhat-actions/podman-login@v1
-          with:
-            registry: ${{ inputs.registry }}
-            username: ${{ secrets.username }}
-            password: ${{ secrets.password }}
-        - name: Push versioned manifest list
-          run: buildah manifest push manifest-list docker://${{ env.versioned-tag }}
-        - name: Push latest manifest list
-          run: buildah manifest push manifest-list docker://${{ env.latest-tag }}
+  manifest-list:
+    runs-on: ubuntu-latest
+    env:
+      latest-tag: ${{ inputs.registry }}/cirrus:latest
+      versioned-tag: ${{ inputs.registry }}/cirrus:${{ inputs.version }}-${{ inputs.build-string }}
+    steps:
+      - name: Build manifest list
+        run: >
+          buildah manifest create manifest-list
+          docker://${{ env.versioned-tag }}-linux-amd64
+          docker://${{ env.versioned-tag }}-linux-arm32v7
+          docker://${{ env.versioned-tag }}-linux-arm64v8
+      - uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.username }}
+          password: ${{ secrets.password }}
+      - name: Push versioned manifest list
+        run: buildah manifest push manifest-list docker://${{ env.versioned-tag }}
+      - name: Push latest manifest list
+        run: buildah manifest push manifest-list docker://${{ env.latest-tag }}

@@ -1,11 +1,12 @@
-use build_scripts::TargetVars;
+use super::TargetVars;
 use std::path::Path;
 use tempfile::TempDir;
 use xshell::*;
 
 /// Build binaries and a package.
 #[derive(argh::FromArgs)]
-struct Args {
+#[argh(subcommand, name = "package")]
+pub struct Args {
     /// cirrus version
     #[argh(option)]
     version: String,
@@ -26,9 +27,8 @@ struct Args {
     static_dbus: bool,
 }
 
-fn main() -> eyre::Result<()> {
+pub fn main(args: Args) -> eyre::Result<()> {
     let sh = Shell::new()?;
-    let args: Args = argh::from_env();
     let target = args.target;
     let tmp = TempDir::new()?;
     let target_vars = TargetVars::for_target(&target)?;

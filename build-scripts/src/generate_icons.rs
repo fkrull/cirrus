@@ -1,7 +1,12 @@
 use std::path::Path;
 use xshell::*;
 
-fn main() -> eyre::Result<()> {
+/// Generate icons from the raw SVG.
+#[derive(argh::FromArgs)]
+#[argh(subcommand, name = "generate-icons")]
+pub struct Args {}
+
+pub fn main(_args: Args) -> eyre::Result<()> {
     let sh = Shell::new()?;
     status_icons(&sh)?;
     Ok(())

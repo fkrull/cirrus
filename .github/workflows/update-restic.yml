@@ -19,7 +19,6 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-      - uses: Swatinem/rust-cache@v2
       - name: Set git author
         run: git config user.name "update-restic-workflow[bot]"
       - name: Update restic subtree
@@ -27,9 +26,8 @@ jobs:
         with:
           command: run
           args: >
-            --package build-scripts
-            --bin update-vendor --
-            --restic ${{ steps.resticRelease.outputs.release }}
+            --package build-scripts -- 
+            update-vendor --restic ${{ steps.resticRelease.outputs.release }}
       - uses: peter-evans/create-pull-request@v4
         with:
           branch: update-restic

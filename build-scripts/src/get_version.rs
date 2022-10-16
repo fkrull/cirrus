@@ -1,8 +1,9 @@
 /// Get the current build version.
 #[derive(argh::FromArgs)]
-struct Args {}
+#[argh(subcommand, name = "get-version")]
+pub struct Args {}
 
-fn main() -> eyre::Result<()> {
+pub fn main(_args: Args) -> eyre::Result<()> {
     let changelog = std::fs::read_to_string("CHANGELOG.md")?;
     let version = find_release_version(changelog.lines())
         .ok_or_else(|| eyre::eyre!("failed to find release version in changelog file"))?;

@@ -1,3 +1,9 @@
+pub mod container_image;
+pub mod generate_icons;
+pub mod get_version;
+pub mod package;
+pub mod update_vendor;
+
 #[derive(Debug)]
 pub struct TargetVars {
     pub go_os: &'static str,

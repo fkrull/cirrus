@@ -1,10 +1,11 @@
-use build_scripts::TargetVars;
+use super::TargetVars;
 use std::path::Path;
 use xshell::*;
 
 /// Build a container image.
 #[derive(argh::FromArgs)]
-struct Args {
+#[argh(subcommand, name = "container-image")]
+pub struct Args {
     /// tar file of binaries
     #[argh(option)]
     binaries_tar: String,
@@ -16,9 +17,8 @@ struct Args {
     target: String,
 }
 
-fn main() -> eyre::Result<()> {
+pub fn main(args: Args) -> eyre::Result<()> {
     let sh = Shell::new()?;
-    let args: Args = argh::from_env();
     let binaries_tar = Path::new(&args.binaries_tar);
     let target_vars = TargetVars::for_target(&args.target)?;
     let container_arch = target_vars.container_arch;

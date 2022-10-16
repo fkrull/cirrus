@@ -5,7 +5,8 @@ const DBUS_GIT_URL: &'static str = "https://gitlab.freedesktop.org/dbus/dbus.git
 
 /// Update vendored subtrees.
 #[derive(argh::FromArgs)]
-struct Args {
+#[argh(subcommand, name = "update-vendor")]
+pub struct Args {
     /// revision of the restic git to update to
     #[argh(option)]
     restic: Option<String>,
@@ -18,9 +19,8 @@ struct Args {
     add: bool,
 }
 
-fn main() -> eyre::Result<()> {
+pub fn main(args: Args) -> eyre::Result<()> {
     let sh = Shell::new()?;
-    let args: Args = argh::from_env();
     if let Some(rev) = args.restic {
         update(&sh, &rev, "vendor/restic", RESTIC_GIT_URL, args.add)?;
     }

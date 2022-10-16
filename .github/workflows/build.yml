@@ -67,7 +67,7 @@ jobs:
       - name: Get cirrus version
         id: getCirrusVersion
         run: |
-          cargo run --package build-scripts --bin get-version > version
+          cargo run --package build-scripts -- get-version > version
           cat version
           cat version >> "$GITHUB_OUTPUT"
 
@@ -105,8 +105,8 @@ jobs:
         with:
           command: run
           args: >
-            --package build-scripts
-            --bin package --
+            --package build-scripts --
+            package 
             --version ${{ needs.version.outputs.VERSION }}
             --build-string ${{ needs.version.outputs.BUILD_STRING }}
             --target ${{ matrix.target }}
@@ -157,8 +157,8 @@ jobs:
         with:
           command: run
           args: >
-            --package build-scripts
-            --bin container-image --
+            --package build-scripts --
+            container-image
             --binaries-tar cirrus_${{ matrix.target }}.tar.xz
             --tag ${{ env.TAG }}
             --target ${{ matrix.target }}

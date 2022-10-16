@@ -59,7 +59,7 @@ jobs:
           --binaries-tar cirrus_${{ matrix.target }}.tar.xz
           --tag ${{ env.tag }}
           --target ${{ matrix.target }}
-      - uses: redhat-actions/podman-login
+      - uses: redhat-actions/podman-login@v1
         with:
           registry: ${{ inputs.registry }}
           username: ${{ secrets.username }}
@@ -81,7 +81,7 @@ jobs:
             docker://${{ env.versioned-tag }}-linux-amd64
             docker://${{ env.versioned-tag }}-linux-arm32v7
             docker://${{ env.versioned-tag }}-linux-arm64v8
-        - uses: redhat-actions/podman-login
+        - uses: redhat-actions/podman-login@v1
           with:
             registry: ${{ inputs.registry }}
             username: ${{ secrets.username }}

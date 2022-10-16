@@ -6,7 +6,7 @@ the version numbers are *not* semantic.
 
 ## UNRELEASED
 ### Added
-* Allow suspending jobs.
+* Suspend jobs and resume them afterwards when suspending from the UI.
 
 ### Updated
 * Update bundled restic to 0.14.

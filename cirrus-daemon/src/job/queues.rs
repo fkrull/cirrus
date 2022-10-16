@@ -52,6 +52,7 @@ impl RunQueue {
     fn maybe_start_next_job(&mut self) -> eyre::Result<()> {
         if !self.has_running_job() {
             if let Some(job) = self.queue.pop_front() {
+                tracing::info!(id = %job.id, label = job.spec.label(), "starting job");
                 let mut runner = job::runner::Runner::new(
                     self.sender.clone(),
                     self.restic.clone(),
@@ -69,10 +70,14 @@ impl RunQueue {
         Ok(())
     }
 
-    fn job_finished(&mut self, job: &job::Job) {
+    fn job_finished(&mut self, job: &job::Job, readd_to_queue: bool) {
         if let Some(running) = &self.running {
             if &running.job == job {
-                self.running = None;
+                let finished_job = self.running.take().unwrap().job;
+                if readd_to_queue {
+                    tracing::debug!(id = %finished_job.id, label = ?finished_job.spec.label(), "adding job to front of queue again");
+                    self.queue.push_front(finished_job);
+                }
             }
         }
     }
@@ -140,10 +145,10 @@ impl PerRepositoryQueue {
         Ok(())
     }
 
-    fn job_finished(&mut self, job: &job::Job) {
-        self.repo_queue.job_finished(job);
+    fn job_finished(&mut self, job: &job::Job, readd_to_queue: bool) {
+        self.repo_queue.job_finished(job, readd_to_queue);
         for queue in self.per_backup_queues.values_mut() {
-            queue.job_finished(job);
+            queue.job_finished(job, readd_to_queue);
         }
     }
 
@@ -217,9 +222,9 @@ impl JobQueues {
         Ok(())
     }
 
-    fn job_finished(&mut self, job: &job::Job) {
+    fn job_finished(&mut self, job: &job::Job, readd_to_queue: bool) {
         for queue in self.per_repo_queues.values_mut() {
-            queue.job_finished(job);
+            queue.job_finished(job, readd_to_queue);
         }
     }
 
@@ -236,13 +241,13 @@ impl JobQueues {
     fn handle_status_change(&mut self, status_change: job::StatusChange) {
         match status_change.new_status {
             job::Status::Started => {}
-            // TODO: re-enqueue any job that was suspended
-            job::Status::Cancelled(job::CancellationReason::Shutdown) => {
-                self.job_finished(&status_change.job)
+            job::Status::Cancelled(job::CancellationReason::Suspend) => {
+                // jobs that were suspended will restart afterwards
+                self.job_finished(&status_change.job, true)
             }
             job::Status::FinishedSuccessfully
             | job::Status::FinishedWithError
-            | job::Status::Cancelled(_) => self.job_finished(&status_change.job),
+            | job::Status::Cancelled(_) => self.job_finished(&status_change.job, false),
         }
     }
 
@@ -253,18 +258,22 @@ impl JobQueues {
         }
     }
 
-    async fn handle_shutdown(&mut self, _shutdown: ShutdownRequested) -> eyre::Result<()> {
+    #[tracing::instrument(skip(self))]
+    async fn handle_shutdown(&mut self, shutdown: ShutdownRequested) -> eyre::Result<()> {
         tracing::debug!("received shutdown event");
         self.cancel(job::CancellationReason::Shutdown);
-        // wait until we're out of running jobs
+        // process status changes until we're out of running jobs
         while self.has_running_jobs() {
-            let _ = self.events.StatusChange.recv().await?;
+            tracing::debug!("still have running jobs...");
+            let status_change = self.events.StatusChange.recv().await?;
+            self.handle_status_change(status_change);
         }
         self.events.send(ShutdownAcknowledged);
+        tracing::debug!("shutdown acknowledged");
         Ok(())
     }
 
-    #[tracing::instrument(name = "job_queues", skip_all)]
+    #[tracing::instrument(name = "JobQueues", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         loop {
             tokio::select! {

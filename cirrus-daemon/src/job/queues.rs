@@ -36,7 +36,7 @@ impl RunQueue {
         }
     }
 
-    // TODO: check if running or enqueued based on label
+    // TODO: don't enqueue job that's already running or enqueued
     fn push(&mut self, job: job::Job) {
         self.queue.push_back(job);
     }
@@ -52,7 +52,6 @@ impl RunQueue {
     fn maybe_start_next_job(&mut self) -> eyre::Result<()> {
         if !self.has_running_job() {
             if let Some(job) = self.queue.pop_front() {
-                // TODO: cancellation channel
                 let mut runner = job::runner::Runner::new(
                     self.sender.clone(),
                     self.restic.clone(),
@@ -166,6 +165,7 @@ impl PerRepositoryQueue {
 events::subscriptions! {
     Job: job::Job,
     StatusChange: job::StatusChange,
+    Suspend,
     ShutdownRequested,
 }
 
@@ -208,6 +208,10 @@ impl JobQueues {
     }
 
     fn maybe_start_next_jobs(&mut self) -> eyre::Result<()> {
+        // start no jobs if suspended
+        if self.suspend.is_suspended() {
+            return Ok(());
+        }
         // start more jobs as necessary
         for queue in self.per_repo_queues.values_mut() {
             queue.maybe_start_next_jobs()?;
@@ -221,6 +225,14 @@ impl JobQueues {
             job::Status::FinishedSuccessfully
             | job::Status::FinishedWithError
             | job::Status::Cancelled => self.job_finished(&status_change.job),
+        }
+    }
+
+    async fn handle_suspend(&mut self, suspend: Suspend) {
+        self.suspend = suspend;
+        if suspend.is_suspended() {
+            // TODO: re-enqueue any cancelled job at the head of the queue
+            self.cancel(job::cancellation::Reason::Suspend).await;
         }
     }
 
@@ -238,11 +250,11 @@ impl JobQueues {
 
     #[tracing::instrument(name = "job_queues", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
-        // TODO: listen to suspend events and handle them
         loop {
             tokio::select! {
                 job = self.events.Job.recv() => self.push(job?),
                 status_change = self.events.StatusChange.recv() => self.handle_status_change(status_change?),
+                suspend = self.events.Suspend.recv() => self.handle_suspend(suspend?).await,
                 shutdown = self.events.ShutdownRequested.recv() => {
                     let _ = shutdown?;
                     tracing::debug!("received shutdown event");

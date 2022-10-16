@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 the version numbers are *not* semantic.
 
 ## UNRELEASED
+### Added
+* Allow suspending jobs.
+
 ### Updated
 * Update bundled restic to 0.14.
 

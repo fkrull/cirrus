@@ -1,7 +1,7 @@
 ARG IMAGE_ARCH
 FROM docker.io/${IMAGE_ARCH}/debian:11-slim
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y ca-certificates libdbus-1-3 openssh-client && \
+    apt-get install --no-install-recommends -y ca-certificates openssh-client && \
     apt-get clean && \
     rm -rf /var/lib/apt
 

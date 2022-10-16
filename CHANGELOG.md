@@ -11,6 +11,10 @@ the version numbers are *not* semantic.
 * Initial suspend UI.
 * Option `--log-level` for `daemon` subcommand.
 
+### Changed
+* Move build to Github.
+* Statically link dbus on Linux.
+
 Also I forgot I had a changelog...
 
 ## 1.4.1

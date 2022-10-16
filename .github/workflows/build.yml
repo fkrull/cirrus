@@ -160,7 +160,7 @@ jobs:
             --package build-scripts
             --bin container-image --
             --binaries-tar cirrus_${{ matrix.target }}.tar.xz
-            --tag $TAG
+            --tag ${{ env.TAG }}
             --target ${{ matrix.target }}
       - name: Push image
         uses: redhat-actions/push-to-registry@v2

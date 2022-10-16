@@ -10,14 +10,22 @@ on:
         description: cirrus build string
         required: true
         type: string
+      registry:
+        description: image registry
+        default: ghcr.io/${{ github.repository_owner }}
+        required: false
+        type: string
+    secrets:
+      username:
+        description: image registry username
+        required: true
+      password:
+        description: image registry password
+        required: true
 
 jobs:
   container-image:
     runs-on: ubuntu-latest
-    #needs:
-    #  - build-scripts
-    #  - version
-    #  - package
     strategy:
       fail-fast: true
       matrix:
@@ -27,13 +35,13 @@ jobs:
           - aarch64-unknown-linux-gnu
         include:
           - target: x86_64-unknown-linux-gnu
-            tag: linux-amd64
+            target_tag: linux-amd64
           - target: armv7-unknown-linux-gnueabihf
-            tag: linux-arm32v7
+            target_tag: linux-arm32v7
           - target: aarch64-unknown-linux-gnu
-            tag: linux-arm64v8
+            target_tag: linux-arm64v8
     env:
-      TAG: ghcr.io/${{ github.repository_owner }}/cirrus:${{ inputs.version }}-${{ inputs.build-string }}-${{ matrix.tag }}
+      tag: ${{ inputs.registry }}/cirrus:${{ inputs.version }}-${{ inputs.build-string }}-${{ matrix.target_tag }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -49,12 +57,36 @@ jobs:
         run: >
           target/build-scripts container-image
           --binaries-tar cirrus_${{ matrix.target }}.tar.xz
-          --tag ${{ env.TAG }}
+          --tag ${{ env.tag }}
           --target ${{ matrix.target }}
+      - uses: redhat-actions/podman-login
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.username }}
+          password: ${{ secrets.password }}
       - name: Push image
         uses: redhat-actions/push-to-registry@v2
         with:
-          tags: ${{ env.TAG }}
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-          registry: ghcr.io/${{ github.repository_owner }}
+          tags: ${{ env.tag }}
+
+    manifest-list:
+      runs-on: ubuntu-latest
+      env:
+        latest-tag: ${{ inputs.registry }}/cirrus:latest
+        versioned-tag: ${{ inputs.registry }}/cirrus:${{ inputs.version }}-${{ inputs.build-string }}
+      steps:
+        - name: Build manifest list
+          run: >
+            buildah manifest create manifest-list
+            docker://${{ env.versioned-tag }}-linux-amd64
+            docker://${{ env.versioned-tag }}-linux-arm32v7
+            docker://${{ env.versioned-tag }}-linux-arm64v8
+        - uses: redhat-actions/podman-login
+          with:
+            registry: ${{ inputs.registry }}
+            username: ${{ secrets.username }}
+            password: ${{ secrets.password }}
+        - name: Push versioned manifest list
+          run: buildah manifest push manifest-list docker://${{ env.versioned-tag }}
+        - name: Push latest manifest list
+          run: buildah manifest push manifest-list docker://${{ env.latest-tag }}

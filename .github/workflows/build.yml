@@ -148,3 +148,7 @@ jobs:
     with:
       version: ${{ needs.version.outputs.version }}
       build-string: ${{ needs.version.outputs.build-string }}
+      registry: ghcr.io/${{ github.repository_owner }}
+    secrets:
+      username: ${{ github.actor }}
+      password: ${{ github.token }}

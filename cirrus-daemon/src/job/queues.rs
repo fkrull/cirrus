@@ -234,12 +234,15 @@ impl JobQueues {
     }
 
     fn handle_status_change(&mut self, status_change: job::StatusChange) {
-        // TODO: re-enqueue any job that was suspended
         match status_change.new_status {
             job::Status::Started => {}
+            // TODO: re-enqueue any job that was suspended
+            job::Status::Cancelled(job::CancellationReason::Shutdown) => {
+                self.job_finished(&status_change.job)
+            }
             job::Status::FinishedSuccessfully
             | job::Status::FinishedWithError
-            | job::Status::Cancelled => self.job_finished(&status_change.job),
+            | job::Status::Cancelled(_) => self.job_finished(&status_change.job),
         }
     }
 

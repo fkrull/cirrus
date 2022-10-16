@@ -114,7 +114,7 @@ pub enum Status {
     Started,
     FinishedSuccessfully,
     FinishedWithError,
-    Cancelled,
+    Cancelled(CancellationReason),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

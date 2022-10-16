@@ -48,8 +48,10 @@ impl Runner {
             }
             Ok(Err(cancellation_reason)) => {
                 tracing::info!(reason = ?cancellation_reason, "cancelled");
-                self.sender
-                    .send(job::StatusChange::new(job, job::Status::Cancelled));
+                self.sender.send(job::StatusChange::new(
+                    job,
+                    job::Status::Cancelled(cancellation_reason),
+                ));
             }
             Err(error) => {
                 tracing::error!(%error, "failed");

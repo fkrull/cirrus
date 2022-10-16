@@ -58,7 +58,7 @@ impl Model {
                         .insert(status_change.job.id, status_change.job),
                     job::Status::FinishedSuccessfully
                     | job::Status::FinishedWithError
-                    | job::Status::Cancelled => self.running_jobs.remove(&status_change.job.id),
+                    | job::Status::Cancelled(_) => self.running_jobs.remove(&status_change.job.id),
                 };
                 Ok(HandleEventOutcome::UpdateView)
             }

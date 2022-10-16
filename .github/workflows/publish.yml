@@ -1,0 +1,50 @@
+name: Publish
+on: workflow_flow
+
+jobs:
+  container-image:
+    runs-on: ubuntu-latest
+    #needs:
+    #  - build-scripts
+    #  - version
+    #  - package
+    strategy:
+      fail-fast: true
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - armv7-unknown-linux-gnueabihf
+          - aarch64-unknown-linux-gnu
+        include:
+          - target: x86_64-unknown-linux-gnu
+            tag: linux-amd64
+          - target: armv7-unknown-linux-gnueabihf
+            tag: linux-arm32v7
+          - target: aarch64-unknown-linux-gnu
+            tag: linux-arm64v8
+    env:
+      TAG: ghcr.io/${{ github.repository_owner }}/cirrus:${{ needs.version.outputs.VERSION }}-${{ needs.version.outputs.BUILD_STRING }}-${{ matrix.tag }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-scripts
+          path: target
+      - run: chmod +x target/build-scripts
+      - uses: actions/download-artifact@v3
+        with:
+          name: cirrus_${{ matrix.target }}
+      - uses: docker/setup-qemu-action@v2
+      - name: Build container image
+        run: >
+          target/build-scripts container-image
+          --binaries-tar cirrus_${{ matrix.target }}.tar.xz
+          --tag ${{ env.TAG }}
+          --target ${{ matrix.target }}
+      - name: Push image
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          tags: ${{ env.TAG }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+          registry: ghcr.io/${{ github.repository_owner }}

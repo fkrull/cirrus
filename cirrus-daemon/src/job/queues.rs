@@ -36,8 +36,16 @@ impl RunQueue {
         }
     }
 
-    // TODO: don't enqueue job that's already running or enqueued
     fn push(&mut self, job: job::Job) {
+        if let Some(_) = &self.running.as_ref().filter(|j| &j.job.spec == &job.spec) {
+            tracing::info!(id = %job.id, label = job.spec.label(), "job spec is currently running, not enqueuing it");
+            return;
+        }
+        if self.queue.iter().any(|j| &j.spec == &job.spec) {
+            tracing::info!(id = %job.id, label = job.spec.label(), "job spec is currently in the queue, not enqueuing it again");
+            return;
+        }
+        tracing::info!(id = %job.id, label = job.spec.label(), "enqueuing");
         self.queue.push_back(job);
     }
 

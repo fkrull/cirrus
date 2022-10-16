@@ -8,12 +8,12 @@ the version numbers are *not* semantic.
 ### Added
 * Suspend jobs and resume them afterwards when suspending from the UI.
 
+### Changed
+* Don't enqueue a job that's currently running or in the queue.
+* Statically link dbus on Linux.
+
 ### Updated
 * Update bundled restic to 0.14.
-
-### Changed
-* Move build to Github.
-* Statically link dbus on Linux.
 
 ## 2.0.0 - 2022-10-14
 ### Added

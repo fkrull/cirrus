@@ -76,7 +76,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: build-scripts
-          path: target/build-scripts
+          path: target
       - run: chmod +x target/build-scripts
       - name: Get cirrus version
         id: getCirrusVersion
@@ -105,7 +105,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: build-scripts
-          path: target/build-scripts
+          path: target
       - run: chmod +x target/build-scripts
       - uses: actions-rs/toolchain@v1
         with:
@@ -166,7 +166,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: build-scripts
-          path: target/build-scripts
+          path: target
       - run: chmod +x target/build-scripts
       - uses: actions/download-artifact@v3
         with:

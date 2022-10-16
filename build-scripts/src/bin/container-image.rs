@@ -6,9 +6,11 @@ use xshell::*;
 #[derive(argh::FromArgs)]
 struct Args {
     /// tar file of binaries
-    #[argh(positional)]
+    #[argh(option)]
     binaries_tar: String,
-
+    /// image base tag (without OS and arch)
+    #[argh(option)]
+    tag: String,
     /// rust compile target
     #[argh(option)]
     target: String,
@@ -17,8 +19,10 @@ struct Args {
 fn main() -> eyre::Result<()> {
     let sh = Shell::new()?;
     let args: Args = argh::from_env();
-    let image_arch = TargetVars::for_target(&args.target)?.image_arch;
     let binaries_tar = Path::new(&args.binaries_tar);
+    let target_vars = TargetVars::for_target(&args.target)?;
+    let container_arch = target_vars.container_arch;
+    let tag = args.tag;
     let context_path = binaries_tar
         .parent()
         .ok_or_else(|| eyre::eyre!("no parent path"))?;
@@ -28,9 +32,9 @@ fn main() -> eyre::Result<()> {
     cmd!(
         sh,
         "buildah build-using-dockerfile
-            --build-arg=IMAGE_ARCH={image_arch}
+            --build-arg=IMAGE_ARCH={container_arch}
             --build-arg=TARBALL={tarball}
-            --tag=cirrus-server-image
+            --tag={tag}
             --file=Containerfile
             {context_path}"
     )

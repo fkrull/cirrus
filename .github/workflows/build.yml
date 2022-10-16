@@ -131,6 +131,15 @@ jobs:
           - x86_64-unknown-linux-gnu
           - armv7-unknown-linux-gnueabihf
           - aarch64-unknown-linux-gnu
+        include:
+          - target: x86_64-unknown-linux-gnu
+            tag: linux-amd64
+          - target: armv7-unknown-linux-gnueabihf
+            tag: linux-arm32v7
+          - target: aarch64-unknown-linux-gnu
+            tag: linux-arm64v8
+    env:
+      TAG: ghcr.io/${{ github.repository_owner }}/cirrus:${{ needs.version.outputs.VERSION }}-${{ needs.version.outputs.BUILD_STRING }}-${{ matrix.tag }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -150,6 +159,13 @@ jobs:
           args: >
             --package build-scripts
             --bin container-image --
-            cirrus_${{ matrix.target }}.tar.xz
+            --binaries-tar cirrus_${{ matrix.target }}.tar.xz
+            --tag $TAG
             --target ${{ matrix.target }}
-      - name: Tag
+      - name: Push image
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: "$TAG"
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+          registry: ghcr.io/${{ github.repository_owner }}

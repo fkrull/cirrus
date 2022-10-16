@@ -66,6 +66,7 @@ jobs:
 
   version:
     runs-on: ubuntu-latest
+    needs: [ build-scripts ]
     outputs:
       VERSION: ${{ steps.getCirrusVersion.outputs.VERSION }}
       BUILD_STRING: ${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
@@ -85,7 +86,9 @@ jobs:
   package:
     # older Ubuntu version because of glibc compatibility
     runs-on: ubuntu-20.04
-    needs: [ version ]
+    needs:
+      - build-scripts
+      - version
     strategy:
       fail-fast: true
       matrix:
@@ -134,6 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
     needs:
+      - build-scripts
       - version
       - package
     strategy:

@@ -1,5 +1,15 @@
 name: Publish
-on: workflow_flow
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: cirrus main version
+        required: true
+        type: string
+      build-string:
+        description: cirrus build string
+        required: true
+        type: string
 
 jobs:
   container-image:
@@ -23,7 +33,7 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             tag: linux-arm64v8
     env:
-      TAG: ghcr.io/${{ github.repository_owner }}/cirrus:${{ needs.version.outputs.VERSION }}-${{ needs.version.outputs.BUILD_STRING }}-${{ matrix.tag }}
+      TAG: ghcr.io/${{ github.repository_owner }}/cirrus:${{ inputs.version }}-${{ inputs.build-string }}-${{ matrix.tag }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3

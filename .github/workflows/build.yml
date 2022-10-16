@@ -69,8 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ build-scripts ]
     outputs:
-      VERSION: ${{ steps.getCirrusVersion.outputs.VERSION }}
-      BUILD_STRING: ${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
+      version: ${{ steps.getCirrusVersion.outputs.VERSION }}
+      build-string: ${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -83,8 +83,8 @@ jobs:
         run: target/build-scripts get-version >> "$GITHUB_OUTPUT"
       - name: Print versions
         run: |
-          echo VERSION=${{ steps.getCirrusVersion.outputs.VERSION }}
-          echo BUILD_STRING=${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
+          echo version=${{ steps.getCirrusVersion.outputs.VERSION }}
+          echo build-string=${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
 
   package:
     # older Ubuntu version because of glibc compatibility
@@ -127,8 +127,8 @@ jobs:
       - name: Build package
         run: >
           target/build-scripts package 
-          --version ${{ needs.version.outputs.VERSION }}
-          --build-string ${{ needs.version.outputs.BUILD_STRING }}
+          --version ${{ needs.version.outputs.version }}
+          --build-string ${{ needs.version.outputs.build-string }}
           --target ${{ matrix.target }}
           --features bundled-restic-support
           --static-dbus
@@ -137,3 +137,14 @@ jobs:
         with:
           name: cirrus_${{ matrix.target }}
           path: public/*
+
+  publish:
+    if: ${{ github.event_name == 'push' }}
+    needs:
+      - build-scripts
+      - version
+      - package
+    uses: ./.github/workflows/publish.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      build-string: ${{ needs.version.outputs.build-string }}

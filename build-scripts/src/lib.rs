@@ -17,7 +17,7 @@ pub struct TargetVars {
 impl TargetVars {
     pub fn for_target(target: &str) -> eyre::Result<TargetVars> {
         Ok(match target {
-            "x86_64-unknown-linux-gnu" => TargetVars {
+            "x86_64-unknown-linux-gnu" | "x86_64-unknown-linux-musl" => TargetVars {
                 go_os: "linux",
                 go_arch: "amd64",
                 go_arm: None,
@@ -33,7 +33,15 @@ impl TargetVars {
                 extension: "",
                 uses_dbus: true,
             },
-            "aarch64-unknown-linux-gnu" => TargetVars {
+            "arm-unknown-linux-musl" => TargetVars {
+                go_os: "linux",
+                go_arch: "arm",
+                go_arm: Some("6"),
+                container_arch: "arm32v6",
+                extension: "",
+                uses_dbus: true,
+            },
+            "aarch64-unknown-linux-gnu" | "aarch64-unknown-linux-musl" => TargetVars {
                 go_os: "linux",
                 go_arch: "arm64",
                 go_arm: None,

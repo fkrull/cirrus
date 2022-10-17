@@ -5,9 +5,17 @@
 # so we explicitly take the risk here
 rustflags = ["--cfg=unsound_local_offset"]
 
-# GCC linker for other architectures
 [target.aarch64-unknown-linux-gnu]
 linker = "aarch64-linux-gnu-gcc"
 
 [target.armv7-unknown-linux-gnueabihf]
 linker = "arm-linux-gnueabihf-gcc"
+
+[target.aarch64-unknown-linux-musl]
+linker = "rust-lld"
+
+[target.arm-unknown-linux-musl]
+linker = "rust-lld"
+
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"

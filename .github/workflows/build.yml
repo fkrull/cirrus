@@ -139,6 +139,62 @@ jobs:
           name: cirrus_${{ matrix.target }}
           path: public/*
 
+  package-musl:
+    runs-on: ubuntu-latest
+    needs:
+      - build-scripts
+      - version
+    strategy:
+      fail-fast: true
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - arm-unknown-linux-musl
+          - aarch64-unknown-linux-gnu
+          #- x86_64-pc-windows-gnu
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: build-scripts
+          path: target
+      - run: chmod +x target/build-scripts
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          profile: minimal
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '^1.19'
+          cache: true
+          cache-dependency-path: vendor/restic/go.sum
+      - name: Install ninja and cross-compiling toolchains
+        run: sudo apt-get install -y ninja-build gcc-mingw-w64-x86-64
+      - name: Install meson
+        run: sudo pip3 install meson
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{matrix.target }}
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v1
+        with:
+          version: 0.9.1
+      - name: Build package
+        run: >
+          target/build-scripts package 
+          --version ${{ needs.version.outputs.version }}
+          --build-string ${{ needs.version.outputs.build-string }}
+          --target ${{ matrix.target }}
+          --meson-cross-file .github/workflows/meson-zig-${{ matrix.target }}.ini
+          --features bundled-restic-support
+          --static-dbus
+          --build-restic
+      - uses: actions/upload-artifact@v3
+        with:
+          name: cirrus_${{ matrix.target }}
+          path: public/*
+
   publish-container-image:
     if: ${{ github.event_name == 'push' }}
     needs:

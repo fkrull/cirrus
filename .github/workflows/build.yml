@@ -180,9 +180,6 @@ jobs:
         uses: goto-bus-stop/setup-zig@v1
         with:
           version: 0.9.1
-      - run: which zig
-      - run: zig cc
-      - run: zig version
       - name: Build package
         run: >
           target/build-scripts package 

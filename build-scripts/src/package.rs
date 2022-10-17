@@ -51,7 +51,7 @@ pub fn main(args: Args) -> eyre::Result<()> {
     }
 
     // compile dbus
-    let dbus_link_args = if args.static_dbus && target_vars.uses_dbus {
+    let dbus_link_args = if args.static_dbus {
         let dbus_build_dir = format!("./target/{target}/dbus");
         sh.create_dir(&dbus_build_dir)?;
         let meson_cross_file = args.meson_cross_file.map(|s| format!("--cross-file={s}"));

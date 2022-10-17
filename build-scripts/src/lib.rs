@@ -11,7 +11,6 @@ pub struct TargetVars {
     pub go_arm: Option<&'static str>,
     pub container_arch: &'static str,
     pub extension: &'static str,
-    pub uses_dbus: bool,
 }
 
 impl TargetVars {
@@ -23,7 +22,6 @@ impl TargetVars {
                 go_arm: None,
                 container_arch: "amd64",
                 extension: "",
-                uses_dbus: true,
             },
             "armv7-unknown-linux-gnueabihf" => TargetVars {
                 go_os: "linux",
@@ -31,7 +29,6 @@ impl TargetVars {
                 go_arm: Some("7"),
                 container_arch: "arm32v7",
                 extension: "",
-                uses_dbus: true,
             },
             "arm-unknown-linux-musleabihf" => TargetVars {
                 go_os: "linux",
@@ -39,7 +36,6 @@ impl TargetVars {
                 go_arm: Some("6"),
                 container_arch: "arm32v6",
                 extension: "",
-                uses_dbus: true,
             },
             "aarch64-unknown-linux-gnu" | "aarch64-unknown-linux-musl" => TargetVars {
                 go_os: "linux",
@@ -47,7 +43,6 @@ impl TargetVars {
                 go_arm: None,
                 container_arch: "arm64v8",
                 extension: "",
-                uses_dbus: true,
             },
             "x86_64-pc-windows-gnu" | "x86_64-pc-windows-msvc" => TargetVars {
                 go_os: "windows",
@@ -55,7 +50,6 @@ impl TargetVars {
                 go_arm: None,
                 container_arch: "amd64",
                 extension: ".exe",
-                uses_dbus: false,
             },
             _ => eyre::bail!("unknown target {}", target),
         })

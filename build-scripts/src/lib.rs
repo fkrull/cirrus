@@ -33,7 +33,7 @@ impl TargetVars {
                 extension: "",
                 uses_dbus: true,
             },
-            "arm-unknown-linux-musl" => TargetVars {
+            "arm-unknown-linux-musleabihf" => TargetVars {
                 go_os: "linux",
                 go_arch: "arm",
                 go_arm: Some("6"),

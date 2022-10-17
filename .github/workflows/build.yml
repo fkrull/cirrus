@@ -130,6 +130,7 @@ jobs:
           --version ${{ needs.version.outputs.version }}
           --build-string ${{ needs.version.outputs.build-string }}
           --target ${{ matrix.target }}
+          --meson-cross-file vendor/meson-${{ matrix.target }}.ini
           --features bundled-restic-support
           --static-dbus
           --build-restic

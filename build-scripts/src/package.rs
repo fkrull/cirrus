@@ -25,6 +25,9 @@ pub struct Args {
     /// build and statically link libdbus
     #[argh(switch)]
     static_dbus: bool,
+    /// cross-compiler config file for Meson
+    #[argh(option)]
+    meson_cross_file: Option<String>,
 }
 
 pub fn main(args: Args) -> eyre::Result<()> {
@@ -51,7 +54,8 @@ pub fn main(args: Args) -> eyre::Result<()> {
     let dbus_link_args = if args.static_dbus && target_vars.uses_dbus {
         let dbus_build_dir = format!("./target/{target}/dbus");
         sh.create_dir(&dbus_build_dir)?;
-        cmd!(sh, "meson setup --auto-features=disabled --default-library=static --cross-file=vendor/meson-{target}.ini vendor/dbus {dbus_build_dir}").run()?;
+        let meson_cross_file = args.meson_cross_file.map(|s| format!("--cross-file={s}"));
+        cmd!(sh, "meson setup --auto-features=disabled --default-library=static {meson_cross_file...} vendor/dbus {dbus_build_dir}").run()?;
         cmd!(sh, "meson compile -C {dbus_build_dir} dbus-1").run()?;
 
         let host_triple = host_triple(&sh)?;

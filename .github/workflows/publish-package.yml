@@ -47,6 +47,14 @@ jobs:
         with:
           name: cirrus_x86_64-pc-windows-gnu
           path: public/latest
+      - uses: actions/download-artifact@v3
+        with:
+          name: cirrus_aarch64-unknown-linux-musl
+          path: public/latest
+      - uses: actions/download-artifact@v3
+        with:
+          name: cirrus_x86_64-unknown-linux-musl
+          path: public/latest
 
       - name: Setup Pages
         uses: actions/configure-pages@v2

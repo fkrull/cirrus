@@ -70,7 +70,6 @@ jobs:
         run: >
           buildah manifest create manifest-list
           docker://${{ env.versioned-tag }}-linux-amd64
-          docker://${{ env.versioned-tag }}-linux-arm32v7
           docker://${{ env.versioned-tag }}-linux-arm64v8
       - name: Push versioned manifest list
         run: buildah manifest push manifest-list docker://${{ env.versioned-tag }}

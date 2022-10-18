@@ -18,15 +18,12 @@ jobs:
       fail-fast: true
       matrix:
         target:
-          - x86_64-unknown-linux-gnu
-          - armv7-unknown-linux-gnueabihf
-          - aarch64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             target_tag: linux-amd64
-          - target: armv7-unknown-linux-gnueabihf
-            target_tag: linux-arm32v7
-          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
             target_tag: linux-arm64v8
     env:
       tag: ghcr.io/${{ github.repository_owner }}/cirrus:${{ inputs.version }}-${{ inputs.build-string }}-${{ matrix.target_tag }}

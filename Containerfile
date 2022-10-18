@@ -1,9 +1,8 @@
 ARG IMAGE_ARCH
-FROM docker.io/${IMAGE_ARCH}/debian:11-slim
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y ca-certificates openssh-client && \
-    apt-get clean && \
-    rm -rf /var/lib/apt
+FROM docker.io/${IMAGE_ARCH}/alpine:3
+RUN apk add --no-cache \
+    ca-certificates \
+    openssh-client
 
 ARG TARBALL
 ADD --chown=root:root $TARBALL /usr/local/bin

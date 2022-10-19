@@ -46,6 +46,3 @@ features = ["signal", "rt-multi-thread"]
 bundled-restic-support = []
 
 default = ["cirrus-core/keyring", "cirrus-self", "cirrus-desktop-ui"]
-
-[profile.release]
-lto = "thin"

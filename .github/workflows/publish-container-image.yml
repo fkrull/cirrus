@@ -32,15 +32,14 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: build-scripts
-          path: target
-      - run: chmod +x target/build-scripts
+      - run: chmod +x ./_build
       - uses: actions/download-artifact@v3
         with:
           name: cirrus_${{ matrix.target }}
       - uses: docker/setup-qemu-action@v2
       - name: Build container image
         run: >
-          target/build-scripts container-image
+          ./_build container-image
           --binaries-tar cirrus_${{ matrix.target }}.tar.xz
           --tag ${{ env.tag }}
           --target ${{ matrix.target }}

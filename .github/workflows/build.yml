@@ -63,10 +63,12 @@ jobs:
         with:
           command: build
           args: --package build-scripts
+      - run: cp target/debug/build-scripts ./_build
       - uses: actions/upload-artifact@v3
         with:
           name: build-scripts
-          path: target/debug/build-scripts
+          path: _build
+          if-no-files-found: error
           retention-days: 1
 
   version:
@@ -80,15 +82,12 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: build-scripts
-          path: target
-      - run: chmod +x target/build-scripts
+      - run: chmod +x ./_build
       - name: Get cirrus version
         id: getCirrusVersion
-        run: target/build-scripts get-version >> "$GITHUB_OUTPUT"
-      - name: Print versions
-        run: |
-          echo version=${{ steps.getCirrusVersion.outputs.VERSION }}
-          echo build-string=${{ steps.getCirrusVersion.outputs.BUILD_STRING }}
+        run: ./_build get-version >> "$GITHUB_OUTPUT"
+      - name: Show version
+        run: echo '`${{ steps.getCirrusVersion.outputs.VERSION }}` - `${{ steps.getCirrusVersion.outputs.BUILD_STRING }}`' > $GITHUB_STEP_SUMMARY
 
   package-glibc:
     # older Ubuntu version because of glibc compatibility
@@ -108,8 +107,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: build-scripts
-          path: target
-      - run: chmod +x target/build-scripts
+      - run: chmod +x ./_build
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -129,7 +127,7 @@ jobs:
           key: ${{matrix.target }}
       - name: Build package
         run: >
-          target/build-scripts package 
+          ./_build package
           --version ${{ needs.version.outputs.version }}
           --build-string ${{ needs.version.outputs.build-string }}
           --target ${{ matrix.target }}
@@ -141,6 +139,7 @@ jobs:
         with:
           name: cirrus_${{ matrix.target }}
           path: public/*
+          if-no-files-found: error
 
   package-windows:
     runs-on: ubuntu-latest
@@ -154,8 +153,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: build-scripts
-          path: target
-      - run: chmod +x target/build-scripts
+      - run: chmod +x ./_build
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -171,7 +169,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build package
         run: >
-          target/build-scripts package 
+          ./_build package
           --version ${{ needs.version.outputs.version }}
           --build-string ${{ needs.version.outputs.build-string }}
           --target ${{ env.target }}
@@ -181,6 +179,7 @@ jobs:
         with:
           name: cirrus_${{ env.target }}
           path: public/*
+          if-no-files-found: error
 
   package-musl:
     runs-on: ubuntu-latest
@@ -198,8 +197,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: build-scripts
-          path: target
-      - run: chmod +x target/build-scripts
+      - run: chmod +x ./_build
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -221,7 +219,7 @@ jobs:
           key: ${{matrix.target }}
       - name: Build package
         run: >
-          target/build-scripts package 
+          ./_build package
           --version ${{ needs.version.outputs.version }}
           --build-string ${{ needs.version.outputs.build-string }}
           --target ${{ matrix.target }}
@@ -233,6 +231,7 @@ jobs:
         with:
           name: cirrus_${{ matrix.target }}
           path: public/*
+          if-no-files-found: error
 
   publish-container-image:
     if: ${{ github.event_name == 'push' }}

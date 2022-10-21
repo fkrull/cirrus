@@ -40,12 +40,6 @@ impl Job {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub(crate) struct QueueId<'a> {
-    pub repo: &'a repo::Name,
-    pub backup: Option<&'a backup::Name>,
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Spec {
     Backup(BackupSpec),
@@ -58,15 +52,21 @@ impl From<BackupSpec> for Spec {
 }
 
 impl Spec {
-    pub(crate) fn queue_id(&self) -> QueueId {
+    pub(crate) fn repo_name(&self) -> &repo::Name {
         match self {
-            Spec::Backup(spec) => spec.queue_id(),
+            Spec::Backup(spec) => &spec.repo_name,
+        }
+    }
+
+    pub(crate) fn repo(&self) -> &repo::Definition {
+        match self {
+            Spec::Backup(spec) => &spec.repo,
         }
     }
 
     pub fn label(&self) -> String {
         match self {
-            Spec::Backup(spec) => format!("backup.{}", spec.name()),
+            Spec::Backup(spec) => format!("backup.{}", spec.backup_name.0),
         }
     }
 }
@@ -77,19 +77,6 @@ pub struct BackupSpec {
     pub backup_name: backup::Name,
     pub repo: repo::Definition,
     pub backup: backup::Definition,
-}
-
-impl BackupSpec {
-    fn queue_id(&self) -> QueueId {
-        QueueId {
-            repo: &self.repo_name,
-            backup: Some(&self.backup_name),
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.backup_name.0
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

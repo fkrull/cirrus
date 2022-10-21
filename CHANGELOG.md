@@ -5,15 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 the version numbers are *not* semantic.
 
 ## UNRELEASED
-### Added
+### Job Queue
+* Remove per-backup queues.
+  - There is only one level of queues now, one queue per repository.
+  - Each repository queue is allowed to run multiple jobs up to the per-repo limit.
+  - The limit defaults to 3 and can be overridden with the `parallel-jobs` setting in the repo config.
 * Suspend jobs and resume them afterwards when suspending from the UI.
-
-### Changed
 * Don't enqueue a job that's currently running or in the queue.
-* Statically link dbus on Linux.
 
-### Updated
+### Build Changes
 * Update bundled restic to 0.14.
+* Statically link dbus on Linux.
 
 ## 2.0.0 - 2022-10-14
 ### Added

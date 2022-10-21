@@ -40,9 +40,10 @@ pub struct Url(pub String);
 pub struct SecretName(pub String);
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
 pub struct Definition {
     pub url: Url,
+    #[serde(alias = "parallel-jobs")]
+    pub parallel_jobs: Option<u32>,
     pub password: Secret,
     #[serde(default)]
     pub secrets: HashMap<SecretName, Secret>,

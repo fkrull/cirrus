@@ -1,4 +1,5 @@
 pub mod config;
+pub mod index;
 pub mod restic;
 pub mod schedule;
 pub mod secrets;

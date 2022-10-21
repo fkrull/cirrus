@@ -118,6 +118,7 @@ mod tests {
 
             [repositories.sftp]
             url = "sftp:user@host:repo/path"
+            parallel-jobs = 6
             password = { env-var = "SSH_PASSWORD" }
             
             [repositories.sftp.secrets.UNUSED_SECRET]
@@ -156,11 +157,13 @@ mod tests {
                 repositories: Repositories(hashmap! {
                     repo::Name("local".to_string()) => repo::Definition {
                         url: repo::Url("/srv/restic-repo".to_string()),
+                        parallel_jobs: None,
                         password: repo::Secret::FromEnvVar { env_var: "LOCAL_PASSWORD".to_string() },
                         secrets: HashMap::new(),
                     },
                     repo::Name("sftp".to_string()) => repo::Definition {
                         url: repo::Url("sftp:user@host:repo/path".to_string()),
+                        parallel_jobs: Some(6),
                         password: repo::Secret::FromEnvVar { env_var: "SSH_PASSWORD".to_string() },
                         secrets: hashmap! {
                             repo::SecretName("UNUSED_SECRET".to_string()) => repo::Secret::FromEnvVar {
@@ -212,6 +215,7 @@ mod tests {
             r#"
             [repositories.test]
             url = "/url"
+            parallel_jobs = 8
             password = { env_var = "var" }
 
             [backups.test]
@@ -232,6 +236,7 @@ mod tests {
                 repositories: Repositories(hashmap! {
                     repo::Name("test".to_string()) => repo::Definition {
                         url: repo::Url("/url".to_string()),
+                        parallel_jobs: Some(8),
                         password: repo::Secret::FromEnvVar { env_var: "var".to_string() },
                         secrets: HashMap::new(),
                     },

@@ -15,11 +15,10 @@ thiserror = "1.0.20"
 toml = "0.5.6"
 tokio-stream = { version = "0.1.6", features = ["io-util"] }
 pin-project = "1.0.7"
-time = { version = "0.3.7", features = ["local-offset", "serde-well-known"] }
+time = { version = "0.3.7", features = ["local-offset"] }
 libc = "0.2.135"
 tokio = { version = "1.21.2", features = ["fs", "process", "io-util", "macros"] }
 tracing = "0.1.37"
-serde_json = "1.0.87"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winbase"] }
@@ -29,4 +28,3 @@ atty = "0.2.14"
 maplit = "1.0.2"
 serde_json = "1.0.53"
 tempfile = "3.2.0"
-time = { version = "0.3.7", features = ["macros"] }

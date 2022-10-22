@@ -9,6 +9,7 @@ members = [
     "cirrus-core",
     "cirrus-daemon",
     "cirrus-desktop-ui",
+    "cirrus-index",
     "cirrus-self",
     "events",
     "integration-tests",

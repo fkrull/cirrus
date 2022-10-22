@@ -2,7 +2,7 @@ use serde::Deserialize;
 use time::OffsetDateTime;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-struct ResticSnapshotItem {
+struct LsEntry {
     name: String,
     #[serde(rename = "type")]
     r#type: Type,
@@ -48,11 +48,11 @@ mod tests {
           "struct_type": "node"
         }"#;
 
-        let item: ResticSnapshotItem = serde_json::from_str(json).unwrap();
+        let item: LsEntry = serde_json::from_str(json).unwrap();
 
         assert_eq!(
             item,
-            ResticSnapshotItem {
+            LsEntry {
                 name: "a-directory".to_string(),
                 r#type: Type::Dir,
                 path: "/var/tmp/subdir/a-directory".to_string(),
@@ -84,11 +84,11 @@ mod tests {
           "struct_type": "node"
         }"#;
 
-        let item: ResticSnapshotItem = serde_json::from_str(json).unwrap();
+        let item: LsEntry = serde_json::from_str(json).unwrap();
 
         assert_eq!(
             item,
-            ResticSnapshotItem {
+            LsEntry {
                 name: "test.yml".to_string(),
                 r#type: Type::File,
                 path: "/test.yml".to_string(),

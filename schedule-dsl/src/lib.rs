@@ -7,7 +7,8 @@ mod schedule;
 #[cfg(feature = "serde")]
 mod serde;
 
-#[derive(Debug, Hash, enumset::EnumSetType)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, enumset::EnumSetType)]
+#[enumset(no_super_impls)]
 pub enum DayOfWeek {
     Monday,
     Tuesday,

@@ -111,7 +111,7 @@ impl ResticProcess {
     }
 
     pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
-        while let Some(_) = self.next().await {}
+        while self.next().await.is_some() {}
         self.child
             .wait()
             .await

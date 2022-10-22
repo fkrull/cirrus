@@ -7,9 +7,9 @@ mod commands;
 
 async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
     let config = if let Some(config_string) = &args.config_string {
-        Config::from_str(config_string)?
+        Config::parse(config_string)?
     } else {
-        Config::from_file(args.config_file.path()?).await?
+        Config::parse_file(args.config_file.path()?).await?
     };
     Ok(config)
 }

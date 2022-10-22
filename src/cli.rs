@@ -11,8 +11,7 @@ pub struct ConfigFile(Option<PathBuf>);
 impl ConfigFile {
     pub fn path(&self) -> eyre::Result<&Path> {
         self.0
-            .as_ref()
-            .map(|p| p.as_path())
+            .as_deref()
             .ok_or_else(|| eyre::eyre!("failed to get default config file path"))
     }
 }

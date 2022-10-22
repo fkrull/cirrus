@@ -30,15 +30,12 @@ fn cargo_bin(name: &str) -> PathBuf {
     target_dir().join(exe_name(name))
 }
 
+#[derive(Default)]
 pub struct EnvVarGuard {
     keys: Vec<OsString>,
 }
 
 impl EnvVarGuard {
-    pub fn new() -> Self {
-        Self { keys: vec![] }
-    }
-
     pub fn with_var(mut self, key: &str, value: impl AsRef<OsStr>) -> Self {
         std::env::set_var(key, value);
         self.keys.push(OsString::from(key));
@@ -134,7 +131,7 @@ impl Args {
     }
 
     fn assert_args(&self, args: &[impl AsRef<str>]) -> &Self {
-        let args = args.into_iter().map(|s| s.as_ref()).collect::<Vec<_>>();
+        let args = args.iter().map(|s| s.as_ref()).collect::<Vec<_>>();
         assert_eq!(&self.args, &args);
         self
     }
@@ -157,11 +154,7 @@ impl Env {
     fn assert_var(&self, key: impl AsRef<str>, value: impl AsRef<str>) -> &Self {
         let key = key.as_ref();
         let value = value.as_ref();
-        assert!(self
-            .env
-            .iter()
-            .find(|(k, v)| k == key && v == value)
-            .is_some());
+        assert!(self.env.iter().any(|(k, v)| k == key && v == value));
         self
     }
 }

@@ -66,11 +66,11 @@ pub struct UnknownRepository(repo::Name);
 pub struct UnknownBackup(backup::Name);
 
 impl Config {
-    pub fn from_str(s: &str) -> Result<Config, ConfigLoadError> {
+    pub fn parse(s: &str) -> Result<Config, ConfigLoadError> {
         toml::from_str(s).map_err(|e| ConfigLoadError::InvalidConfigString(s.to_owned(), e.into()))
     }
 
-    pub async fn from_file(p: &Path) -> Result<Config, ConfigLoadError> {
+    pub async fn parse_file(p: &Path) -> Result<Config, ConfigLoadError> {
         let config_string = tokio::fs::read_to_string(p)
             .await
             .map_err(|e| ConfigLoadError::IoError(p.to_owned(), e))?;

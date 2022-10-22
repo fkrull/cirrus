@@ -60,7 +60,7 @@ async fn run_daemon(
         &mut events,
         restic.clone(),
         secrets.clone(),
-        suspend_service.get_suspend().clone(),
+        *suspend_service.get_suspend(),
     );
     let mut scheduler = scheduler::Scheduler::new(config.clone(), &mut events);
     let mut config_reload_service =
@@ -72,7 +72,7 @@ async fn run_daemon(
     let status_icon = match cirrus_desktop_ui::StatusIcon::new(
         config.clone(),
         &mut events,
-        suspend_service.get_suspend().clone(),
+        *suspend_service.get_suspend(),
     ) {
         Ok(status_icon) => Some(status_icon),
         Err(error) => {

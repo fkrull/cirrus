@@ -22,6 +22,7 @@ impl SignalHandler {
 }
 
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 enum Signal {
     #[cfg(unix)]
     SIGALRM,

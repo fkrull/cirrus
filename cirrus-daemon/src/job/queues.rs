@@ -47,11 +47,11 @@ impl RepositoryQueue {
     }
 
     fn push(&mut self, job: job::Job) {
-        if self.running.values().any(|r| &r.job.spec == &job.spec) {
+        if self.running.values().any(|r| r.job.spec == job.spec) {
             tracing::info!(id = %job.id, label = job.spec.label(), "job spec is currently running, not enqueuing it");
             return;
         }
-        if self.queue.iter().any(|j| &j.spec == &job.spec) {
+        if self.queue.iter().any(|j| j.spec == job.spec) {
             tracing::info!(id = %job.id, label = job.spec.label(), "job spec is currently in the queue, not enqueuing it again");
             return;
         }
@@ -81,7 +81,7 @@ impl RepositoryQueue {
                 let (send, recv) = oneshot::channel();
                 tokio::spawn(async move { runner.run(cloned_job, recv).await });
                 self.running.insert(
-                    job.id.clone(),
+                    job.id,
                     RunningJob {
                         job,
                         cancellation: Some(send),
@@ -110,7 +110,7 @@ impl RepositoryQueue {
     fn cancel_all(&mut self, reason: job::CancellationReason) {
         for running_job in self.running.values_mut() {
             if let Some(cancel) = running_job.cancellation.take() {
-                if let Err(_) = cancel.send(reason) {
+                if cancel.send(reason).is_err() {
                     tracing::warn!("cancellation receiver was dropped, job could not be cancelled");
                 }
             }

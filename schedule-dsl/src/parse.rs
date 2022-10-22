@@ -157,7 +157,7 @@ fn to_time_spec(args: ((u32, Option<u32>), Option<&str>)) -> Result<TimeSpec, Ti
     let minute = minute.unwrap_or(0);
     let is_pm = matches!(suffix, Some(s) if s.eq_ignore_ascii_case("pm"));
     let hour = hour + if is_pm { 12 } else { 0 };
-    Ok(TimeSpec::new(hour, minute)?)
+    TimeSpec::new(hour, minute)
 }
 
 fn days_spec(input: &str) -> IResult<&str, EnumSet<DayOfWeek>, NomError> {

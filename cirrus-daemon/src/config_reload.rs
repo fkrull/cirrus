@@ -42,7 +42,7 @@ impl ConfigReloadService {
     async fn reload_config(&mut self) -> eyre::Result<()> {
         // TODO: debounce events
         if let Some(config_path) = &self.config.source {
-            let result = Config::from_file(config_path).await;
+            let result = Config::parse_file(config_path).await;
             match result {
                 Ok(config) => {
                     tracing::info!(path = %config_path.display(), "reloaded configuration");

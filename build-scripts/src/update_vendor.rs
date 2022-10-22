@@ -1,7 +1,7 @@
 use xshell::*;
 
-const RESTIC_GIT_URL: &'static str = "https://github.com/restic/restic.git";
-const DBUS_GIT_URL: &'static str = "https://gitlab.freedesktop.org/dbus/dbus.git";
+const RESTIC_GIT_URL: &str = "https://github.com/restic/restic.git";
+const DBUS_GIT_URL: &str = "https://gitlab.freedesktop.org/dbus/dbus.git";
 
 /// Update vendored subtrees.
 #[derive(argh::FromArgs)]

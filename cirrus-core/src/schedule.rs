@@ -25,9 +25,7 @@ impl backup::Definition {
             .map(|trigger| trigger.next_schedule(after))
             .try_fold(None, |acc, next| {
                 let next = next?;
-                Ok(acc
-                    .map(|schedule| min(schedule, next))
-                    .or_else(|| Some(next)))
+                Ok(acc.map(|schedule| min(schedule, next)).or(Some(next)))
             })
     }
 }

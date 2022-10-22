@@ -27,7 +27,7 @@ fn status_icons(sh: &Shell) -> eyre::Result<()> {
         let mut pngs = Vec::new();
         for &size in &sizes {
             let png = format!("cirrus-desktop-ui/src/resources/{}/{}.png", size, name);
-            export_merged_png(sh, "icons/symbolic-icon.svg", &png, size, &objects)?;
+            export_merged_png(sh, "icons/symbolic-icon.svg", &png, size, objects)?;
             pngs.push(png);
         }
         cmd!(

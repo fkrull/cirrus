@@ -34,6 +34,7 @@ jobs:
           toolchain: stable
           profile: minimal
           components: clippy
+      - uses: Swatinem/rust-cache@v2
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:

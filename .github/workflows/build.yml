@@ -100,58 +100,6 @@ jobs:
       - name: Show version
         run: echo '`${{ steps.getCirrusVersion.outputs.VERSION }}` - `${{ steps.getCirrusVersion.outputs.BUILD_STRING }}`' > $GITHUB_STEP_SUMMARY
 
-  package-glibc:
-    # older Ubuntu version because of glibc compatibility
-    runs-on: ubuntu-20.04
-    needs:
-      - build-scripts
-      - version
-    strategy:
-      fail-fast: true
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - armv7-unknown-linux-gnueabihf
-          - aarch64-unknown-linux-gnu
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-        with:
-          name: build-scripts
-      - run: chmod +x ./_build
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          profile: minimal
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.go-version }}
-          cache: true
-          cache-dependency-path: vendor/restic/go.sum
-      - name: Install cross-compiling toolchains
-        run: sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
-      - name: Install meson
-        run: sudo pip3 install meson ninja
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{matrix.target }}
-      - name: Build package
-        run: >
-          ./_build package
-          --version ${{ needs.version.outputs.version }}
-          --build-string ${{ needs.version.outputs.build-string }}
-          --target ${{ matrix.target }}
-          --meson-cross-file .github/workflows/meson-${{ matrix.target }}.ini
-          --features bundled-restic-support
-          --static-dbus
-          --build-restic
-      - uses: actions/upload-artifact@v3
-        with:
-          name: cirrus_${{ matrix.target }}
-          path: public/*
-          if-no-files-found: error
-
   package-windows:
     runs-on: ubuntu-latest
     needs:
@@ -251,7 +199,6 @@ jobs:
     needs:
       - build-scripts
       - version
-      - package-glibc
       - package-musl
     uses: ./.github/workflows/publish-container-image.yml
     with:
@@ -262,7 +209,6 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     needs:
       - version
-      - package-glibc
       - package-musl
       - package-windows
     uses: ./.github/workflows/publish-package.yml

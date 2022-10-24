@@ -405,7 +405,6 @@ dependencies = [
 name = "cirrus-daemon"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "cirrus-core",
  "events",
  "eyre",
@@ -422,7 +421,6 @@ dependencies = [
 name = "cirrus-desktop-ui"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "cirrus-core",
  "cirrus-daemon",
  "events",

@@ -40,21 +40,6 @@ struct SnapshotEntry {
     short_id: String,
 }
 
-impl From<SnapshotEntry> for Snapshot {
-    fn from(v: SnapshotEntry) -> Self {
-        Snapshot {
-            id: v.id,
-            short_id: v.short_id,
-            parent: v.parent,
-            tree: v.tree,
-            hostname: v.hostname,
-            username: v.username,
-            time: v.time,
-            tags: v.tags,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(transparent)]
 struct Snapshots(Vec<SnapshotEntry>);

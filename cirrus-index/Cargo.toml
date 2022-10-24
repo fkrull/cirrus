@@ -7,11 +7,14 @@ edition = "2021"
 
 [dependencies]
 cirrus-core = { version = "0.1.0", path = "../cirrus-core" }
+eyre = "0.6.8"
 itertools = "0.10.5"
 rusqlite = "0.28.0"
+rusqlite_migration = "1.0.0"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = "1.0.87"
 time = { version = "0.3.15", features = ["serde-well-known"] }
+tokio = { version = "1.21.2", features = ["rt-multi-thread"] }
 
 [dev-dependencies]
 time = { version = "0.3.15", features = ["macros"] }

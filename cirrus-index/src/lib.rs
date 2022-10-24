@@ -1,6 +1,8 @@
+use cirrus_core::config::repo;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
+mod migrations;
 mod restic_json;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,6 +38,7 @@ pub struct Tag(pub String);
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
+    pub repo: repo::Name,
     pub id: SnapshotId,
     pub short_id: String,
     pub parent: Option<SnapshotId>,

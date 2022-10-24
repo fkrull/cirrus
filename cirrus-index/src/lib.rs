@@ -1,9 +1,38 @@
 use cirrus_core::config::repo;
+use cirrus_core::restic::Restic;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use time::OffsetDateTime;
 
 mod migrations;
 mod restic_json;
+
+// TODO: what name, what module
+#[derive(Debug)]
+pub struct Index {
+    path: PathBuf,
+    conn: Connection,
+    restic: Arc<Restic>,
+}
+
+impl Index {
+    pub async fn new(path: impl Into<PathBuf>) -> eyre::Result<Self> {
+        // TODO: implement
+        // open, create dirs as necessary
+        // run migrations
+        todo!()
+    }
+
+    pub async fn index_snapshots(&mut self, repo: &repo::Definition) -> eyre::Result<()> {
+        todo!()
+    }
+
+    pub async fn get_snapshots(&mut self) -> eyre::Result<Vec<Snapshot>> {
+        todo!()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]

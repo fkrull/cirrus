@@ -1,17 +1,6 @@
+use crate::*;
 use serde::Deserialize;
 use time::OffsetDateTime;
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(transparent)]
-struct Uid(u32);
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(transparent)]
-struct Gid(u32);
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(transparent)]
-struct FileSize(u64);
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 struct LsEntry {
@@ -33,21 +22,6 @@ struct LsEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum Type {
-    Dir,
-    File,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(transparent)]
-struct SnapshotId(String);
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(transparent)]
-struct TreeId(String);
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 struct SnapshotEntry {
     #[serde(with = "time::serde::iso8601")]
     time: OffsetDateTime,
@@ -61,9 +35,24 @@ struct SnapshotEntry {
     #[serde(default)]
     excludes: Vec<String>,
     #[serde(default)]
-    tags: Vec<String>,
+    tags: Vec<Tag>,
     id: SnapshotId,
     short_id: String,
+}
+
+impl From<SnapshotEntry> for Snapshot {
+    fn from(v: SnapshotEntry) -> Self {
+        Snapshot {
+            id: v.id,
+            short_id: v.short_id,
+            parent: v.parent,
+            tree: v.tree,
+            hostname: v.hostname,
+            username: v.username,
+            time: v.time,
+            tags: v.tags,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -235,7 +224,7 @@ mod tests {
                 uid: Some(Uid(1001)),
                 gid: Some(Gid(1002)),
                 excludes: vec![".cache".to_string()],
-                tags: vec!["tag1".to_string(), "tag2.tag".to_string()],
+                tags: vec![Tag("tag1".to_string()), Tag("tag2.tag".to_string())],
                 id: SnapshotId(
                     "3cc47d6ab8569b5bf8287d2b665b99f5279b2854a4c2a558676bae9e2741371d".to_string()
                 ),

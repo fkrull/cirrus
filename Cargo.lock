@@ -455,6 +455,8 @@ dependencies = [
 name = "cirrus-index"
 version = "0.1.0"
 dependencies = [
+ "cirrus-core",
+ "itertools",
  "rusqlite",
  "serde",
  "serde_json",

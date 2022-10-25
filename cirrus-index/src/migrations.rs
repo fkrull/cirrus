@@ -7,7 +7,8 @@ fn migrations() -> Migrations<'static> {
         M::up(
             r#"
 CREATE TABLE snapshots(
-    repo TEXT NOT NULL,
+    generation INTEGER NOT NULL,
+    repo_url TEXT NOT NULL,
     id TEXT NOT NULL,
     short_id TEXT NOT NULL,
     parent TEXT,
@@ -16,7 +17,7 @@ CREATE TABLE snapshots(
     username TEXT NOT NULL,
     time TEXT NOT NULL,
     tags TEXT NOT NULL,
-    PRIMARY KEY (repo, id)
+    PRIMARY KEY (repo_url, id)
 );"#,
         ),
     ])
@@ -33,6 +34,6 @@ mod tests {
 
     #[test]
     fn test_migrations() {
-        assert!(migrations().validate().is_ok());
+        migrations().validate().unwrap();
     }
 }

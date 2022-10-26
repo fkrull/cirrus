@@ -36,10 +36,7 @@ tracing-subscriber = { version = "0.3.5", default-features = false, features = [
 time = { version = "0.3.5", features = ["macros"] }
 events = { version = "0.2.0", path = "events" }
 futures = "0.3.24"
-
-[dependencies.tokio]
-version = "1.0.0"
-features = ["signal", "rt-multi-thread"]
+tokio = { version = "1.21.2", features = ["rt-multi-thread", "macros"] }
 
 [features]
 # This feature enables the CLI flag for bundled restic as well as the behavior to handle it; it does *NOT* actually

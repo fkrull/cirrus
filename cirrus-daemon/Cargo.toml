@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 cirrus-core = { path = "../cirrus-core" }
-async-trait = "0.1.41"
 eyre = "0.6.1"
 uuid = { version = "1.1.2", features = ["v4"] }
 notify = { version = "5.0.0", default-features = false }

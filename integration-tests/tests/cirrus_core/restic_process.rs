@@ -1,6 +1,6 @@
 use crate::new_workdir;
-use cirrus_core::restic::{Event, Options, Restic};
-use futures::prelude::*;
+use cirrus_core::restic::{Options, Output, Restic};
+use tokio::io::AsyncReadExt;
 
 #[tokio::test]
 async fn check_wait_should_return_error_if_process_exits_with_unsuccessful_status_code() {
@@ -28,20 +28,29 @@ async fn should_capture_stdout_and_stderr() {
             None,
             &[] as &[&str],
             &Options {
-                capture_output: true,
+                stdout: Output::Capture,
+                stderr: Output::Capture,
                 ..Default::default()
             },
         )
         .unwrap();
 
-    let mut stdout = Vec::new();
-    let mut stderr = Vec::new();
-    while let Some(event) = process.next().await {
-        match event.unwrap() {
-            Event::StdoutLine(line) => stdout.push(line),
-            Event::StderrLine(line) => stderr.push(line),
-        }
-    }
-    assert_eq!(&stdout, &["stdout1", "stdout2", "stdout3"]);
-    assert_eq!(&stderr, &["stderr1", "stderr2", "stderr3"]);
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    process
+        .stdout()
+        .as_mut()
+        .unwrap()
+        .read_to_string(&mut stdout)
+        .await
+        .unwrap();
+    process
+        .stderr()
+        .as_mut()
+        .unwrap()
+        .read_to_string(&mut stderr)
+        .await
+        .unwrap();
+    assert_eq!(&stdout, "stdout1\nstdout2\nstdout3");
+    assert_eq!(&stderr, "stderr1\nstderr2\nstderr3\n");
 }

@@ -1,29 +1,32 @@
-use super::{Event, Options, Restic};
-use futures::{pin_mut, prelude::*};
+use super::{Options, Output, Restic};
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 impl Restic {
     pub async fn version_string(&self) -> eyre::Result<String> {
-        let version_lines = self
-            .run(
-                None,
-                &["version"],
-                &Options {
-                    capture_output: true,
-                    ..Default::default()
-                },
-            )?
-            .map_err(eyre::Report::from)
-            .try_filter_map(|ev| async move {
-                match ev {
-                    Event::StdoutLine(line) => Ok(version_line(&line).map(String::from)),
-                    Event::StderrLine(_) => Ok(None),
-                }
-            });
-        pin_mut!(version_lines);
-        version_lines
-            .next()
-            .await
-            .unwrap_or_else(|| Err(eyre::eyre!("couldn't get restic version from output")))
+        let mut process = self.run(
+            None,
+            &["version"],
+            &Options {
+                stdout: Output::Capture,
+                ..Default::default()
+            },
+        )?;
+        let mut lines = BufReader::new(
+            process
+                .stdout()
+                .take()
+                .expect(" should be present because of params"),
+        )
+        .lines();
+        let mut version = None;
+        while let Some(line) = lines.next_line().await? {
+            if let Some(v) = version_line(&line) {
+                version = Some(v.to_string());
+                break;
+            }
+        }
+        process.wait().await?;
+        version.ok_or_else(|| eyre::eyre!("couldn't get restic version from output"))
     }
 }
 

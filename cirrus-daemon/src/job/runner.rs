@@ -1,11 +1,13 @@
 use crate::job;
 use cirrus_core::{
-    restic::{Event, Options, Restic, Verbosity},
+    restic::{Options, Output, Restic, Verbosity},
     secrets::Secrets,
 };
-use futures::StreamExt;
 use std::{sync::Arc, time::Duration};
-use tokio::sync::oneshot;
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    sync::oneshot,
+};
 
 #[derive(Debug)]
 pub(super) struct Runner {
@@ -89,23 +91,38 @@ async fn run_backup(
         &spec.backup_name,
         &spec.backup,
         &Options {
-            capture_output: true,
+            stdout: Output::Capture,
+            stderr: Output::Capture,
             verbose: Verbosity::V,
             ..Default::default()
         },
     )?;
 
-    // TODO: more thoroughly guarantee that the process is terminated even on error returns
+    let mut stdout = BufReader::new(
+        process
+            .stdout()
+            .take()
+            .expect("should be present based on params"),
+    )
+    .lines();
+    let mut stderr = BufReader::new(
+        process
+            .stderr()
+            .take()
+            .expect("should be present based on params"),
+    )
+    .lines();
+
     loop {
+        // TODO: use JSON output, process into better updates
         tokio::select! {
-            event = process.next() => {
-                match event {
-                    // TODO: use JSON output, process into better updates
-                    Some(Ok(Event::StdoutLine(line))) => tracing::info!("{}", line),
-                    Some(Ok(Event::StderrLine(line))) => tracing::warn!("{}", line),
-                    Some(Err(error)) => return Err(error.into()),
-                    None => break
-                }
+            line = stdout.next_line() => match line? {
+                Some(line) => tracing::info!("{}", line),
+                None => break,
+            },
+            line = stderr.next_line() => match line? {
+                Some(line) => tracing::warn!("{}", line),
+                None => break,
             },
             cancellation_reason = &mut cancellation => {
                 process.terminate(TERMINATE_GRACE_PERIOD).await?;

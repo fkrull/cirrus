@@ -22,6 +22,7 @@ members = [
 cirrus-core = { path = "cirrus-core" }
 cirrus-daemon = { path = "cirrus-daemon" }
 cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
+cirrus-index = { version = "0.1.0", path = "cirrus-index" }
 cirrus-self = { path = "cirrus-self", optional = true }
 eyre = "0.6.1"
 clap = { version = "4.0.10", features = ["derive", "env"] }

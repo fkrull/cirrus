@@ -370,6 +370,7 @@ dependencies = [
  "cirrus-core",
  "cirrus-daemon",
  "cirrus-desktop-ui",
+ "cirrus-index",
  "cirrus-self",
  "clap 4.0.15",
  "color-eyre",

@@ -65,7 +65,7 @@ pub async fn index_snapshots(
     restic: &Restic,
     db: &mut Database,
     repo: &RepoWithSecrets<'_>,
-) -> eyre::Result<()> {
+) -> eyre::Result<u64> {
     let mut process = restic.run(
         Some(repo),
         &["snapshots"],
@@ -89,8 +89,7 @@ pub async fn index_snapshots(
             .into_iter()
             .map(|e| e.into_snapshot(&repo.repo.url)),
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 #[cfg(test)]

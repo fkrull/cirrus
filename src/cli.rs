@@ -197,6 +197,9 @@ pub enum Cmd {
     #[command(name = "self")]
     SelfCommands(cirrus_self::Cli),
 
+    /// Interacts with the repository index
+    Index(index::Cli),
+
     /// Prints version information
     Version,
 }
@@ -276,5 +279,26 @@ pub mod restic {
         /// Command-line arguments to pass to restic
         #[arg(trailing_var_arg = true)]
         pub cmd: Vec<OsString>,
+    }
+}
+
+pub mod index {
+    #[derive(clap::Parser)]
+    pub struct Cli {
+        #[command(subcommand)]
+        pub subcommand: Cmd,
+    }
+
+    #[derive(clap::Parser)]
+    pub enum Cmd {
+        /// Fill the index
+        Fill(Fill),
+    }
+
+    #[derive(clap::Parser)]
+    pub struct Fill {
+        /// ID of the repository to index
+        #[arg()]
+        pub repo: String,
     }
 }

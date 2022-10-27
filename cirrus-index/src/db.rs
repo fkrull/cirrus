@@ -40,7 +40,7 @@ impl Database {
         &mut self,
         repo: &repo::Definition,
         snapshots: impl IntoIterator<Item = impl Borrow<Snapshot>>,
-    ) -> eyre::Result<()> {
+    ) -> eyre::Result<u64> {
         block_in_place(|| {
             let tx = self.conn.transaction()?;
 
@@ -75,11 +75,13 @@ impl Database {
                             :time,
                             :tags)",
             )?;
+            let mut count = 0;
             for snapshot in snapshots {
                 let snapshot = snapshot.borrow();
                 let mut params = serde_rusqlite::to_params_named(snapshot)?;
                 params.push((":generation".to_owned(), Box::new(next_gen)));
                 stmt.execute(&*params.to_slice())?;
+                count += 1;
             }
             tx.execute(
                 //language=SQLite
@@ -88,7 +90,7 @@ impl Database {
             )?;
             drop(stmt);
             tx.commit()?;
-            Ok(())
+            Ok(count)
         })
     }
 }

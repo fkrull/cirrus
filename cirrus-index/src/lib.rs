@@ -3,16 +3,9 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 mod db;
-mod restic_json;
+mod restic;
 pub use db::Database;
-
-/*pub async fn index_snapshots(
-    restic: &Restic,
-    repository: &mut IndexRepository,
-    repo: &repo::Definition,
-) -> eyre::Result<()> {
-    todo!()
-}*/
+pub use restic::index_snapshots;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]

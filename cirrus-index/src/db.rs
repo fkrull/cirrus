@@ -2,6 +2,7 @@ use crate::Snapshot;
 use cirrus_core::config::repo;
 use rusqlite::{params, Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
+use std::borrow::Borrow;
 use std::path::PathBuf;
 use tokio::task::block_in_place;
 
@@ -38,7 +39,7 @@ impl Database {
     pub(crate) async fn save_snapshots(
         &mut self,
         repo: &repo::Definition,
-        snapshots: impl IntoIterator<Item = &Snapshot>,
+        snapshots: impl IntoIterator<Item = impl Borrow<Snapshot>>,
     ) -> eyre::Result<()> {
         block_in_place(|| {
             let tx = self.conn.transaction()?;
@@ -75,6 +76,7 @@ impl Database {
                             :tags)",
             )?;
             for snapshot in snapshots {
+                let snapshot = snapshot.borrow();
                 let mut params = serde_rusqlite::to_params_named(snapshot)?;
                 params.push((":generation".to_owned(), Box::new(next_gen)));
                 stmt.execute(&*params.to_slice())?;

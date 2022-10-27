@@ -1,6 +1,11 @@
 use crate::*;
+use cirrus_core::{
+    restic::{Options, Output, Restic},
+    secrets::RepoWithSecrets,
+};
 use serde::Deserialize;
 use time::OffsetDateTime;
+use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 struct LsEntry {
@@ -40,9 +45,53 @@ struct SnapshotEntry {
     short_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(transparent)]
-struct Snapshots(Vec<SnapshotEntry>);
+impl SnapshotEntry {
+    fn into_snapshot(self, repo_url: &repo::Url) -> Snapshot {
+        Snapshot {
+            repo_url: repo_url.clone(),
+            id: self.id,
+            short_id: self.short_id,
+            parent: self.parent,
+            tree: self.tree,
+            hostname: self.hostname,
+            username: self.username,
+            time: self.time,
+            tags: self.tags,
+        }
+    }
+}
+
+pub async fn index_snapshots(
+    restic: &Restic,
+    db: &mut Database,
+    repo: &RepoWithSecrets<'_>,
+) -> eyre::Result<()> {
+    let mut process = restic.run(
+        Some(repo),
+        &["snapshots"],
+        &Options {
+            stdout: Output::Capture,
+            json: true,
+            ..Default::default()
+        },
+    )?;
+    let mut buf = Vec::new();
+    process
+        .stdout()
+        .as_mut()
+        .expect("should be present based on params")
+        .read_to_end(&mut buf)
+        .await?;
+    let snapshots: Vec<SnapshotEntry> = serde_json::from_slice(&buf)?;
+    db.save_snapshots(
+        &repo.repo,
+        snapshots
+            .into_iter()
+            .map(|e| e.into_snapshot(&repo.repo.url)),
+    )
+    .await?;
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {

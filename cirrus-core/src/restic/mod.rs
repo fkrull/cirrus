@@ -2,7 +2,9 @@ use crate::{config::backup, secrets::RepoWithSecrets};
 use std::{ffi::OsStr, path::PathBuf, process::Stdio};
 use tokio::process::Command;
 
+use crate::tag::Tag;
 pub use process::*;
+
 mod process;
 mod util;
 
@@ -167,7 +169,7 @@ impl Restic {
         args.push("backup".to_owned());
         args.push(definition.path.0.clone());
         args.push("--tag".to_owned());
-        args.push(format!("cirrus.{}", name.0));
+        args.push(Tag::for_backup(name).0);
         for exclude in &definition.excludes {
             args.push(Self::EXCLUDE_PARAM.to_owned());
             args.push(exclude.0.clone());

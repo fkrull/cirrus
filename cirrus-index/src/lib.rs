@@ -1,4 +1,4 @@
-use cirrus_core::config::repo;
+use cirrus_core::{config::repo, tag::Tag};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -33,10 +33,6 @@ pub struct SnapshotId(pub String);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TreeId(pub String);
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Tag(pub String);
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Snapshot {

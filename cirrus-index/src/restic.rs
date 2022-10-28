@@ -1,8 +1,9 @@
-use crate::{Database, FileSize, Gid, Snapshot, SnapshotId, Tag, TreeId, Type, Uid};
+use crate::{Database, FileSize, Gid, Snapshot, SnapshotId, TreeId, Type, Uid};
 use cirrus_core::{
     config::{backup, repo},
     restic::{Options, Output, Restic},
     secrets::RepoWithSecrets,
+    tag::Tag,
 };
 use serde::Deserialize;
 use time::OffsetDateTime;

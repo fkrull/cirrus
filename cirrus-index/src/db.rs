@@ -127,7 +127,8 @@ CREATE TABLE snapshots(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{SnapshotId, Tag, TreeId};
+    use crate::{SnapshotId, TreeId};
+    use cirrus_core::tag::Tag;
     use time::macros::datetime;
 
     #[test]

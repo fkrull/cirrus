@@ -5,7 +5,7 @@ use time::OffsetDateTime;
 mod db;
 mod restic;
 pub use db::Database;
-pub use restic::index_snapshots;
+pub use restic::{index_files, index_snapshots};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]

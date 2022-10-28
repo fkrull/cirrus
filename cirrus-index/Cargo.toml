@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 cirrus-core = { version = "0.1.0", path = "../cirrus-core" }
 eyre = "0.6.8"
+futures = "0.3.25"
 itertools = "0.10.5"
 rusqlite = "0.28.0"
 rusqlite_migration = "1.0.0"
@@ -16,6 +17,7 @@ serde_json = "1.0.87"
 serde_rusqlite = "0.31.0"
 time = { version = "0.3.15", features = ["serde-well-known"] }
 tokio = { version = "1.21.2", features = ["rt-multi-thread"] }
+tokio-stream = { version = "0.1.11", features = ["io-util"] }
 
 [dev-dependencies]
 rusqlite = { version = "0.28.0", features = ["bundled"] }

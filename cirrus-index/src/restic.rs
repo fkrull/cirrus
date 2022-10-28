@@ -5,9 +5,10 @@ use cirrus_core::{
     secrets::RepoWithSecrets,
     tag::Tag,
 };
+use futures::{StreamExt, TryStreamExt};
 use serde::Deserialize;
 use time::OffsetDateTime;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 struct LsEntry {
@@ -87,13 +88,84 @@ pub async fn index_snapshots(
         .read_to_end(&mut buf)
         .await?;
     let snapshots: Vec<SnapshotEntry> = serde_json::from_slice(&buf)?;
-    db.save_snapshots(
+    let ret = db
+        .save_snapshots(
+            repo.repo,
+            snapshots
+                .into_iter()
+                .map(|e| e.into_snapshot(&repo.repo.url)),
+        )
+        .await?;
+    process.check_wait().await?;
+    Ok(ret)
+}
+
+pub async fn index_files(
+    restic: &Restic,
+    db: &mut Database,
+    repo: &RepoWithSecrets<'_>,
+    snapshot: &SnapshotId,
+) -> eyre::Result<u64> {
+    let mut process = restic.run(
+        Some(repo),
+        &["ls", &snapshot.0],
+        &Options {
+            stdout: Output::Capture,
+            json: true,
+            ..Default::default()
+        },
+    )?;
+
+    // TODO suuuuuuuper WIP
+
+    tokio_stream::wrappers::LinesStream::new(
+        BufReader::new(
+            process
+                .stdout()
+                .as_mut()
+                .expect("should be present based on params"),
+        )
+        .lines(),
+    )
+    .map(|line| Ok::<_, eyre::Report>(serde_json::from_str::<LsEntry>(&line?)?))
+    .try_for_each(|x| async move {
+        println!("{x:?}");
+        Ok(())
+    })
+    .await?;
+
+    Ok(1)
+
+    /*futures::stream::repeat_with(move || lines.next_line())
+    .then(|f| f)
+    //.try_filter_map(|s| async move { s })
+    //.map(|s| serde_json::from_str(s?))
+    .try_for_each(|x| async move {
+        println!("{x:?}");
+        Ok(())
+    })
+    .await?;*/
+
+    /*while let Some(line) = lines.next_line().await? {
+        let entry: LsEntry = serde_json::from_str(&line)?;
+        println!("{entry:?}");
+    }*/
+
+    /*let mut buf = Vec::new();
+    process
+        .stdout()
+        .as_mut()
+        .expect("should be present based on params")
+        .read_to_end(&mut buf)
+        .await?;
+    let snapshots: Vec<SnapshotEntry> = serde_json::from_slice(&buf)?;*/
+    /*db.save_snapshots(
         &repo.repo,
         snapshots
             .into_iter()
             .map(|e| e.into_snapshot(&repo.repo.url)),
     )
-    .await
+    .await*/
 }
 
 #[cfg(test)]

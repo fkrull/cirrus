@@ -11,7 +11,15 @@ use time::OffsetDateTime;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-struct LsEntry {
+#[serde(rename_all = "lowercase")]
+#[serde(tag = "struct_type")]
+enum LsJson {
+    Snapshot(SnapshotJson),
+    Node(NodeJson),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+struct NodeJson {
     name: String,
     #[serde(rename = "type")]
     r#type: Type,
@@ -30,7 +38,7 @@ struct LsEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-struct SnapshotEntry {
+struct SnapshotJson {
     #[serde(with = "time::serde::iso8601")]
     time: OffsetDateTime,
     parent: Option<SnapshotId>,
@@ -48,7 +56,7 @@ struct SnapshotEntry {
     short_id: String,
 }
 
-impl SnapshotEntry {
+impl SnapshotJson {
     fn into_snapshot(self, repo_url: &repo::Url) -> Snapshot {
         let backup = self.tags.iter().find_map(|tag| tag.backup_name());
         Snapshot {
@@ -87,7 +95,7 @@ pub async fn index_snapshots(
         .expect("should be present based on params")
         .read_to_end(&mut buf)
         .await?;
-    let snapshots: Vec<SnapshotEntry> = serde_json::from_slice(&buf)?;
+    let snapshots: Vec<SnapshotJson> = serde_json::from_slice(&buf)?;
     let ret = db
         .save_snapshots(
             repo.repo,
@@ -127,7 +135,11 @@ pub async fn index_files(
         )
         .lines(),
     )
-    .map(|line| Ok::<_, eyre::Report>(serde_json::from_str::<LsEntry>(&line?)?))
+    .map(|line| {
+        let line = line?;
+        println!("{line}");
+        Ok::<_, eyre::Report>(serde_json::from_str::<LsJson>(&line)?)
+    })
     .try_for_each(|x| async move {
         println!("{x:?}");
         Ok(())
@@ -174,7 +186,7 @@ mod tests {
     use time::macros::datetime;
 
     #[test]
-    fn should_parse_dir_entry() {
+    fn should_parse_dir_node() {
         // language=JSON
         let json = r#"{
           "name": "a-directory",
@@ -190,11 +202,11 @@ mod tests {
           "struct_type": "node"
         }"#;
 
-        let entry: LsEntry = serde_json::from_str(json).unwrap();
+        let result: LsJson = serde_json::from_str(json).unwrap();
 
         assert_eq!(
-            entry,
-            LsEntry {
+            result,
+            LsJson::Node(NodeJson {
                 name: "a-directory".to_string(),
                 r#type: Type::Dir,
                 path: "/var/tmp/subdir/a-directory".to_string(),
@@ -206,12 +218,12 @@ mod tests {
                 mtime: datetime!(2022-06-05 13:46:04.582083272 +02:00),
                 atime: datetime!(2022-06-05 13:56:04.582083272 +02:00),
                 ctime: datetime!(2022-06-05 13:16:04.582083272 +02:00),
-            }
-        )
+            })
+        );
     }
 
     #[test]
-    fn should_parse_file_entry() {
+    fn should_parse_file_node() {
         // language=JSON
         let json = r#"{
           "name": "test.yml",
@@ -228,11 +240,11 @@ mod tests {
           "struct_type": "node"
         }"#;
 
-        let entry: LsEntry = serde_json::from_str(json).unwrap();
+        let result: LsJson = serde_json::from_str(json).unwrap();
 
         assert_eq!(
-            entry,
-            LsEntry {
+            result,
+            LsJson::Node(NodeJson {
                 name: "test.yml".to_string(),
                 r#type: Type::File,
                 path: "/test.yml".to_string(),
@@ -244,12 +256,127 @@ mod tests {
                 mtime: datetime!(2022-10-22 13:46:04.582083272 +02:00),
                 atime: datetime!(2022-10-22 13:56:04.582083272 +02:00),
                 ctime: datetime!(2022-10-22 13:16:04.582083272 +02:00),
-            }
-        )
+            })
+        );
     }
 
     #[test]
-    fn should_parse_minimal_snapshot_entry() {
+    fn should_parse_symlink_node() {
+        // language=JSON
+        let json = r#"{
+          "name": "testlink",
+          "type": "symlink",
+          "path": "/tmp/testlink",
+          "uid": 0,
+          "gid": 0,
+          "mode": 384,
+          "permissions": "-rw-------",
+          "mtime": "2022-10-22T13:46:04.582083272+02:00",
+          "atime": "2022-10-22T13:56:04.582083272+02:00",
+          "ctime": "2022-10-22T13:16:04.582083272+02:00",
+          "struct_type": "node"
+        }"#;
+
+        let result: LsJson = serde_json::from_str(json).unwrap();
+
+        assert_eq!(
+            result,
+            LsJson::Node(NodeJson {
+                name: "testlink".to_string(),
+                r#type: Type::Symlink,
+                path: "/tmp/testlink".to_string(),
+                uid: Uid(0),
+                gid: Gid(0),
+                size: None,
+                mode: 0o600,
+                permissions: "-rw-------".to_string(),
+                mtime: datetime!(2022-10-22 13:46:04.582083272 +02:00),
+                atime: datetime!(2022-10-22 13:56:04.582083272 +02:00),
+                ctime: datetime!(2022-10-22 13:16:04.582083272 +02:00),
+            })
+        );
+    }
+
+    #[test]
+    fn should_parse_snapshot_ls_json() {
+        // language=JSON
+        let json = r#"{
+          "time": "2022-10-28T18:30:26.123+00:00",
+          "parent": "par",
+          "tree": "tree",
+          "paths": [
+            "C:\\"
+          ],
+          "hostname": "test",
+          "username": "testuser",
+          "tags": [
+            "testtag"
+          ],
+          "id": "id",
+          "short_id": "short_id",
+          "struct_type": "snapshot"
+        }"#;
+
+        let result: LsJson = serde_json::from_str(json).unwrap();
+
+        assert_eq!(
+            result,
+            LsJson::Snapshot(SnapshotJson {
+                time: datetime!(2022-10-28 18:30:26.123 +00:00),
+                parent: Some(SnapshotId("par".to_string())),
+                tree: TreeId("tree".to_string()),
+                paths: vec![backup::Path("C:\\".to_string())],
+                hostname: "test".to_string(),
+                username: "testuser".to_string(),
+                uid: None,
+                gid: None,
+                excludes: vec![],
+                tags: vec![Tag("testtag".to_string())],
+                id: SnapshotId("id".to_string()),
+                short_id: "short_id".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn should_parse_fifo_node() {
+        // language=JSON
+        let json = r#"{
+          "name": "pipe",
+          "type": "fifo",
+          "path": "/tmp/pipe",
+          "uid": 0,
+          "gid": 0,
+          "mode": 384,
+          "permissions": "-rw-------",
+          "mtime": "2022-10-22T13:46:04.582083272+02:00",
+          "atime": "2022-10-22T13:56:04.582083272+02:00",
+          "ctime": "2022-10-22T13:16:04.582083272+02:00",
+          "struct_type": "node"
+        }"#;
+
+        let result: LsJson = serde_json::from_str(json).unwrap();
+
+        assert_eq!(
+            result,
+            LsJson::Node(NodeJson {
+                name: "pipe".to_string(),
+                r#type: Type::Fifo,
+                path: "/tmp/pipe".to_string(),
+                uid: Uid(0),
+                gid: Gid(0),
+                size: None,
+                mode: 0o600,
+                permissions: "-rw-------".to_string(),
+                mtime: datetime!(2022-10-22 13:46:04.582083272 +02:00),
+                atime: datetime!(2022-10-22 13:56:04.582083272 +02:00),
+                ctime: datetime!(2022-10-22 13:16:04.582083272 +02:00),
+            })
+        );
+    }
+
+    #[test]
+    fn should_parse_minimal_snapshot_json() {
         // language=JSON
         let json = r#"
           {
@@ -264,11 +391,11 @@ mod tests {
             "short_id": "3cc47d6a"
         }"#;
 
-        let entry: SnapshotEntry = serde_json::from_str(json).unwrap();
+        let result: SnapshotJson = serde_json::from_str(json).unwrap();
 
         assert_eq!(
-            entry,
-            SnapshotEntry {
+            result,
+            SnapshotJson {
                 time: datetime!(2020-08-03 23:05:57.5629523 +02:00),
                 parent: None,
                 tree: TreeId(
@@ -290,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn should_parse_complete_snapshot_entry() {
+    fn should_parse_complete_snapshot_json() {
         // language=JSON
         let json = r#"
           {
@@ -315,11 +442,11 @@ mod tests {
             "short_id": "3cc47d6a"
         }"#;
 
-        let entry: SnapshotEntry = serde_json::from_str(json).unwrap();
+        let result: SnapshotJson = serde_json::from_str(json).unwrap();
 
         assert_eq!(
-            entry,
-            SnapshotEntry {
+            result,
+            SnapshotJson {
                 time: datetime!(2020-08-03 23:05:57.5629523 +02:00),
                 parent: Some(SnapshotId(
                     "2e8ad31a949d004194b97031427161b5b9c5a846359629b4c0671e2bbb26e6c4".to_string()

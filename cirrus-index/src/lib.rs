@@ -24,6 +24,8 @@ pub struct FileSize(pub u64);
 pub enum Type {
     Dir,
     File,
+    Symlink,
+    Fifo,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

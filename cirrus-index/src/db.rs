@@ -2,8 +2,7 @@ use crate::Snapshot;
 use cirrus_core::config::repo;
 use rusqlite::{params, Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
-use std::borrow::Borrow;
-use std::path::PathBuf;
+use std::{borrow::Borrow, path::PathBuf};
 use tokio::task::block_in_place;
 
 #[derive(Debug)]
@@ -56,8 +55,8 @@ impl Database {
                     INSERT OR
                     REPLACE INTO snapshots(generation,
                                            repo_url,
-                                           backup,
                                            id,
+                                           backup,
                                            short_id,
                                            parent,
                                            tree,
@@ -67,8 +66,8 @@ impl Database {
                                            tags)
                     VALUES (:generation,
                             :repo_url,
-                            :backup,
                             :id,
+                            :backup,
                             :short_id,
                             :parent,
                             :tree,
@@ -112,8 +111,8 @@ fn migrations() -> Migrations<'static> {
 CREATE TABLE snapshots(
     generation INTEGER NOT NULL,
     repo_url TEXT NOT NULL,
-    backup TEXT,
     id TEXT NOT NULL,
+    backup TEXT,
     short_id TEXT NOT NULL,
     parent TEXT,
     tree TEXT NOT NULL,
@@ -121,8 +120,9 @@ CREATE TABLE snapshots(
     username TEXT NOT NULL,
     time TEXT NOT NULL,
     tags TEXT NOT NULL,
+    files INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (repo_url, id)
-);
+) STRICT;
 
 CREATE INDEX snapshots_time_idx ON snapshots (time);
 "#,

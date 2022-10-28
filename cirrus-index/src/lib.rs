@@ -37,8 +37,8 @@ pub struct TreeId(pub String);
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub repo_url: repo::Url,
-    pub backup: Option<backup::Name>,
     pub id: SnapshotId,
+    pub backup: Option<backup::Name>,
     pub short_id: String,
     pub parent: Option<SnapshotId>,
     pub tree: TreeId,

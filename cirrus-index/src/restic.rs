@@ -49,8 +49,10 @@ struct SnapshotEntry {
 
 impl SnapshotEntry {
     fn into_snapshot(self, repo_url: &repo::Url) -> Snapshot {
+        let backup = self.tags.iter().find_map(|tag| tag.backup_name());
         Snapshot {
             repo_url: repo_url.clone(),
+            backup,
             id: self.id,
             short_id: self.short_id,
             parent: self.parent,

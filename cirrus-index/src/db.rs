@@ -56,6 +56,7 @@ impl Database {
                     INSERT OR
                     REPLACE INTO snapshots(generation,
                                            repo_url,
+                                           backup,
                                            id,
                                            short_id,
                                            parent,
@@ -66,6 +67,7 @@ impl Database {
                                            tags)
                     VALUES (:generation,
                             :repo_url,
+                            :backup,
                             :id,
                             :short_id,
                             :parent,
@@ -121,6 +123,8 @@ CREATE TABLE snapshots(
     PRIMARY KEY (repo_url, id)
 );"#,
         ),
+        //language=SQLite
+        M::up(r#"ALTER TABLE snapshots ADD COLUMN backup TEXT;"#),
     ])
 }
 
@@ -128,7 +132,7 @@ CREATE TABLE snapshots(
 mod tests {
     use super::*;
     use crate::{SnapshotId, TreeId};
-    use cirrus_core::tag::Tag;
+    use cirrus_core::{config::backup, tag::Tag};
     use time::macros::datetime;
 
     #[test]
@@ -140,6 +144,7 @@ mod tests {
         [
             Snapshot {
                 repo_url: repo_url.clone(),
+                backup: None,
                 id: SnapshotId("1234".to_string()),
                 short_id: "12".to_string(),
                 parent: None,
@@ -151,6 +156,7 @@ mod tests {
             },
             Snapshot {
                 repo_url: repo_url.clone(),
+                backup: Some(backup::Name("bkp".to_string())),
                 id: SnapshotId("5678".to_string()),
                 short_id: "56".to_string(),
                 parent: None,
@@ -167,6 +173,7 @@ mod tests {
         [
             Snapshot {
                 repo_url: repo_url.clone(),
+                backup: None,
                 id: SnapshotId("5678".to_string()),
                 short_id: "12".to_string(),
                 parent: None,
@@ -178,6 +185,7 @@ mod tests {
             },
             Snapshot {
                 repo_url: repo_url.clone(),
+                backup: Some(backup::Name("abc".to_string())),
                 id: SnapshotId("1111".to_string()),
                 short_id: "11".to_string(),
                 parent: None,

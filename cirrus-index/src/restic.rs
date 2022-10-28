@@ -1,5 +1,6 @@
-use crate::*;
+use crate::{Database, FileSize, Gid, Snapshot, SnapshotId, Tag, TreeId, Type, Uid};
 use cirrus_core::{
+    config::{backup, repo},
     restic::{Options, Output, Restic},
     secrets::RepoWithSecrets,
 };
@@ -32,7 +33,7 @@ struct SnapshotEntry {
     time: OffsetDateTime,
     parent: Option<SnapshotId>,
     tree: TreeId,
-    paths: Vec<String>,
+    paths: Vec<backup::Path>,
     hostname: String,
     username: String,
     uid: Option<Uid>,
@@ -198,7 +199,7 @@ mod tests {
                 tree: TreeId(
                     "86fb8a32a6ac5c10fa2e21dbf140d8c40e5373dd891cc7926e067f125d6ad750".to_string()
                 ),
-                paths: vec!["/root".to_string()],
+                paths: vec![backup::Path("/root".to_string())],
                 hostname: "testhost".to_string(),
                 username: "root".to_string(),
                 uid: None,
@@ -251,7 +252,7 @@ mod tests {
                 tree: TreeId(
                     "86fb8a32a6ac5c10fa2e21dbf140d8c40e5373dd891cc7926e067f125d6ad750".to_string()
                 ),
-                paths: vec!["/".to_string()],
+                paths: vec![backup::Path("/".to_string())],
                 hostname: "host".to_string(),
                 username: "testuser".to_string(),
                 uid: Some(Uid(1001)),

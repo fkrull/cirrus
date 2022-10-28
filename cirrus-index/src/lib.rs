@@ -50,7 +50,6 @@ pub struct Snapshot {
     #[serde(with = "time::serde::iso8601")]
     pub time: OffsetDateTime,
     #[serde(
-        default,
         serialize_with = "serialize_tags",
         deserialize_with = "deserialize_tags"
     )]
@@ -59,12 +58,15 @@ pub struct Snapshot {
 
 fn serialize_tags<S: serde::Serializer>(v: &Vec<Tag>, s: S) -> Result<S::Ok, S::Error> {
     use itertools::Itertools;
-    let tag_string = v.iter().map(|s| &s.0).join(",");
-    s.serialize_str(&tag_string)
+    let comma_separated = v.iter().map(|s| &s.0).join(",");
+    s.serialize_str(&comma_separated)
 }
 
 fn deserialize_tags<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Tag>, D::Error> {
-    let tag_string = String::deserialize(d)?;
-    let tags = tag_string.split(',').map(|s| Tag(s.to_string())).collect();
-    Ok(tags)
+    let comma_separated = String::deserialize(d)?;
+    let split = comma_separated
+        .split(',')
+        .map(|s| Tag(s.to_string()))
+        .collect();
+    Ok(split)
 }

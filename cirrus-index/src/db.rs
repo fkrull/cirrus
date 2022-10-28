@@ -35,6 +35,22 @@ impl Database {
         })
     }
 
+    pub async fn get_unindexed_snapshots(
+        &mut self,
+        repo: &repo::Definition,
+        limit: u64,
+    ) -> eyre::Result<Vec<Snapshot>> {
+        block_in_place(|| {
+            let mut stmt = self
+                .conn
+                //language=SQLite
+                .prepare("SELECT * FROM snapshots WHERE repo_url = ? AND files = 0 ORDER BY time DESC LIMIT ?")?;
+            let rows = stmt.query(params![&repo.url.0, limit])?;
+            let snapshots = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
+            Ok(snapshots)
+        })
+    }
+
     pub(crate) async fn save_snapshots(
         &mut self,
         repo: &repo::Definition,

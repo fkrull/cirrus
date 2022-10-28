@@ -36,10 +36,16 @@ pub struct SnapshotId(pub String);
 #[serde(transparent)]
 pub struct TreeId(pub String);
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SnapshotKey {
+    pub repo_url: repo::Url,
+    pub snapshot_id: SnapshotId,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
-    pub repo_url: repo::Url,
-    pub id: SnapshotId,
+    #[serde(flatten)]
+    pub key: SnapshotKey,
     pub backup: Option<backup::Name>,
     pub short_id: String,
     pub parent: Option<SnapshotId>,
@@ -79,8 +85,8 @@ pub struct Permissions {
 // TODO path types
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Node {
-    pub repo_url: repo::Url,
-    pub id: SnapshotId,
+    #[serde(flatten)]
+    pub snapshot: SnapshotKey,
     pub path: String,
     pub name: String,
     #[serde(rename = "type")]

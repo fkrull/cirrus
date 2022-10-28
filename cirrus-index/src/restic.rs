@@ -1,4 +1,7 @@
-use crate::{Database, FileSize, Gid, Node, Permissions, Snapshot, SnapshotId, TreeId, Type, Uid};
+use crate::{
+    Database, FileSize, Gid, Node, Permissions, Snapshot, SnapshotId, SnapshotKey, TreeId, Type,
+    Uid,
+};
 use cirrus_core::{
     config::{backup, repo},
     restic::{Options, Output, Restic},
@@ -33,9 +36,11 @@ impl SnapshotJson {
     fn into_snapshot(self, repo_url: &repo::Url) -> Snapshot {
         let backup = self.tags.iter().find_map(|tag| tag.backup_name());
         Snapshot {
-            repo_url: repo_url.clone(),
+            key: SnapshotKey {
+                repo_url: repo_url.clone(),
+                snapshot_id: self.id,
+            },
             backup,
-            id: self.id,
             short_id: self.short_id,
             parent: self.parent,
             tree: self.tree,
@@ -49,7 +54,7 @@ impl SnapshotJson {
 
 fn get_parent<'a>(path: &'a str, name: &str) -> Option<&'a str> {
     path.strip_suffix(name)
-        .and_then(|s| s.strip_suffix("/"))
+        .and_then(|s| s.strip_suffix('/'))
         .filter(|s| !s.is_empty())
 }
 
@@ -73,11 +78,10 @@ struct NodeJson {
 }
 
 impl NodeJson {
-    fn into_node(self, snapshot: &Snapshot) -> Node {
+    fn into_node(self, snapshot: &SnapshotKey) -> Node {
         let parent = get_parent(&self.path, &self.name).map(|s| s.to_string());
         Node {
-            repo_url: snapshot.repo_url.clone(),
-            id: snapshot.id.clone(),
+            snapshot: snapshot.clone(),
             path: self.path,
             name: self.name,
             r#type: self.r#type,
@@ -142,11 +146,11 @@ pub async fn index_files(
     restic: &Restic,
     db: &mut Database,
     repo: &RepoWithSecrets<'_>,
-    snapshot: &SnapshotId,
+    snapshot: &SnapshotKey,
 ) -> eyre::Result<u64> {
     let mut process = restic.run(
         Some(repo),
-        &["ls", &snapshot.0],
+        &["ls", &snapshot.snapshot_id.0],
         &Options {
             stdout: Output::Capture,
             json: true,
@@ -154,9 +158,7 @@ pub async fn index_files(
         },
     )?;
 
-    // TODO suuuuuuuper WIP
-
-    tokio_stream::wrappers::LinesStream::new(
+    let nodes = tokio_stream::wrappers::LinesStream::new(
         BufReader::new(
             process
                 .stdout()
@@ -165,49 +167,15 @@ pub async fn index_files(
         )
         .lines(),
     )
-    .map(|line| {
-        let line = line?;
-        println!("{line}");
-        Ok::<_, eyre::Report>(serde_json::from_str::<LsJson>(&line)?)
-    })
-    .try_for_each(|x| async move {
-        println!("{x:?}");
-        Ok(())
-    })
-    .await?;
+    .map(|line| Ok::<_, eyre::Report>(serde_json::from_str::<LsJson>(&line?)?))
+    .try_filter_map(|json| async move {
+        match json {
+            LsJson::Snapshot(_) => Ok(None),
+            LsJson::Node(node) => Ok(Some(node.into_node(snapshot))),
+        }
+    });
 
-    Ok(1)
-
-    /*futures::stream::repeat_with(move || lines.next_line())
-    .then(|f| f)
-    //.try_filter_map(|s| async move { s })
-    //.map(|s| serde_json::from_str(s?))
-    .try_for_each(|x| async move {
-        println!("{x:?}");
-        Ok(())
-    })
-    .await?;*/
-
-    /*while let Some(line) = lines.next_line().await? {
-        let entry: LsEntry = serde_json::from_str(&line)?;
-        println!("{entry:?}");
-    }*/
-
-    /*let mut buf = Vec::new();
-    process
-        .stdout()
-        .as_mut()
-        .expect("should be present based on params")
-        .read_to_end(&mut buf)
-        .await?;
-    let snapshots: Vec<SnapshotEntry> = serde_json::from_slice(&buf)?;*/
-    /*db.save_snapshots(
-        &repo.repo,
-        snapshots
-            .into_iter()
-            .map(|e| e.into_snapshot(&repo.repo.url)),
-    )
-    .await*/
+    db.save_nodes(snapshot, nodes).await
 }
 
 #[cfg(test)]
@@ -521,6 +489,7 @@ mod tests {
             assert_eq!(result.unwrap(), "/home/user");
         }
 
+        #[test]
         fn should_not_get_parent_for_toplevel_dir() {
             let path = "/C";
             let name = "C";
@@ -530,6 +499,7 @@ mod tests {
             assert_eq!(result, None);
         }
 
+        #[test]
         fn should_not_get_parent_with_non_matching_name() {
             let path = "/home/user/name";
             let name = "test";
@@ -539,6 +509,7 @@ mod tests {
             assert_eq!(result, None);
         }
 
+        #[test]
         fn should_not_get_parent_with_non_matching_name_and_prefix() {
             let path = "/home/user/namename";
             let name = "name";

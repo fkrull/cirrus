@@ -112,6 +112,7 @@ fn migrations() -> Migrations<'static> {
 CREATE TABLE snapshots(
     generation INTEGER NOT NULL,
     repo_url TEXT NOT NULL,
+    backup TEXT,
     id TEXT NOT NULL,
     short_id TEXT NOT NULL,
     parent TEXT,
@@ -121,10 +122,11 @@ CREATE TABLE snapshots(
     time TEXT NOT NULL,
     tags TEXT NOT NULL,
     PRIMARY KEY (repo_url, id)
-);"#,
+);
+
+CREATE INDEX snapshots_time_idx ON snapshots (time);
+"#,
         ),
-        //language=SQLite
-        M::up(r#"ALTER TABLE snapshots ADD COLUMN backup TEXT;"#),
     ])
 }
 

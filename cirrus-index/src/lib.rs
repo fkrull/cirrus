@@ -69,3 +69,32 @@ fn deserialize_tags<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Tag>, 
         .collect();
     Ok(split)
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Permissions {
+    pub mode: u32,
+    pub permissions_string: String,
+}
+
+// TODO path types
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Node {
+    pub repo_url: repo::Url,
+    pub id: SnapshotId,
+    pub path: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub r#type: Type,
+    pub parent: Option<String>,
+    pub uid: Uid,
+    pub gid: Gid,
+    pub size: Option<FileSize>,
+    #[serde(flatten)]
+    pub permissions: Permissions,
+    #[serde(with = "time::serde::iso8601")]
+    pub mtime: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub atime: OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
+    pub ctime: OffsetDateTime,
+}

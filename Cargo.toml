@@ -19,7 +19,7 @@ members = [
 ]
 
 [dependencies]
-cirrus-core = { path = "cirrus-core" }
+cirrus-core = { path = "cirrus-core", features = ["keyring"] }
 cirrus-daemon = { path = "cirrus-daemon" }
 cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
 cirrus-index = { version = "0.1.0", path = "cirrus-index" }
@@ -38,10 +38,15 @@ time = { version = "0.3.5", features = ["macros"] }
 events = { version = "0.2.0", path = "events" }
 futures = "0.3.24"
 tokio = { version = "1.21.2", features = ["rt-multi-thread", "macros"] }
+rusqlite = "0.28.0"
 
 [features]
-# This feature enables the CLI flag for bundled restic as well as the behavior to handle it; it does *NOT* actually
-# bundle restic on its own.
+# enables the CLI flag for bundled restic as well as the behavior to handle it, i.e. running restic from next to the
+# cirrus binary instead of from PATH
 bundled-restic-support = []
 
-default = ["cirrus-core/keyring", "cirrus-self", "cirrus-desktop-ui"]
+default = [
+    "cirrus-self",
+    "cirrus-desktop-ui",
+    "rusqlite/bundled",
+]

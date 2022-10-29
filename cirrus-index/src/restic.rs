@@ -1,5 +1,6 @@
 use crate::{
-    Database, FileSize, Gid, Permissions, Snapshot, SnapshotId, SnapshotKey, TreeId, Type, Uid,
+    Database, File, FileSize, Gid, Owner, Permissions, Snapshot, SnapshotId, SnapshotKey, TreeId,
+    Type, Uid, Version,
 };
 use cirrus_core::{
     config::{backup, repo},
@@ -42,7 +43,7 @@ impl SnapshotJson {
             backup,
             short_id: self.short_id,
             parent: self.parent,
-            tree: self.tree,
+            tree_id: self.tree,
             hostname: self.hostname,
             username: self.username,
             time: self.time,
@@ -76,17 +77,24 @@ struct NodeJson {
     ctime: OffsetDateTime,
 }
 
-/*impl NodeJson {
-    fn into_node(self, snapshot: &SnapshotKey) -> Node {
+impl NodeJson {
+    fn into_file_and_version(self, snapshot: &Snapshot) -> (File, Version) {
         let parent = get_parent(&self.path, &self.name).map(|s| s.to_string());
-        Node {
-            snapshot: snapshot.clone(),
+        let file = File {
+            id: 0,
+            repo_url: snapshot.key.repo_url.clone(),
             path: self.path,
-            name: self.name,
-            r#type: self.r#type,
             parent,
-            uid: self.uid,
-            gid: self.gid,
+            name: self.name,
+        };
+        let version = Version {
+            file: 0,
+            tree_id: snapshot.tree_id.clone(),
+            r#type: self.r#type,
+            owner: Owner {
+                uid: self.uid,
+                gid: self.gid,
+            },
             size: self.size,
             permissions: Permissions {
                 mode: self.mode,
@@ -95,9 +103,10 @@ struct NodeJson {
             mtime: self.mtime,
             atime: self.atime,
             ctime: self.ctime,
-        }
+        };
+        (file, version)
     }
-}*/
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -147,10 +156,9 @@ pub async fn index_files(
     repo: &RepoWithSecrets<'_>,
     snapshot: &Snapshot,
 ) -> eyre::Result<u64> {
-    todo!()
-    /*let mut process = restic.run(
+    let mut process = restic.run(
         Some(repo),
-        &["ls", &snapshot.snapshot_id.0],
+        &["ls", &snapshot.key.snapshot_id.0],
         &Options {
             stdout: Output::Capture,
             json: true,
@@ -158,7 +166,7 @@ pub async fn index_files(
         },
     )?;
 
-    let nodes = tokio_stream::wrappers::LinesStream::new(
+    let files = tokio_stream::wrappers::LinesStream::new(
         BufReader::new(
             process
                 .stdout()
@@ -171,11 +179,11 @@ pub async fn index_files(
     .try_filter_map(|json| async move {
         match json {
             LsJson::Snapshot(_) => Ok(None),
-            LsJson::Node(node) => Ok(Some(node.into_node(snapshot))),
+            LsJson::Node(node) => Ok(Some(node.into_file_and_version(snapshot))),
         }
     });
 
-    db.save_nodes(snapshot, nodes).await*/
+    db.save_files(&snapshot.tree_id, files).await
 }
 
 #[cfg(test)]

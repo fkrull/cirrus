@@ -49,7 +49,7 @@ pub struct Snapshot {
     pub backup: Option<backup::Name>,
     pub short_id: String,
     pub parent: Option<SnapshotId>,
-    pub tree: TreeId,
+    pub tree_id: TreeId,
     pub hostname: String,
     pub username: String,
     #[serde(with = "time::serde::iso8601")]
@@ -90,8 +90,10 @@ pub struct Owner {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct File {
+    #[serde(skip_serializing)]
     id: u64,
     pub repo_url: repo::Url,
+    pub path: String,
     pub parent: Option<String>,
     pub name: String,
 }
@@ -114,6 +116,3 @@ pub struct Version {
     #[serde(with = "time::serde::timestamp")]
     pub ctime: OffsetDateTime,
 }
-
-//#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
-//pub struct File

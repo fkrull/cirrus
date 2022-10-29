@@ -36,21 +36,20 @@ impl Database {
         .await
     }
 
-    /*pub async fn get_unindexed_snapshots(
+    pub async fn get_unindexed_snapshots(
         &mut self,
         repo: &repo::Definition,
         limit: u64,
-    ) -> eyre::Result<Vec<SnapshotKey>> {
-        let snapshots = b(|| {
-            let mut stmt = self
+    ) -> eyre::Result<Vec<Snapshot>> {
+        //language=SQLite
+        let mut stmt =b(||
+            self
                 .conn
-                //language=SQLite
-                .prepare("SELECT * FROM snapshots WHERE repo_url = ? AND files = 0 ORDER BY time DESC LIMIT ?")?;
-            let rows = stmt.query(params![&repo.url.0, limit])?;
-            serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()
-        }).await?;
+                .prepare("SELECT snapshots.* FROM snapshots LEFT JOIN tree_indexed USING (tree_id) WHERE repo_url = ? AND files_count IS NULL ORDER BY time DESC LIMIT ?")).await?;
+        let rows = b(|| stmt.query(params![&repo.url.0, limit])).await?;
+        let snapshots = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
         Ok(snapshots)
-    }*/
+    }
 
     pub(crate) async fn save_snapshots(
         &mut self,
@@ -79,7 +78,7 @@ INTO snapshots(generation,
                backup,
                short_id,
                parent,
-               tree,
+               tree_id,
                hostname,
                username,
                time,
@@ -90,7 +89,7 @@ VALUES (:generation,
         :backup,
         :short_id,
         :parent,
-        :tree,
+        :tree_id,
         :hostname,
         :username,
         :time,
@@ -126,16 +125,19 @@ VALUES (:generation,
     ) -> eyre::Result<u64> {
         let tx = b(|| self.conn.transaction()).await?;
         //language=SQLite
-        let mut file_stmt = b(|| {
+        let mut get_file_stmt =
+            b(|| tx.prepare("SELECT id FROM files WHERE repo_url = ? AND path = ?")).await?;
+        //language=SQLite
+        let mut insert_file_stmt = b(|| {
             tx.prepare(
-                "INSERT INTO files(id, repo_url, parent, name)
-VALUES (:id, :repo_url, :parent, :name)
-ON CONFLICT DO NOTHING RETURNING id",
+                "INSERT INTO files(repo_url, path, parent, name)
+VALUES (:repo_url, :path, :parent, :name)
+RETURNING id",
             )
         })
         .await?;
         //language=SQLite
-        let mut version_stmt = b(|| tx.prepare(
+        let mut insert_version_stmt = b(|| tx.prepare(
             "INSERT INTO files_versions (file,
                             tree_id,
                             type,
@@ -154,11 +156,20 @@ VALUES (:file, :tree_id, :type, :uid, :gid, :size, :mode, :permissions_string, :
         tokio::pin!(files);
         while let Some(file_and_version) = files.next().await {
             let (file, mut version) = file_and_version?;
-            let params = serde_rusqlite::to_params_named(file)?;
-            let id: u64 = b(|| file_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?;
+            let id =
+                b(|| get_file_stmt.query_row(params![&file.repo_url.0, &file.path], |r| r.get(0)))
+                    .await
+                    .optional()?;
+            let id: u64 = match id {
+                Some(id) => id,
+                None => {
+                    let params = serde_rusqlite::to_params_named(file)?;
+                    b(|| insert_file_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?
+                }
+            };
             version.file = id;
             let params = serde_rusqlite::to_params_named(version)?;
-            b(|| version_stmt.execute(&*params.to_slice())).await?;
+            b(|| insert_version_stmt.execute(&*params.to_slice())).await?;
             count += 1;
         }
 
@@ -171,8 +182,9 @@ VALUES (:file, :tree_id, :type, :uid, :gid, :size, :mode, :permissions_string, :
         })
         .await?;
 
-        drop(file_stmt);
-        drop(version_stmt);
+        drop(get_file_stmt);
+        drop(insert_file_stmt);
+        drop(insert_version_stmt);
         b(|| tx.commit()).await?;
         Ok(count)
     }
@@ -197,7 +209,7 @@ fn migrations() -> Migrations<'static> {
     backup      TEXT,
     short_id    TEXT    NOT NULL,
     parent      TEXT,
-    tree        TEXT    NOT NULL,
+    tree_id     TEXT    NOT NULL,
     hostname    TEXT    NOT NULL,
     username    TEXT    NOT NULL,
     time        TEXT    NOT NULL,
@@ -213,11 +225,12 @@ CREATE INDEX snapshots_time_idx ON snapshots (time);"#,
 (
     id       INTEGER PRIMARY KEY,
     repo_url TEXT NOT NULL,
+    path     TEXT NOT NULL,
     parent   TEXT,
     name     TEXT NOT NULL
 ) STRICT;
 
-CREATE UNIQUE INDEX files_uniq_idx ON files (repo_url, parent, name);
+CREATE UNIQUE INDEX files_uniq_idx ON files (repo_url, path);
 
 CREATE TABLE files_versions
 (
@@ -267,7 +280,7 @@ mod tests {
                 backup: None,
                 short_id: "12".to_string(),
                 parent: None,
-                tree: TreeId("abcd".to_string()),
+                tree_id: TreeId("abcd".to_string()),
                 hostname: "host1".to_string(),
                 username: "user1".to_string(),
                 time: datetime!(2022-10-25 20:44:12 +0),
@@ -281,7 +294,7 @@ mod tests {
                 backup: Some(backup::Name("bkp".to_string())),
                 short_id: "56".to_string(),
                 parent: None,
-                tree: TreeId("ef".to_string()),
+                tree_id: TreeId("ef".to_string()),
                 hostname: "host2".to_string(),
                 username: "user2".to_string(),
                 time: datetime!(2022-04-18 10:50:31 +0),
@@ -300,7 +313,7 @@ mod tests {
                 backup: None,
                 short_id: "12".to_string(),
                 parent: None,
-                tree: TreeId("abcd".to_string()),
+                tree_id: TreeId("abcd".to_string()),
                 hostname: "host1".to_string(),
                 username: "user1".to_string(),
                 time: datetime!(2022-10-25 20:44:12 +0),
@@ -314,7 +327,7 @@ mod tests {
                 backup: Some(backup::Name("abc".to_string())),
                 short_id: "11".to_string(),
                 parent: None,
-                tree: TreeId("ef".to_string()),
+                tree_id: TreeId("ef".to_string()),
                 hostname: "host3".to_string(),
                 username: "user3".to_string(),
                 time: datetime!(2020-03-06 09:06:47 +0),

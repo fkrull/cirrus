@@ -40,7 +40,6 @@ pub struct TreeId(pub String);
 pub struct Snapshot {
     pub snapshot_id: SnapshotId,
     pub backup: Option<backup::Name>,
-    pub short_id: String,
     pub parent: Option<SnapshotId>,
     pub tree_id: TreeId,
     pub hostname: String,
@@ -52,6 +51,12 @@ pub struct Snapshot {
         deserialize_with = "deserialize_tags"
     )]
     pub tags: Vec<Tag>,
+}
+
+impl Snapshot {
+    pub fn short_id(&self) -> &str {
+        &self.snapshot_id.0[0..8]
+    }
 }
 
 fn serialize_tags<S: serde::Serializer>(v: &Vec<Tag>, s: S) -> Result<S::Ok, S::Error> {

@@ -38,7 +38,6 @@ impl SnapshotJson {
         Snapshot {
             snapshot_id: self.id,
             backup,
-            short_id: self.short_id,
             parent: self.parent,
             tree_id: self.tree,
             hostname: self.hostname,

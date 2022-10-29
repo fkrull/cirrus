@@ -43,7 +43,7 @@ pub async fn fill(
     let unindexed = db.get_unindexed_snapshots(10).await?;
     println!("indexing {} unindexed snapshots...", unindexed.len());
     for snapshot in &unindexed {
-        println!("indexing {}...", snapshot.short_id);
+        println!("indexing {}...", snapshot.short_id());
         cirrus_index::index_files(restic, &mut db, &repo_with_secrets, snapshot).await?;
     }
 

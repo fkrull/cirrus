@@ -82,25 +82,38 @@ pub struct Permissions {
     pub permissions_string: String,
 }
 
-// TODO path types
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct Node {
-    #[serde(flatten)]
-    pub snapshot: SnapshotKey,
-    pub path: String,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub r#type: Type,
-    pub parent: Option<String>,
+pub struct Owner {
     pub uid: Uid,
     pub gid: Gid,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct File {
+    id: u64,
+    pub repo_url: repo::Url,
+    pub parent: Option<String>,
+    pub name: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Version {
+    file: u64,
+    pub tree_id: TreeId,
+    #[serde(rename = "type")]
+    pub r#type: Type,
+    #[serde(flatten)]
+    pub owner: Owner,
     pub size: Option<FileSize>,
     #[serde(flatten)]
     pub permissions: Permissions,
-    #[serde(with = "time::serde::iso8601")]
+    #[serde(with = "time::serde::timestamp")]
     pub mtime: OffsetDateTime,
-    #[serde(with = "time::serde::iso8601")]
+    #[serde(with = "time::serde::timestamp")]
     pub atime: OffsetDateTime,
-    #[serde(with = "time::serde::iso8601")]
+    #[serde(with = "time::serde::timestamp")]
     pub ctime: OffsetDateTime,
 }
+
+//#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+//pub struct File

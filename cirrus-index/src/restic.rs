@@ -1,6 +1,5 @@
 use crate::{
-    Database, FileSize, Gid, Node, Permissions, Snapshot, SnapshotId, SnapshotKey, TreeId, Type,
-    Uid,
+    Database, FileSize, Gid, Permissions, Snapshot, SnapshotId, SnapshotKey, TreeId, Type, Uid,
 };
 use cirrus_core::{
     config::{backup, repo},
@@ -77,7 +76,7 @@ struct NodeJson {
     ctime: OffsetDateTime,
 }
 
-impl NodeJson {
+/*impl NodeJson {
     fn into_node(self, snapshot: &SnapshotKey) -> Node {
         let parent = get_parent(&self.path, &self.name).map(|s| s.to_string());
         Node {
@@ -98,7 +97,7 @@ impl NodeJson {
             ctime: self.ctime,
         }
     }
-}
+}*/
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -146,9 +145,10 @@ pub async fn index_files(
     restic: &Restic,
     db: &mut Database,
     repo: &RepoWithSecrets<'_>,
-    snapshot: &SnapshotKey,
+    snapshot: &Snapshot,
 ) -> eyre::Result<u64> {
-    let mut process = restic.run(
+    todo!()
+    /*let mut process = restic.run(
         Some(repo),
         &["ls", &snapshot.snapshot_id.0],
         &Options {
@@ -175,7 +175,7 @@ pub async fn index_files(
         }
     });
 
-    db.save_nodes(snapshot, nodes).await
+    db.save_nodes(snapshot, nodes).await*/
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-use crate::{Node, Snapshot, SnapshotKey};
+use crate::{File, Snapshot, TreeId, Version};
 use cirrus_core::config::repo;
 use futures::{Stream, StreamExt};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -36,11 +36,11 @@ impl Database {
         .await
     }
 
-    pub async fn get_unindexed_snapshots(
+    /*pub async fn get_unindexed_snapshots(
         &mut self,
         repo: &repo::Definition,
         limit: u64,
-    ) -> eyre::Result<Vec<Snapshot>> {
+    ) -> eyre::Result<Vec<SnapshotKey>> {
         let snapshots = b(|| {
             let mut stmt = self
                 .conn
@@ -50,126 +50,58 @@ impl Database {
             serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()
         }).await?;
         Ok(snapshots)
-    }
+    }*/
 
     pub(crate) async fn save_snapshots(
         &mut self,
         repo: &repo::Definition,
         snapshots: impl IntoIterator<Item = impl Borrow<Snapshot>>,
     ) -> eyre::Result<u64> {
-        b(|| {
-            let tx = self.conn.transaction()?;
+        let tx = b(|| self.conn.transaction()).await?;
 
-            let generation = tx
+        let generation = b(|| {
+            tx
                 //language=SQLite
                 .query_row("SELECT generation FROM snapshots LIMIT 1", [], |r| r.get(0))
-                .optional()?
-                .unwrap_or(0);
-            let next_gen = generation + 1;
-            let mut stmt = tx.prepare(
-                //language=SQLite
-                "
-                    INSERT OR
-                    REPLACE INTO snapshots(generation,
-                                           repo_url,
-                                           snapshot_id,
-                                           backup,
-                                           short_id,
-                                           parent,
-                                           tree,
-                                           hostname,
-                                           username,
-                                           time,
-                                           tags)
-                    VALUES (:generation,
-                            :repo_url,
-                            :snapshot_id,
-                            :backup,
-                            :short_id,
-                            :parent,
-                            :tree,
-                            :hostname,
-                            :username,
-                            :time,
-                            :tags)",
-            )?;
-            let mut count = 0;
-            for snapshot in snapshots {
-                let snapshot = snapshot.borrow();
-                let mut params = serde_rusqlite::to_params_named(snapshot)?;
-                params.push((":generation".to_owned(), Box::new(next_gen)));
-                stmt.execute(&*params.to_slice())?;
-                count += 1;
-            }
-            tx.execute(
-                //language=SQLite
-                "DELETE FROM snapshots WHERE repo_url = ? AND generation != ? ",
-                params![&repo.url.0, next_gen],
-            )?;
-            drop(stmt);
-            tx.commit()?;
-            Ok(count)
         })
         .await
-    }
-
-    pub(crate) async fn save_nodes(
-        &mut self,
-        snapshot: &SnapshotKey,
-        nodes: impl Stream<Item = eyre::Result<Node>>,
-    ) -> eyre::Result<u64> {
-        let tx = b(|| self.conn.transaction()).await?;
-        let generation = b(|| {
-            //language=SQLite
-            tx.query_row("SELECT generation FROM nodes LIMIT 1", [], |r| r.get(0))
-                .optional()
-        })
-        .await?
+        .optional()?
         .unwrap_or(0);
         let next_gen = generation + 1;
-        //language=SQLite
         let mut stmt = b(|| {
             tx.prepare(
-                "
-                    INSERT OR
-                    REPLACE INTO nodes(generation,
-                                       repo_url,
-                                       snapshot_id,
-                                       path,
-                                       name,
-                                       type,
-                                       parent,
-                                       uid,
-                                       gid,
-                                       size,
-                                       mode,
-                                       permissions_string,
-                                       mtime,
-                                       atime,
-                                       ctime)
-                    VALUES (:generation,
-                            :repo_url,
-                            :snapshot_id,
-                            :path,
-                            :name,
-                            :type,
-                            :parent,
-                            :uid,
-                            :gid,
-                            :size,
-                            :mode,
-                            :permissions_string,
-                            :mtime,
-                            :atime,
-                            :ctime)",
+                //language=SQLite
+                "INSERT OR
+REPLACE
+INTO snapshots(generation,
+               repo_url,
+               snapshot_id,
+               backup,
+               short_id,
+               parent,
+               tree,
+               hostname,
+               username,
+               time,
+               tags)
+VALUES (:generation,
+        :repo_url,
+        :snapshot_id,
+        :backup,
+        :short_id,
+        :parent,
+        :tree,
+        :hostname,
+        :username,
+        :time,
+        :tags)",
             )
         })
         .await?;
         let mut count = 0;
-        tokio::pin!(nodes);
-        while let Some(node) = nodes.next().await {
-            let node = node?;
-            let mut params = serde_rusqlite::to_params_named(node)?;
+        for snapshot in snapshots {
+            let snapshot = snapshot.borrow();
+            let mut params = serde_rusqlite::to_params_named(snapshot)?;
             params.push((":generation".to_owned(), Box::new(next_gen)));
             b(|| stmt.execute(&*params.to_slice())).await?;
             count += 1;
@@ -177,21 +109,71 @@ impl Database {
         b(|| {
             tx.execute(
                 //language=SQLite
-                "DELETE FROM nodes WHERE repo_url = ? AND snapshot_id = ? AND generation != ? ",
-                params![&snapshot.repo_url.0, &snapshot.snapshot_id.0, next_gen],
-            )
-        })
-        .await?;
-        b(|| {
-            tx.execute(
-                //language=SQLite
-                "UPDATE snapshots SET files = ? WHERE repo_url = ? AND snapshot_id = ?",
-                params![count, &snapshot.repo_url.0, &snapshot.snapshot_id.0],
+                "DELETE FROM snapshots WHERE repo_url = ? AND generation != ? ",
+                params![&repo.url.0, next_gen],
             )
         })
         .await?;
         drop(stmt);
-        b(move || tx.commit()).await?;
+        b(|| tx.commit()).await?;
+        Ok(count)
+    }
+
+    pub(crate) async fn save_files(
+        &mut self,
+        tree_id: &TreeId,
+        files: impl Stream<Item = eyre::Result<(File, Version)>>,
+    ) -> eyre::Result<u64> {
+        let tx = b(|| self.conn.transaction()).await?;
+        //language=SQLite
+        let mut file_stmt = b(|| {
+            tx.prepare(
+                "INSERT INTO files(id, repo_url, parent, name)
+VALUES (:id, :repo_url, :parent, :name)
+ON CONFLICT DO NOTHING RETURNING id",
+            )
+        })
+        .await?;
+        //language=SQLite
+        let mut version_stmt = b(|| tx.prepare(
+            "INSERT INTO files_versions (file,
+                            tree_id,
+                            type,
+                            uid,
+                            gid,
+                            size,
+                            mode,
+                            permissions_string,
+                            mtime,
+                            atime,
+                            ctime)
+VALUES (:file, :tree_id, :type, :uid, :gid, :size, :mode, :permissions_string, :mtime, :atime, :ctime) "
+        )).await?;
+
+        let mut count = 0;
+        tokio::pin!(files);
+        while let Some(file_and_version) = files.next().await {
+            let (file, mut version) = file_and_version?;
+            let params = serde_rusqlite::to_params_named(file)?;
+            let id: u64 = b(|| file_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?;
+            version.file = id;
+            let params = serde_rusqlite::to_params_named(version)?;
+            b(|| version_stmt.execute(&*params.to_slice())).await?;
+            count += 1;
+        }
+
+        //language=SQLite
+        b(|| {
+            tx.execute(
+                "INSERT INTO tree_indexed (tree_id, files_count) VALUES (?, ?)",
+                params![&tree_id.0, count],
+            )
+        })
+        .await?;
+
+        drop(file_stmt);
+        drop(version_stmt);
+        b(|| tx.commit()).await?;
         Ok(count)
     }
 }
@@ -220,7 +202,6 @@ fn migrations() -> Migrations<'static> {
     username    TEXT    NOT NULL,
     time        TEXT    NOT NULL,
     tags        TEXT    NOT NULL,
-    files       INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (repo_url, snapshot_id)
 ) STRICT;
 
@@ -228,31 +209,38 @@ CREATE INDEX snapshots_time_idx ON snapshots (time);"#,
         ),
         //language=SQLite
         M::up(
-            r#"CREATE TABLE nodes
+            r#"CREATE TABLE files
 (
-    generation         INTEGER NOT NULL,
-    repo_url           TEXT    NOT NULL,
-    snapshot_id        TEXT    NOT NULL,
-    path               TEXT    NOT NULL,
-    name               TEXT    NOT NULL,
+    id       INTEGER PRIMARY KEY,
+    repo_url TEXT NOT NULL,
+    parent   TEXT,
+    name     TEXT NOT NULL
+) STRICT;
+
+CREATE UNIQUE INDEX files_uniq_idx ON files (repo_url, parent, name);
+
+CREATE TABLE files_versions
+(
+    file               INTEGER NOT NULL,
+    tree_id            TEXT    NOT NULL,
     type               TEXT    NOT NULL,
-    parent             TEXT,
     uid                INTEGER NOT NULL,
     gid                INTEGER NOT NULL,
     size               INTEGER,
     mode               INTEGER NOT NULL,
     permissions_string TEXT    NOT NULL,
-    mtime              TEXT    NOT NULL,
-    atime              TEXT    NOT NULL,
-    ctime              TEXT    NOT NULL,
-    PRIMARY KEY (repo_url, snapshot_id, path),
-    FOREIGN KEY (repo_url, snapshot_id) REFERENCES snapshots (repo_url, snapshot_id) ON DELETE CASCADE,
-    FOREIGN KEY (repo_url, snapshot_id, parent) REFERENCES nodes (repo_url, snapshot_id, path) ON DELETE CASCADE
+    mtime              INTEGER NOT NULL,
+    atime              INTEGER NOT NULL,
+    ctime              INTEGER NOT NULL,
+    PRIMARY KEY (file, tree_id),
+    FOREIGN KEY (file) REFERENCES files (id) ON DELETE CASCADE ON UPDATE CASCADE
 ) STRICT;
 
-CREATE INDEX nodes_path_idx ON nodes (path);
-CREATE INDEX nodes_name_idx ON nodes (name);
-CREATE INDEX nodes_parent_idx ON nodes (parent);"#,
+CREATE TABLE tree_indexed
+(
+    tree_id     TEXT    NOT NULL PRIMARY KEY,
+    files_count INTEGER NOT NULL
+) STRICT;"#,
         ),
     ])
 }
@@ -260,7 +248,7 @@ CREATE INDEX nodes_parent_idx ON nodes (parent);"#,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{SnapshotId, TreeId};
+    use crate::{SnapshotId, SnapshotKey, TreeId};
     use cirrus_core::{config::backup, tag::Tag};
     use time::macros::datetime;
 

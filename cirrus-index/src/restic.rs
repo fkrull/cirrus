@@ -1,9 +1,9 @@
 use crate::{
-    Database, File, FileSize, Gid, Owner, Permissions, Snapshot, SnapshotId, SnapshotKey, TreeId,
-    Type, Uid, Version,
+    Database, File, FileSize, Gid, Owner, Permissions, Snapshot, SnapshotId, TreeId, Type, Uid,
+    Version,
 };
 use cirrus_core::{
-    config::{backup, repo},
+    config::backup,
     restic::{Options, Output, Restic},
     secrets::RepoWithSecrets,
     tag::Tag,
@@ -33,13 +33,10 @@ struct SnapshotJson {
 }
 
 impl SnapshotJson {
-    fn into_snapshot(self, repo_url: &repo::Url) -> Snapshot {
+    fn into_snapshot(self) -> Snapshot {
         let backup = self.tags.iter().find_map(|tag| tag.backup_name());
         Snapshot {
-            key: SnapshotKey {
-                repo_url: repo_url.clone(),
-                snapshot_id: self.id,
-            },
+            snapshot_id: self.id,
             backup,
             short_id: self.short_id,
             parent: self.parent,
@@ -82,7 +79,6 @@ impl NodeJson {
         let parent = get_parent(&self.path, &self.name).map(|s| s.to_string());
         let file = File {
             id: 0,
-            repo_url: snapshot.key.repo_url.clone(),
             path: self.path,
             parent,
             name: self.name,
@@ -139,12 +135,7 @@ pub async fn index_snapshots(
         .await?;
     let snapshots: Vec<SnapshotJson> = serde_json::from_slice(&buf)?;
     let ret = db
-        .save_snapshots(
-            repo.repo,
-            snapshots
-                .into_iter()
-                .map(|e| e.into_snapshot(&repo.repo.url)),
-        )
+        .save_snapshots(snapshots.into_iter().map(|e| e.into_snapshot()))
         .await?;
     process.check_wait().await?;
     Ok(ret)
@@ -158,7 +149,7 @@ pub async fn index_files(
 ) -> eyre::Result<u64> {
     let mut process = restic.run(
         Some(repo),
-        &["ls", &snapshot.key.snapshot_id.0],
+        &["ls", &snapshot.snapshot_id.0],
         &Options {
             stdout: Output::Capture,
             json: true,

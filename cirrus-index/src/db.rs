@@ -219,7 +219,7 @@ CREATE TABLE files_versions
 (
     file               INTEGER NOT NULL,
     tree_id            TEXT    NOT NULL,
-    type               TEXT    NOT NULL,
+    type               INTEGER NOT NULL,
     uid                INTEGER NOT NULL,
     gid                INTEGER NOT NULL,
     size               INTEGER,

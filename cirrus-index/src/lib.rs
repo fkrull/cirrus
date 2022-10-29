@@ -19,13 +19,49 @@ pub struct Gid(pub u32);
 #[serde(transparent)]
 pub struct FileSize(pub u64);
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Type {
     Dir,
     File,
     Symlink,
     Fifo,
+}
+
+impl Type {
+    fn to_i(self) -> u32 {
+        match self {
+            Type::Dir => 1,
+            Type::File => 2,
+            Type::Symlink => 3,
+            Type::Fifo => 4,
+        }
+    }
+
+    fn from_i(i: u32) -> Option<Type> {
+        match i {
+            1 => Some(Type::Dir),
+            2 => Some(Type::File),
+            3 => Some(Type::Symlink),
+            4 => Some(Type::Fifo),
+            _ => None,
+        }
+    }
+
+    fn serialize_as_int<S: serde::Serializer>(v: &Type, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_u32(v.to_i())
+    }
+
+    fn deserialize_as_int<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Type, D::Error> {
+        use serde::de::Error;
+        let i = u32::deserialize(d)?;
+        Type::from_i(i).ok_or_else(|| {
+            Error::invalid_value(
+                serde::de::Unexpected::Unsigned(i as u64),
+                &"an integer in range [1..4]",
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,7 +135,11 @@ pub struct File {
 pub struct Version {
     file: u64,
     pub tree_id: TreeId,
-    #[serde(rename = "type")]
+    #[serde(
+        rename = "type",
+        serialize_with = "Type::serialize_as_int",
+        deserialize_with = "Type::deserialize_as_int"
+    )]
     pub r#type: Type,
     #[serde(flatten)]
     pub owner: Owner,

@@ -1,6 +1,6 @@
 use crate::{
-    Database, File, FileId, FileSize, Gid, Mode, Owner, Snapshot, SnapshotId, Tree, TreeHash,
-    TreeId, Type, Uid, Version,
+    Database, File, FileId, FileSize, Gid, Mode, Owner, Snapshot, SnapshotId, TreeHash, TreeId,
+    Type, Uid, Version,
 };
 use cirrus_core::{
     config::backup,
@@ -33,24 +33,18 @@ struct SnapshotJson {
 }
 
 impl SnapshotJson {
-    fn into_tree_and_snapshot(self) -> (Tree, Snapshot) {
+    fn into_snapshot(self) -> Snapshot {
         let backup = self.tags.iter().find_map(|tag| tag.backup_name());
-        let tree = Tree {
-            id: TreeId::default(),
-            hash: self.tree,
-            file_count: 0,
-        };
-        let snapshot = Snapshot {
+        Snapshot {
             snapshot_id: self.id,
             backup,
             parent: self.parent,
-            tree: TreeId::default(),
+            tree_hash: self.tree,
             hostname: self.hostname,
             username: self.username,
             time: self.time,
             tags: self.tags,
-        };
-        (tree, snapshot)
+        }
     }
 }
 
@@ -80,7 +74,7 @@ struct NodeJson {
 }
 
 impl NodeJson {
-    fn into_file_and_version(self, tree: &Tree) -> (File, Version) {
+    fn into_file_and_version(self) -> (File, Version) {
         let parent = get_parent(&self.path, &self.name).map(|s| s.to_string());
         let file = File {
             id: FileId::default(),
@@ -90,7 +84,7 @@ impl NodeJson {
         };
         let version = Version {
             file: FileId::default(),
-            tree: tree.id,
+            tree: TreeId::default(),
             r#type: self.r#type,
             owner: Owner {
                 uid: self.uid,
@@ -136,7 +130,7 @@ pub async fn index_snapshots(
         .await?;
     let snapshots: Vec<SnapshotJson> = serde_json::from_slice(&buf)?;
     let ret = db
-        .save_snapshots(snapshots.into_iter().map(|e| e.into_tree_and_snapshot()))
+        .save_snapshots(snapshots.into_iter().map(|e| e.into_snapshot()))
         .await?;
     process.check_wait().await?;
     Ok(ret)
@@ -147,7 +141,6 @@ pub async fn index_files(
     db: &mut Database,
     repo: &RepoWithSecrets<'_>,
     snapshot: &Snapshot,
-    tree: &Tree,
 ) -> eyre::Result<u64> {
     let mut process = restic.run(
         Some(repo),
@@ -172,11 +165,11 @@ pub async fn index_files(
     .try_filter_map(|json| async move {
         match json {
             LsJson::Snapshot(_) => Ok(None),
-            LsJson::Node(node) => Ok(Some(node.into_file_and_version(tree))),
+            LsJson::Node(node) => Ok(Some(node.into_file_and_version())),
         }
     });
 
-    db.save_files(tree, files).await
+    db.save_files(snapshot, files).await
 }
 
 #[cfg(test)]

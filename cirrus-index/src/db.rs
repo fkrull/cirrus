@@ -79,6 +79,7 @@ FROM snapshots
 WHERE file_count IS NULL
    OR file_count = 0
 GROUP BY snapshots.tree_hash
+ORDER BY MAX(snapshots.time) DESC
 LIMIT ?",
         )?;
         let rows = b(|| stmt.query([limit])).await?;

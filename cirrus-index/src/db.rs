@@ -200,9 +200,11 @@ VALUES (:generation,
 
     async fn insert_version(tx: &Transaction<'_>, version: &Version) -> eyre::Result<()> {
         //language=SQLite
-        let mut stmt = tx.prepare_cached("INSERT INTO files_versions (file, tree, type, uid, gid, size, mode, permissions_string, mtime, atime, ctime)
-VALUES (:file, :tree, :type, :uid, :gid, :size, :mode, :permissions_string, :mtime, :atime, :ctime)
-ON CONFLICT(file, tree) DO NOTHING")?;
+        let mut stmt = tx.prepare_cached(
+            "INSERT INTO file_versions (file, tree, type, uid, gid, size, mode, mtime, ctime)
+VALUES (:file, :tree, :type, :uid, :gid, :size, :mode, :mtime, :ctime)
+ON CONFLICT(file, tree) DO NOTHING",
+        )?;
         let params = serde_rusqlite::to_params_named(version)?;
         b(|| stmt.execute(&*params.to_slice())).await?;
         Ok(())
@@ -247,19 +249,17 @@ CREATE TABLE trees
     name   TEXT NOT NULL
 ) STRICT;
 
-CREATE TABLE files_versions
+CREATE TABLE file_versions
 (
-    file               INTEGER NOT NULL,
-    tree               INTEGER NOT NULL,
-    type               INTEGER NOT NULL,
-    uid                INTEGER NOT NULL,
-    gid                INTEGER NOT NULL,
-    size               INTEGER,
-    mode               INTEGER NOT NULL,
-    permissions_string TEXT    NOT NULL,
-    mtime              INTEGER NOT NULL,
-    atime              INTEGER NOT NULL,
-    ctime              INTEGER NOT NULL,
+    file  INTEGER NOT NULL,
+    tree  INTEGER NOT NULL,
+    type  INTEGER NOT NULL,
+    uid   INTEGER NOT NULL,
+    gid   INTEGER NOT NULL,
+    size  INTEGER,
+    mode  INTEGER NOT NULL,
+    mtime INTEGER NOT NULL,
+    ctime INTEGER NOT NULL,
     PRIMARY KEY (file, tree),
     FOREIGN KEY (file) REFERENCES files (id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (tree) REFERENCES trees (id) ON DELETE CASCADE ON UPDATE CASCADE

@@ -1,6 +1,6 @@
 use crate::{
-    Database, File, FileId, FileSize, Gid, Owner, Permissions, Snapshot, SnapshotId, Tree,
-    TreeHash, TreeId, Type, Uid, Version,
+    Database, File, FileId, FileSize, Gid, Mode, Owner, Snapshot, SnapshotId, Tree, TreeHash,
+    TreeId, Type, Uid, Version,
 };
 use cirrus_core::{
     config::backup,
@@ -69,7 +69,7 @@ struct NodeJson {
     uid: Uid,
     gid: Gid,
     size: Option<FileSize>,
-    mode: u32,
+    mode: Mode,
     permissions: String,
     #[serde(with = "time::serde::iso8601")]
     mtime: OffsetDateTime,
@@ -97,12 +97,8 @@ impl NodeJson {
                 gid: self.gid,
             },
             size: self.size,
-            permissions: Permissions {
-                mode: self.mode,
-                permissions_string: self.permissions,
-            },
+            mode: self.mode,
             mtime: self.mtime,
-            atime: self.atime,
             ctime: self.ctime,
         };
         (file, version)
@@ -219,7 +215,7 @@ mod tests {
                     uid: Uid(1000),
                     gid: Gid(1000),
                     size: None,
-                    mode: 0o20000000775,
+                    mode: Mode(0o20000000775),
                     permissions: "drwxrwxr-x".to_string(),
                     mtime: datetime!(2022-06-05 13:46:04.582083272 +02:00),
                     atime: datetime!(2022-06-05 13:56:04.582083272 +02:00),
@@ -257,7 +253,7 @@ mod tests {
                     uid: Uid(0),
                     gid: Gid(0),
                     size: Some(FileSize(1234)),
-                    mode: 0o600,
+                    mode: Mode(0o600),
                     permissions: "-rw-------".to_string(),
                     mtime: datetime!(2022-10-22 13:46:04.582083272 +02:00),
                     atime: datetime!(2022-10-22 13:56:04.582083272 +02:00),
@@ -294,7 +290,7 @@ mod tests {
                     uid: Uid(0),
                     gid: Gid(0),
                     size: None,
-                    mode: 0o600,
+                    mode: Mode(0o600),
                     permissions: "-rw-------".to_string(),
                     mtime: datetime!(2022-10-22 13:46:04.582083272 +02:00),
                     atime: datetime!(2022-10-22 13:56:04.582083272 +02:00),
@@ -372,7 +368,7 @@ mod tests {
                     uid: Uid(0),
                     gid: Gid(0),
                     size: None,
-                    mode: 0o600,
+                    mode: Mode(0o600),
                     permissions: "-rw-------".to_string(),
                     mtime: datetime!(2022-10-22 13:46:04.582083272 +02:00),
                     atime: datetime!(2022-10-22 13:56:04.582083272 +02:00),

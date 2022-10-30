@@ -126,11 +126,9 @@ pub struct Tree {
     pub file_count: u64,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct Permissions {
-    pub mode: u32,
-    pub permissions_string: String,
-}
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Mode(pub u32);
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Owner {
@@ -160,12 +158,9 @@ pub struct Version {
     #[serde(flatten)]
     pub owner: Owner,
     pub size: Option<FileSize>,
-    #[serde(flatten)]
-    pub permissions: Permissions,
+    pub mode: Mode,
     #[serde(with = "time::serde::timestamp")]
     pub mtime: OffsetDateTime,
-    #[serde(with = "time::serde::timestamp")]
-    pub atime: OffsetDateTime,
     #[serde(with = "time::serde::timestamp")]
     pub ctime: OffsetDateTime,
 }

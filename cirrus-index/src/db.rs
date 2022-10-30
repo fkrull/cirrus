@@ -155,21 +155,19 @@ VALUES (:generation,
 
 async fn get_or_insert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<FileId> {
     //language=SQLite
-    let mut get_stmt = tx.prepare_cached("SELECT id FROM files WHERE path = ?")?;
+    let mut get_stmt =
+        tx.prepare_cached("SELECT id FROM files WHERE parent = :parent AND name = :name")?;
     //language=SQLite
-    let mut insert_stmt = tx.prepare_cached(
-        "INSERT INTO files (path, parent, name) VALUES (:path, :parent, :name) RETURNING id",
-    )?;
+    let mut insert_stmt =
+        tx.prepare_cached("INSERT INTO files (parent, name) VALUES (:parent, :name) RETURNING id")?;
 
-    let id = b(|| get_stmt.query_row([&file.path], |r| r.get(0)))
+    let params = serde_rusqlite::to_params_named(file)?;
+    let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
         .await
         .optional()?;
     let id = match id {
         Some(id) => id,
-        None => {
-            let params = serde_rusqlite::to_params_named(file)?;
-            b(|| insert_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?
-        }
+        None => b(|| insert_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?,
     };
     Ok(FileId(id))
 }
@@ -222,10 +220,11 @@ CREATE INDEX snapshots_time_idx ON snapshots (time);
             r#"CREATE TABLE files
 (
     id     INTEGER PRIMARY KEY,
-    path   TEXT NOT NULL UNIQUE,
-    parent TEXT,
+    parent TEXT NOT NULL,
     name   TEXT NOT NULL
 ) STRICT;
+
+CREATE UNIQUE INDEX files_uniq_idx ON files (parent, name);
 
 CREATE TABLE trees
 (

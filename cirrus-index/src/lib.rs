@@ -83,8 +83,8 @@ pub struct Snapshot {
     #[serde(with = "time::serde::iso8601")]
     pub time: OffsetDateTime,
     #[serde(
-        serialize_with = "serialize_tags",
-        deserialize_with = "deserialize_tags"
+        serialize_with = "Snapshot::serialize_tags",
+        deserialize_with = "Snapshot::deserialize_tags"
     )]
     pub tags: Vec<Tag>,
 }
@@ -93,21 +93,21 @@ impl Snapshot {
     pub fn short_id(&self) -> &str {
         &self.snapshot_id.0[0..8]
     }
-}
 
-fn serialize_tags<S: serde::Serializer>(v: &Vec<Tag>, s: S) -> Result<S::Ok, S::Error> {
-    use itertools::Itertools;
-    let comma_separated = v.iter().map(|s| &s.0).join(",");
-    s.serialize_str(&comma_separated)
-}
+    fn serialize_tags<S: serde::Serializer>(v: &Vec<Tag>, s: S) -> Result<S::Ok, S::Error> {
+        use itertools::Itertools;
+        let comma_separated = v.iter().map(|s| &s.0).join(",");
+        s.serialize_str(&comma_separated)
+    }
 
-fn deserialize_tags<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Tag>, D::Error> {
-    let comma_separated = String::deserialize(d)?;
-    let split = comma_separated
-        .split(',')
-        .map(|s| Tag(s.to_string()))
-        .collect();
-    Ok(split)
+    fn deserialize_tags<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Tag>, D::Error> {
+        let comma_separated = String::deserialize(d)?;
+        let split = comma_separated
+            .split(',')
+            .map(|s| Tag(s.to_string()))
+            .collect();
+        Ok(split)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default, Serialize, Deserialize)]
@@ -122,9 +122,36 @@ struct TreeId(u64);
 pub struct File {
     #[serde(skip_serializing)]
     id: FileId,
-    pub path: String,
+    #[serde(
+        serialize_with = "File::serialize_parent",
+        deserialize_with = "File::deserialize_parent"
+    )]
     pub parent: Option<String>,
     pub name: String,
+}
+
+impl File {
+    pub fn path(&self) -> String {
+        match &self.parent {
+            Some(parent) => format!("{parent}/{}", self.name),
+            None => format!("/{}", self.name),
+        }
+    }
+
+    fn serialize_parent<S: serde::Serializer>(v: &Option<String>, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(v.as_ref().map(|s| s.as_str()).unwrap_or(""))
+    }
+
+    fn deserialize_parent<'de, D: serde::Deserializer<'de>>(
+        d: D,
+    ) -> Result<Option<String>, D::Error> {
+        let s = <&'de str>::deserialize(d)?;
+        if s.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(s.to_string()))
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]

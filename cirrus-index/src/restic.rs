@@ -78,7 +78,6 @@ impl NodeJson {
         let parent = get_parent(&self.path, &self.name).map(|s| s.to_string());
         let file = File {
             id: FileId::default(),
-            path: self.path,
             parent,
             name: self.name,
         };

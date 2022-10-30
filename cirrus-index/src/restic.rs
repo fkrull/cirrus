@@ -1,6 +1,6 @@
 use crate::{
-    Database, File, FileId, FileSize, Gid, Mode, Owner, Snapshot, SnapshotId, TreeHash, TreeId,
-    Type, Uid, Version,
+    Database, File, FileId, FileSize, Gid, Mode, Owner, Parent, Snapshot, SnapshotId, TreeHash,
+    TreeId, Type, Uid, Version,
 };
 use cirrus_core::{
     config::backup,
@@ -48,10 +48,13 @@ impl SnapshotJson {
     }
 }
 
-fn get_parent<'a>(path: &'a str, name: &str) -> Option<&'a str> {
-    path.strip_suffix(name)
-        .and_then(|s| s.strip_suffix('/'))
-        .filter(|s| !s.is_empty())
+fn get_parent(path: &str, name: &str) -> Parent {
+    Parent(
+        path.strip_suffix(name)
+            .and_then(|s| s.strip_suffix('/'))
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -75,7 +78,7 @@ struct NodeJson {
 
 impl NodeJson {
     fn into_file_and_version(self) -> (File, Version) {
-        let parent = get_parent(&self.path, &self.name).map(|s| s.to_string());
+        let parent = get_parent(&self.path, &self.name);
         let file = File {
             id: FileId::default(),
             parent,
@@ -479,7 +482,7 @@ mod tests {
 
             let result = get_parent(path, name);
 
-            assert_eq!(result.unwrap(), "/home/user");
+            assert_eq!(result, Parent(Some("/home/user".to_string())));
         }
 
         #[test]
@@ -489,7 +492,7 @@ mod tests {
 
             let result = get_parent(path, name);
 
-            assert_eq!(result, None);
+            assert_eq!(result, Parent(None));
         }
 
         #[test]
@@ -499,7 +502,7 @@ mod tests {
 
             let result = get_parent(path, name);
 
-            assert_eq!(result, None);
+            assert_eq!(result, Parent(None));
         }
 
         #[test]
@@ -509,7 +512,7 @@ mod tests {
 
             let result = get_parent(path, name);
 
-            assert_eq!(result, None);
+            assert_eq!(result, Parent(None));
         }
     }
 }

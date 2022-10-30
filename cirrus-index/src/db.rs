@@ -1,8 +1,7 @@
-use crate::{File, FileId, Snapshot, TreeId, Version};
+use crate::{File, FileId, Parent, Snapshot, TreeId, Version};
 use cirrus_core::config::repo;
 use futures::{Stream, StreamExt};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
-use rusqlite_migration::{Migrations, M};
 use std::path::Path;
 
 async fn b<T>(f: impl FnOnce() -> T) -> T {
@@ -31,14 +30,52 @@ impl Database {
 
     pub async fn get_snapshots(&mut self) -> eyre::Result<Vec<Snapshot>> {
         //language=SQLite
-        let mut stmt = b(|| {
-            self.conn
-                .prepare("SELECT * FROM snapshots ORDER BY time DESC")
-        })
-        .await?;
+        let mut stmt = self
+            .conn
+            .prepare_cached("SELECT * FROM snapshots ORDER BY time DESC")?;
         let rows = b(|| stmt.query(())).await?;
         let snapshots = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
         Ok(snapshots)
+    }
+
+    pub async fn get_unindexed_snapshots(&mut self, limit: u64) -> eyre::Result<Vec<Snapshot>> {
+        //language=SQLite
+        let mut stmt = self.conn.prepare_cached(
+            "--
+SELECT snapshots.*
+FROM snapshots
+         LEFT JOIN trees ON snapshots.tree_hash = trees.hash
+WHERE file_count IS NULL
+   OR file_count = 0
+GROUP BY snapshots.tree_hash
+ORDER BY MAX(snapshots.time) DESC
+LIMIT ?",
+        )?;
+        let rows = b(|| stmt.query([limit])).await?;
+        let snapshots = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
+        Ok(snapshots)
+    }
+
+    pub async fn get_files(&mut self, parent: &Parent, limit: u64) -> eyre::Result<Vec<File>> {
+        #[derive(serde::Serialize)]
+        struct Params<'a> {
+            parent: &'a Parent,
+            limit: u64,
+        }
+
+        //language=SQLite
+        let mut stmt = self.conn.prepare_cached(
+            "--
+SELECT *
+FROM files
+WHERE parent = :parent
+ORDER BY name
+LIMIT :limit",
+        )?;
+        let params = serde_rusqlite::to_params_named(Params { parent, limit })?;
+        let rows = b(|| stmt.query(&*params.to_slice())).await?;
+        let files = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
+        Ok(files)
     }
 
     pub(crate) async fn save_snapshots(
@@ -47,12 +84,12 @@ impl Database {
     ) -> eyre::Result<u64> {
         let tx = b(|| self.conn.transaction()).await?;
         //language=SQLite
-        let db_gen =
+        let prev_gen =
             b(|| tx.query_row("SELECT generation FROM snapshots LIMIT 1", (), |r| r.get(0)))
                 .await
                 .optional()?
                 .unwrap_or(0);
-        let generation = db_gen + 1;
+        let generation = prev_gen + 1;
         let mut count = 0;
         for snapshot in snapshots {
             insert_snapshot(&tx, &snapshot, generation).await?;
@@ -70,30 +107,12 @@ impl Database {
         Ok(count)
     }
 
-    pub async fn get_unindexed_snapshots(&mut self, limit: u64) -> eyre::Result<Vec<Snapshot>> {
-        //language=SQLite
-        let mut stmt = self.conn.prepare_cached(
-            "SELECT snapshots.*
-FROM snapshots
-         LEFT JOIN trees ON snapshots.tree_hash = trees.hash
-WHERE file_count IS NULL
-   OR file_count = 0
-GROUP BY snapshots.tree_hash
-ORDER BY MAX(snapshots.time) DESC
-LIMIT ?",
-        )?;
-        let rows = b(|| stmt.query([limit])).await?;
-        let snapshots = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
-        Ok(snapshots)
-    }
-
     pub(crate) async fn save_files(
         &mut self,
         snapshot: &Snapshot,
         files: impl Stream<Item = eyre::Result<(File, Version)>>,
     ) -> eyre::Result<u64> {
         let tx = b(|| self.conn.transaction()).await?;
-
         let tree_id = insert_tree(&tx, snapshot).await?;
         let mut count = 0;
         tokio::pin!(files);
@@ -105,7 +124,6 @@ LIMIT ?",
             insert_version(&tx, &version).await?;
             count += 1;
         }
-
         //language=SQLite
         b(|| {
             tx.execute(
@@ -126,7 +144,8 @@ async fn insert_snapshot(
 ) -> eyre::Result<()> {
     //language=SQLite
     let mut stmt = tx.prepare(
-        "INSERT OR
+        "--
+INSERT OR
 REPLACE
 INTO snapshots(generation,
                snapshot_id,
@@ -147,7 +166,6 @@ VALUES (:generation,
         :time,
         :tags)",
     )?;
-
     let mut params = serde_rusqlite::to_params_named(snapshot)?;
     params.push((":generation".to_owned(), Box::new(generation)));
     b(|| stmt.execute(&*params.to_slice())).await?;
@@ -161,7 +179,6 @@ async fn get_or_insert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<F
     //language=SQLite
     let mut insert_stmt =
         tx.prepare_cached("INSERT INTO files (parent, name) VALUES (:parent, :name) RETURNING id")?;
-
     let params = serde_rusqlite::to_params_named(file)?;
     let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
         .await
@@ -179,7 +196,6 @@ async fn insert_tree(tx: &Transaction<'_>, snapshot: &Snapshot) -> eyre::Result<
     //language=SQLite
     let mut stmt =
         tx.prepare_cached("INSERT INTO trees (hash, file_count) VALUES (?, 0) RETURNING id")?;
-
     b(|| delete_stmt.execute([&snapshot.tree_hash.0])).await?;
     let id = b(|| stmt.query_row([&snapshot.tree_hash.0], |r| r.get(0))).await?;
     Ok(TreeId(id))
@@ -188,7 +204,8 @@ async fn insert_tree(tx: &Transaction<'_>, snapshot: &Snapshot) -> eyre::Result<
 async fn insert_version(tx: &Transaction<'_>, version: &Version) -> eyre::Result<()> {
     //language=SQLite
     let mut stmt = tx.prepare_cached(
-        "INSERT INTO file_versions (file, tree, type, uid, gid, size, mode, mtime, ctime)
+        "--
+INSERT INTO file_versions (file, tree, type, uid, gid, size, mode, mtime, ctime)
 VALUES (:file, :tree, :type, :uid, :gid, :size, :mode, :mtime, :ctime)",
     )?;
     let params = serde_rusqlite::to_params_named(version)?;
@@ -196,11 +213,13 @@ VALUES (:file, :tree, :type, :uid, :gid, :size, :mode, :mtime, :ctime)",
     Ok(())
 }
 
-fn migrations() -> Migrations<'static> {
+fn migrations() -> rusqlite_migration::Migrations<'static> {
+    use rusqlite_migration::{Migrations, M};
     Migrations::new(vec![
         //language=SQLite
         M::up(
-            r#"CREATE TABLE snapshots
+            r#"--
+CREATE TABLE snapshots
 (
     generation  INTEGER NOT NULL,
     snapshot_id TEXT    NOT NULL PRIMARY KEY,
@@ -218,7 +237,8 @@ CREATE INDEX snapshots_time_idx ON snapshots (time);
         ),
         //language=SQLite
         M::up(
-            r#"CREATE TABLE files
+            r#"--
+CREATE TABLE files
 (
     id     INTEGER PRIMARY KEY,
     parent TEXT NOT NULL,
@@ -257,13 +277,26 @@ CREATE TABLE file_versions
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{SnapshotId, TreeHash};
+    use crate::{Gid, Mode, Owner, Parent, SnapshotId, TreeHash, Type, Uid};
     use cirrus_core::{config::backup, tag::Tag};
     use time::macros::datetime;
+    use tokio_stream::StreamExt;
 
-    #[test]
-    fn test_migrations() {
-        migrations().validate().unwrap();
+    fn test_repo() -> repo::Name {
+        repo::Name("test".to_string())
+    }
+
+    fn test_snapshot() -> Snapshot {
+        Snapshot {
+            snapshot_id: SnapshotId(Default::default()),
+            backup: None,
+            parent: None,
+            tree_hash: TreeHash("12345678".to_string()),
+            hostname: Default::default(),
+            username: Default::default(),
+            time: datetime!(2022-10-25 20:44:12 +0),
+            tags: Default::default(),
+        }
     }
 
     fn snapshots1() -> [Snapshot; 2] {
@@ -316,8 +349,54 @@ mod tests {
         ]
     }
 
-    fn test_repo() -> repo::Name {
-        repo::Name("test".to_string())
+    fn files1() -> [(File, Version); 2] {
+        [
+            (
+                File {
+                    id: FileId::default(),
+                    parent: Parent(None),
+                    name: "tmp".to_string(),
+                },
+                Version {
+                    file: Default::default(),
+                    tree: Default::default(),
+                    r#type: Type::Dir,
+                    owner: Owner {
+                        uid: Uid(1000),
+                        gid: Gid(1000),
+                    },
+                    size: None,
+                    mode: Mode(0o755),
+                    mtime: datetime!(2022-10-10 10:10:10 +2),
+                    ctime: datetime!(2022-10-10 08:10:10 +0),
+                },
+            ),
+            (
+                File {
+                    id: FileId::default(),
+                    parent: Parent(Some("/tmp".to_string())),
+                    name: "test".to_string(),
+                },
+                Version {
+                    file: Default::default(),
+                    tree: Default::default(),
+                    r#type: Type::File,
+                    owner: Owner {
+                        uid: Uid(1001),
+                        gid: Gid(1001),
+                    },
+                    size: None,
+                    mode: Mode(0o400),
+                    mtime: datetime!(2022-11-11 10:10:10 +2),
+                    ctime: datetime!(2022-11-11 08:10:10 +0),
+                },
+            ),
+        ]
+    }
+
+    #[test]
+    fn test_migrations() {
+        migrations().validate().unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -344,5 +423,53 @@ mod tests {
 
         let result = db.get_snapshots().await.unwrap();
         assert_eq!(&result, &snapshots2);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn should_get_unindexed_snapshots() {
+        let snapshots = snapshots1();
+        let tmp = tempfile::tempdir().unwrap();
+        let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
+
+        db.save_snapshots(snapshots.clone()).await.unwrap();
+
+        let result = db.get_unindexed_snapshots(10).await.unwrap();
+        assert_eq!(&result, &snapshots);
+        let result = db.get_unindexed_snapshots(1).await.unwrap();
+        assert_eq!(&result, &snapshots[..1]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn should_save_files() {
+        let files_and_versions = files1();
+        let tmp = tempfile::tempdir().unwrap();
+        let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
+
+        db.save_files(
+            &test_snapshot(),
+            futures::stream::iter(files_and_versions.clone()).map(Ok),
+        )
+        .await
+        .unwrap();
+
+        let result = db.get_files(&Parent(None), 10).await.unwrap();
+        assert_eq!(
+            &result,
+            &[File {
+                id: result[0].id,
+                ..files_and_versions[0].0.clone()
+            }]
+        );
+        let result = db
+            .get_files(&Parent(Some("/tmp".to_string())), 10)
+            .await
+            .unwrap();
+        assert_eq!(
+            &result,
+            &[File {
+                id: result[0].id,
+                ..files_and_versions[1].0.clone()
+            }]
+        );
     }
 }

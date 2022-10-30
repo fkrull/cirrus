@@ -165,11 +165,12 @@ impl Restic {
         definition: &backup::Definition,
         options: &Options,
     ) -> Result<ResticProcess, Error> {
-        let mut args = Vec::new();
-        args.push("backup".to_owned());
-        args.push(definition.path.0.clone());
-        args.push("--tag".to_owned());
-        args.push(Tag::for_backup(name).0);
+        let mut args = vec![
+            "backup".to_owned(),
+            definition.path.0.clone(),
+            "--tag".to_owned(),
+            Tag::for_backup(name).0,
+        ];
         for exclude in &definition.excludes {
             args.push(Self::EXCLUDE_PARAM.to_owned());
             args.push(exclude.0.clone());

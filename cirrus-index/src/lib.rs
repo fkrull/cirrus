@@ -15,9 +15,27 @@ pub struct Uid(pub u32);
 #[serde(transparent)]
 pub struct Gid(pub u32);
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Owner {
+    pub uid: Uid,
+    pub gid: Gid,
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Mode(pub u32);
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct FileSize(pub u64);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SnapshotId(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct TreeHash(pub String);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -64,14 +82,6 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct SnapshotId(pub String);
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct TreeHash(pub String);
-
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub snapshot_id: SnapshotId,
@@ -94,7 +104,7 @@ impl Snapshot {
         &self.snapshot_id.0[0..8]
     }
 
-    fn serialize_tags<S: serde::Serializer>(v: &Vec<Tag>, s: S) -> Result<S::Ok, S::Error> {
+    fn serialize_tags<S: serde::Serializer>(v: &[Tag], s: S) -> Result<S::Ok, S::Error> {
         use itertools::Itertools;
         let comma_separated = v.iter().map(|s| &s.0).join(",");
         s.serialize_str(&comma_separated)
@@ -110,6 +120,38 @@ impl Snapshot {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
+#[serde(from = "String", into = "String")]
+pub struct Parent(pub Option<String>);
+
+impl Parent {
+    pub fn path(&self, name: &str) -> String {
+        match &self.0 {
+            Some(parent) => format!("{parent}/{}", name),
+            None => format!("/{}", name),
+        }
+    }
+}
+
+impl From<String> for Parent {
+    fn from(s: String) -> Self {
+        if s.is_empty() {
+            Parent(None)
+        } else {
+            Parent(Some(s))
+        }
+    }
+}
+
+impl From<Parent> for String {
+    fn from(p: Parent) -> Self {
+        match p.0 {
+            Some(s) => s,
+            None => String::new(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 struct FileId(u64);
@@ -122,46 +164,14 @@ struct TreeId(u64);
 pub struct File {
     #[serde(skip_serializing)]
     id: FileId,
-    #[serde(
-        serialize_with = "File::serialize_parent",
-        deserialize_with = "File::deserialize_parent"
-    )]
-    pub parent: Option<String>,
+    pub parent: Parent,
     pub name: String,
 }
 
 impl File {
     pub fn path(&self) -> String {
-        match &self.parent {
-            Some(parent) => format!("{parent}/{}", self.name),
-            None => format!("/{}", self.name),
-        }
+        self.parent.path(&self.name)
     }
-
-    fn serialize_parent<S: serde::Serializer>(v: &Option<String>, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(v.as_ref().map(|s| s.as_str()).unwrap_or(""))
-    }
-
-    fn deserialize_parent<'de, D: serde::Deserializer<'de>>(
-        d: D,
-    ) -> Result<Option<String>, D::Error> {
-        let s = <&'de str>::deserialize(d)?;
-        if s.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(s.to_string()))
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Mode(pub u32);
-
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct Owner {
-    pub uid: Uid,
-    pub gid: Gid,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -182,4 +192,42 @@ pub struct Version {
     pub mtime: OffsetDateTime,
     #[serde(with = "time::serde::timestamp")]
     pub ctime: OffsetDateTime,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod parent {
+        use super::*;
+        use serde_json::Value;
+
+        #[test]
+        fn should_serialize_none() {
+            let result = serde_json::to_value(Parent(None)).unwrap();
+
+            assert_eq!(result, Value::from(""));
+        }
+
+        #[test]
+        fn should_serialize_some() {
+            let result = serde_json::to_value(Parent(Some("/parent".to_string()))).unwrap();
+
+            assert_eq!(result, Value::from("/parent"));
+        }
+
+        #[test]
+        fn should_deserialize_empty_string() {
+            let result: Parent = serde_json::from_str(r#""""#).unwrap();
+
+            assert_eq!(result, Parent(None));
+        }
+
+        #[test]
+        fn should_deserialize_value() {
+            let result: Parent = serde_json::from_str(r#""/tmp""#).unwrap();
+
+            assert_eq!(result, Parent(Some("/tmp".to_string())));
+        }
+    }
 }

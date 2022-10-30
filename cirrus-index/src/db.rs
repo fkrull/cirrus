@@ -209,7 +209,7 @@ fn migrations() -> Migrations<'static> {
     tree_hash   TEXT    NOT NULL,
     hostname    TEXT    NOT NULL,
     username    TEXT    NOT NULL,
-    time        TEXT    NOT NULL,
+    time        INTEGER NOT NULL,
     tags        TEXT    NOT NULL
 ) STRICT;
 

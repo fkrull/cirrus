@@ -80,7 +80,7 @@ pub struct Snapshot {
     pub tree_hash: TreeHash,
     pub hostname: String,
     pub username: String,
-    #[serde(with = "time::serde::iso8601")]
+    #[serde(with = "time::serde::timestamp")]
     pub time: OffsetDateTime,
     #[serde(
         serialize_with = "Snapshot::serialize_tags",

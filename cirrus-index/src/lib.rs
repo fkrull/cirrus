@@ -70,14 +70,22 @@ pub struct SnapshotId(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TreeId(pub String);
+pub struct TreeHash(pub String);
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(transparent)]
+struct FileId(u64);
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(transparent)]
+struct TreeId(u64);
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub snapshot_id: SnapshotId,
     pub backup: Option<backup::Name>,
     pub parent: Option<SnapshotId>,
-    pub tree_id: TreeId,
+    tree: TreeId,
     pub hostname: String,
     pub username: String,
     #[serde(with = "time::serde::iso8601")]
@@ -111,6 +119,14 @@ fn deserialize_tags<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Tag>, 
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Tree {
+    #[serde(skip_serializing)]
+    id: TreeId,
+    pub hash: TreeHash,
+    pub file_count: u64,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Permissions {
     pub mode: u32,
     pub permissions_string: String,
@@ -125,7 +141,7 @@ pub struct Owner {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct File {
     #[serde(skip_serializing)]
-    id: u64,
+    id: FileId,
     pub path: String,
     pub parent: Option<String>,
     pub name: String,
@@ -133,8 +149,8 @@ pub struct File {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Version {
-    file: u64,
-    pub tree_id: TreeId,
+    file: FileId,
+    tree: TreeId,
     #[serde(
         rename = "type",
         serialize_with = "Type::serialize_as_int",

@@ -1,6 +1,6 @@
 use crate::{
-    Database, File, FileSize, Gid, Owner, Permissions, Snapshot, SnapshotId, TreeId, Type, Uid,
-    Version,
+    Database, File, FileId, FileSize, Gid, Owner, Permissions, Snapshot, SnapshotId, Tree,
+    TreeHash, TreeId, Type, Uid, Version,
 };
 use cirrus_core::{
     config::backup,
@@ -18,7 +18,7 @@ struct SnapshotJson {
     #[serde(with = "time::serde::iso8601")]
     time: OffsetDateTime,
     parent: Option<SnapshotId>,
-    tree: TreeId,
+    tree: TreeHash,
     paths: Vec<backup::Path>,
     hostname: String,
     username: String,
@@ -33,18 +33,24 @@ struct SnapshotJson {
 }
 
 impl SnapshotJson {
-    fn into_snapshot(self) -> Snapshot {
+    fn into_tree_and_snapshot(self) -> (Tree, Snapshot) {
         let backup = self.tags.iter().find_map(|tag| tag.backup_name());
-        Snapshot {
+        let tree = Tree {
+            id: TreeId::default(),
+            hash: self.tree,
+            file_count: 0,
+        };
+        let snapshot = Snapshot {
             snapshot_id: self.id,
             backup,
             parent: self.parent,
-            tree_id: self.tree,
+            tree: TreeId::default(),
             hostname: self.hostname,
             username: self.username,
             time: self.time,
             tags: self.tags,
-        }
+        };
+        (tree, snapshot)
     }
 }
 
@@ -74,17 +80,17 @@ struct NodeJson {
 }
 
 impl NodeJson {
-    fn into_file_and_version(self, snapshot: &Snapshot) -> (File, Version) {
+    fn into_file_and_version(self, tree: &Tree) -> (File, Version) {
         let parent = get_parent(&self.path, &self.name).map(|s| s.to_string());
         let file = File {
-            id: 0,
+            id: FileId::default(),
             path: self.path,
             parent,
             name: self.name,
         };
         let version = Version {
-            file: 0,
-            tree_id: snapshot.tree_id.clone(),
+            file: FileId::default(),
+            tree: tree.id,
             r#type: self.r#type,
             owner: Owner {
                 uid: self.uid,
@@ -134,7 +140,7 @@ pub async fn index_snapshots(
         .await?;
     let snapshots: Vec<SnapshotJson> = serde_json::from_slice(&buf)?;
     let ret = db
-        .save_snapshots(snapshots.into_iter().map(|e| e.into_snapshot()))
+        .save_snapshots(snapshots.into_iter().map(|e| e.into_tree_and_snapshot()))
         .await?;
     process.check_wait().await?;
     Ok(ret)
@@ -145,6 +151,7 @@ pub async fn index_files(
     db: &mut Database,
     repo: &RepoWithSecrets<'_>,
     snapshot: &Snapshot,
+    tree: &Tree,
 ) -> eyre::Result<u64> {
     let mut process = restic.run(
         Some(repo),
@@ -169,11 +176,11 @@ pub async fn index_files(
     .try_filter_map(|json| async move {
         match json {
             LsJson::Snapshot(_) => Ok(None),
-            LsJson::Node(node) => Ok(Some(node.into_file_and_version(snapshot))),
+            LsJson::Node(node) => Ok(Some(node.into_file_and_version(tree))),
         }
     });
 
-    db.save_files(&snapshot.tree_id, files).await
+    db.save_files(tree, files).await
 }
 
 #[cfg(test)]
@@ -323,7 +330,7 @@ mod tests {
                 LsJson::Snapshot(SnapshotJson {
                     time: datetime!(2022-10-28 18:30:26.123 +00:00),
                     parent: Some(SnapshotId("par".to_string())),
-                    tree: TreeId("tree".to_string()),
+                    tree: TreeHash("tree".to_string()),
                     paths: vec![backup::Path("C:\\".to_string())],
                     hostname: "test".to_string(),
                     username: "testuser".to_string(),
@@ -397,7 +404,7 @@ mod tests {
                 SnapshotJson {
                     time: datetime!(2020-08-03 23:05:57.5629523 +02:00),
                     parent: None,
-                    tree: TreeId(
+                    tree: TreeHash(
                         "86fb8a32a6ac5c10fa2e21dbf140d8c40e5373dd891cc7926e067f125d6ad750"
                             .to_string()
                     ),
@@ -453,7 +460,7 @@ mod tests {
                         "2e8ad31a949d004194b97031427161b5b9c5a846359629b4c0671e2bbb26e6c4"
                             .to_string()
                     )),
-                    tree: TreeId(
+                    tree: TreeHash(
                         "86fb8a32a6ac5c10fa2e21dbf140d8c40e5373dd891cc7926e067f125d6ad750"
                             .to_string()
                     ),

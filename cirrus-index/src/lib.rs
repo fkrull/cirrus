@@ -166,6 +166,11 @@ pub struct File {
     id: FileId,
     pub parent: Parent,
     pub name: String,
+    #[serde(
+        serialize_with = "Type::serialize_as_int",
+        deserialize_with = "Type::deserialize_as_int"
+    )]
+    pub r#type: Type,
 }
 
 impl File {
@@ -178,12 +183,6 @@ impl File {
 pub struct Version {
     file: FileId,
     tree: TreeId,
-    #[serde(
-        rename = "type",
-        serialize_with = "Type::serialize_as_int",
-        deserialize_with = "Type::deserialize_as_int"
-    )]
-    pub r#type: Type,
     #[serde(flatten)]
     pub owner: Owner,
     pub size: Option<FileSize>,

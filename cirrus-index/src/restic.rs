@@ -60,7 +60,6 @@ fn get_parent(path: &str, name: &str) -> Parent {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 struct NodeJson {
     name: String,
-    #[serde(rename = "type")]
     r#type: Type,
     path: String,
     uid: Uid,
@@ -83,11 +82,11 @@ impl NodeJson {
             id: FileId::default(),
             parent,
             name: self.name,
+            r#type: self.r#type,
         };
         let version = Version {
             file: FileId::default(),
             tree: TreeId::default(),
-            r#type: self.r#type,
             owner: Owner {
                 uid: self.uid,
                 gid: self.gid,

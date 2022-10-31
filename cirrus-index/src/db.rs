@@ -174,11 +174,21 @@ VALUES (:generation,
 
 async fn get_or_insert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<FileId> {
     //language=SQLite
-    let mut get_stmt =
-        tx.prepare_cached("SELECT id FROM files WHERE parent = :parent AND name = :name")?;
+    let mut get_stmt = tx.prepare_cached(
+        "--
+SELECT id
+FROM files
+WHERE parent = :parent
+  AND name = :name
+  AND type = :type",
+    )?;
     //language=SQLite
-    let mut insert_stmt =
-        tx.prepare_cached("INSERT INTO files (parent, name) VALUES (:parent, :name) RETURNING id")?;
+    let mut insert_stmt = tx.prepare_cached(
+        "--
+INSERT INTO files (parent, name, type)
+VALUES (:parent, :name, :type)
+RETURNING id",
+    )?;
     let params = serde_rusqlite::to_params_named(file)?;
     let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
         .await
@@ -205,8 +215,8 @@ async fn insert_version(tx: &Transaction<'_>, version: &Version) -> eyre::Result
     //language=SQLite
     let mut stmt = tx.prepare_cached(
         "--
-INSERT INTO file_versions (file, tree, type, uid, gid, size, mode, mtime, ctime)
-VALUES (:file, :tree, :type, :uid, :gid, :size, :mode, :mtime, :ctime)",
+INSERT INTO file_versions (file, tree, uid, gid, size, mode, mtime, ctime)
+VALUES (:file, :tree, :uid, :gid, :size, :mode, :mtime, :ctime)",
     )?;
     let params = serde_rusqlite::to_params_named(version)?;
     b(|| stmt.execute(&*params.to_slice())).await?;
@@ -242,10 +252,11 @@ CREATE TABLE files
 (
     id     INTEGER PRIMARY KEY,
     parent TEXT NOT NULL,
-    name   TEXT NOT NULL
+    name   TEXT NOT NULL,
+    type   INTEGER NOT NULL
 ) STRICT;
 
-CREATE UNIQUE INDEX files_uniq_idx ON files (parent, name);
+CREATE UNIQUE INDEX files_uniq_idx ON files (parent, name, type);
 
 CREATE TABLE trees
 (
@@ -258,7 +269,6 @@ CREATE TABLE file_versions
 (
     file  INTEGER NOT NULL,
     tree  INTEGER NOT NULL,
-    type  INTEGER NOT NULL,
     uid   INTEGER NOT NULL,
     gid   INTEGER NOT NULL,
     size  INTEGER,
@@ -356,11 +366,11 @@ mod tests {
                     id: FileId::default(),
                     parent: Parent(None),
                     name: "tmp".to_string(),
+                    r#type: Type::Dir,
                 },
                 Version {
                     file: Default::default(),
                     tree: Default::default(),
-                    r#type: Type::Dir,
                     owner: Owner {
                         uid: Uid(1000),
                         gid: Gid(1000),
@@ -376,11 +386,11 @@ mod tests {
                     id: FileId::default(),
                     parent: Parent(Some("/tmp".to_string())),
                     name: "test".to_string(),
+                    r#type: Type::File,
                 },
                 Version {
                     file: Default::default(),
                     tree: Default::default(),
-                    r#type: Type::File,
                     owner: Owner {
                         uid: Uid(1001),
                         gid: Gid(1001),

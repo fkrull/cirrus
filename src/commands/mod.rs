@@ -6,7 +6,7 @@ use cirrus_core::{
 };
 
 pub mod daemon;
-pub mod index;
+pub mod repo_contents;
 pub mod secret;
 
 pub async fn restic(

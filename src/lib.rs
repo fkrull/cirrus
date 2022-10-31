@@ -111,11 +111,10 @@ pub async fn main() -> eyre::Result<()> {
         cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, maybe_config, args).await,
         #[cfg(feature = "cirrus-self")]
         cli::Cmd::SelfCommands(args) => cirrus_self::self_action(args),
-        cli::Cmd::Index(args) => match args.subcommand {
-            cli::index::Cmd::Fill(args) => {
-                commands::index::fill(&restic, &secrets, &maybe_config?, &cache, args).await
-            }
-        },
+        cli::Cmd::RepoContents(args) => {
+            commands::repo_contents::repo_contents(&restic, &secrets, &maybe_config?, &cache, args)
+                .await
+        }
         cli::Cmd::Version => commands::version(&restic).await,
     }
 }

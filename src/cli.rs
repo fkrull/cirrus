@@ -197,8 +197,8 @@ pub enum Cmd {
     #[command(name = "self")]
     SelfCommands(cirrus_self::Cli),
 
-    /// Interacts with the repository index
-    Index(index::Cli),
+    /// List and search repository contents
+    RepoContents(repo_contents::Cli),
 
     /// Prints version information
     Version,
@@ -282,23 +282,27 @@ pub mod restic {
     }
 }
 
-pub mod index {
+pub mod repo_contents {
     #[derive(clap::Parser)]
     pub struct Cli {
+        /// The repository to use
+        #[arg(short, long, env = "CIRRUS_REPOSITORY")]
+        pub repository: String,
+
         #[command(subcommand)]
         pub subcommand: Cmd,
     }
 
     #[derive(clap::Parser)]
     pub enum Cmd {
-        /// Fill the index
-        Fill(Fill),
+        /// Create and populate the contents index for the repository
+        Index(Index),
     }
 
     #[derive(clap::Parser)]
-    pub struct Fill {
-        /// ID of the repository to index
-        #[arg()]
-        pub repo: String,
+    pub struct Index {
+        /// Set the number of unindexed snapshots to index
+        #[arg(short, long, default_value = "20")]
+        pub snapshots_count: u32,
     }
 }

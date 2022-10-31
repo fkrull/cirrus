@@ -35,7 +35,7 @@ jobs:
           profile: minimal
           components: clippy
       - name: Install libdbus-1-dev
-        run: sudo apt-get install -y libdbus-1-dev
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
@@ -52,7 +52,7 @@ jobs:
           toolchain: stable
           profile: minimal
       - name: Install libdbus-1-dev
-        run: sudo apt-get install -y libdbus-1-dev
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo test
         uses: actions-rs/cargo@v1
@@ -124,7 +124,7 @@ jobs:
           cache: true
           cache-dependency-path: vendor/restic/go.sum
       - name: Install mingw cross compiler
-        run: sudo apt-get install -y gcc-mingw-w64-x86-64
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
       - uses: Swatinem/rust-cache@v2
       - name: Build package
         run: >

@@ -151,8 +151,6 @@ jobs:
         target:
           - x86_64-unknown-linux-musl
           - aarch64-unknown-linux-musl
-    env:
-      CARGO_PROFILE_RELEASE_LTO: thin
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -184,7 +182,8 @@ jobs:
           --version ${{ needs.version.outputs.version }}
           --build-string ${{ needs.version.outputs.build-string }}
           --target ${{ matrix.target }}
-          --meson-cross-file .github/workflows/meson-zig-${{ matrix.target }}.ini
+          --meson-cross-file build-scripts/meson-zig-${{ matrix.target }}.ini
+          --cargo-flags-file build-scripts/cargo-package-flags
           --features bundled-restic-support
           --static-dbus
           --build-restic

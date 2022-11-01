@@ -28,6 +28,9 @@ pub struct Args {
     /// cross-compiler config file for Meson
     #[argh(option)]
     meson_cross_file: Option<String>,
+    /// cargo commandline file
+    #[argh(option)]
+    cargo_flags_file: Option<String>,
 }
 
 pub fn main(args: Args) -> eyre::Result<()> {
@@ -37,12 +40,15 @@ pub fn main(args: Args) -> eyre::Result<()> {
     let target_vars = TargetVars::for_target(&target)?;
     let ext = target_vars.extension;
 
+    sh.set_var("GOOS", target_vars.go_os);
+    sh.set_var("GOARCH", target_vars.go_arch);
+    sh.set_var("GOARM", target_vars.go_arm.unwrap_or(""));
+    sh.set_var("CIRRUS_VERSION", &args.version);
+    sh.set_var("CIRRUS_BUILD_STRING", &args.build_string);
+    sh.set_var("CIRRUS_TARGET", &target);
+
     // compile restic
     if args.build_restic {
-        let _e1 = sh.push_env("GOOS", target_vars.go_os);
-        let _e2 = sh.push_env("GOARCH", target_vars.go_arch);
-        let _e3 = sh.push_env("GOARM", target_vars.go_arm.unwrap_or(""));
-
         let bin = format!("restic{ext}");
         let bin_path = format!("../../target/{target}/{bin}");
         let _cd = sh.push_dir("vendor/restic");
@@ -69,29 +75,30 @@ pub fn main(args: Args) -> eyre::Result<()> {
     };
 
     // compile cirrus
-    {
-        let _e1 = sh.push_env("CIRRUS_VERSION", &args.version);
-        let _e2 = sh.push_env("CIRRUS_BUILD_STRING", &args.build_string);
-        let _e3 = sh.push_env("CIRRUS_TARGET", &target);
-
-        let features = args.features;
-        cmd!(
-            sh,
-            "cargo build --release --target={target} --features={features} {dbus_link_args...}"
-        )
-        .run()?;
-        sh.copy_file(
-            format!("target/{target}/release/cirrus{ext}"),
-            tmp.path().join(format!("cirrus{ext}")),
-        )?;
-    }
+    let features = args.features;
+    let cargo_flags = match args.cargo_flags_file {
+        Some(p) => parse_cargo_config(&p)?,
+        None => Vec::new(),
+    };
+    cmd!(
+        sh,
+        "cargo build
+                --release 
+                --target={target} 
+                --features={features}
+                {cargo_flags...}
+                {dbus_link_args...}"
+    )
+    .run()?;
+    sh.copy_file(
+        format!("target/{target}/release/cirrus{ext}"),
+        tmp.path().join(format!("cirrus{ext}")),
+    )?;
 
     // build package
-    {
-        sh.create_dir("public")?;
-        let pkg_path = Path::new("public").join(format!("cirrus_{target}.tar.xz"));
-        package_tar_xz(&sh, tmp.path(), &pkg_path)?;
-    }
+    sh.create_dir("public")?;
+    let pkg_path = Path::new("public").join(format!("cirrus_{target}.tar.xz"));
+    package_tar_xz(&sh, tmp.path(), &pkg_path)?;
 
     Ok(())
 }
@@ -118,4 +125,14 @@ fn host_triple(sh: &Shell) -> eyre::Result<String> {
         .next()
         .map(|s| s.trim().to_owned())
         .ok_or_else(|| eyre::eyre!("could not find host triple"))
+}
+
+fn parse_cargo_config(path: &str) -> eyre::Result<Vec<String>> {
+    let lines = std::fs::read_to_string(path)?
+        .lines()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+    Ok(lines)
 }

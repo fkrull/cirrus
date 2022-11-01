@@ -4,12 +4,3 @@
 # we only use set_env in tests and kinda want local time for log messages and scheduling,
 # so we explicitly take the risk here
 rustflags = ["--cfg=unsound_local_offset"]
-
-[target.aarch64-unknown-linux-musl]
-linker = "rust-lld"
-
-[target.arm-unknown-linux-musleabihf]
-linker = "rust-lld"
-
-[target.x86_64-unknown-linux-musl]
-linker = "rust-lld"

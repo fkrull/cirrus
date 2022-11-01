@@ -28,9 +28,9 @@ pub struct Args {
     /// cross-compiler config file for Meson
     #[argh(option)]
     meson_cross_file: Option<String>,
-    /// cargo commandline file
+    /// cargo env file
     #[argh(option)]
-    cargo_flags_file: Option<String>,
+    cargo_env_file: Option<String>,
 }
 
 pub fn main(args: Args) -> eyre::Result<()> {
@@ -76,19 +76,19 @@ pub fn main(args: Args) -> eyre::Result<()> {
 
     // compile cirrus
     let features = args.features;
-    let cargo_flags = match args.cargo_flags_file {
-        Some(p) => parse_cargo_config(&p)?,
+    let cargo_env = match args.cargo_env_file {
+        Some(p) => parse_env_file(&p)?,
         None => Vec::new(),
     };
     cmd!(
         sh,
         "cargo build
-                --release 
-                --target={target} 
+                --release
+                --target={target}
                 --features={features}
-                {cargo_flags...}
                 {dbus_link_args...}"
     )
+    .envs(cargo_env)
     .run()?;
     sh.copy_file(
         format!("target/{target}/release/cirrus{ext}"),
@@ -127,12 +127,14 @@ fn host_triple(sh: &Shell) -> eyre::Result<String> {
         .ok_or_else(|| eyre::eyre!("could not find host triple"))
 }
 
-fn parse_cargo_config(path: &str) -> eyre::Result<Vec<String>> {
-    let lines = std::fs::read_to_string(path)?
+fn parse_env_file(path: &str) -> eyre::Result<Vec<(String, String)>> {
+    let vars = std::fs::read_to_string(path)?
         .lines()
         .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
+        .filter(|s| !s.starts_with('#'))
+        .filter_map(|s| s.split_once('='))
+        .filter(|(k, _)| !k.is_empty())
+        .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect();
-    Ok(lines)
+    Ok(vars)
 }

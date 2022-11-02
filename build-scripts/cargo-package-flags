@@ -1,4 +1,0 @@
---config=target.aarch64-unknown-linux-musl.linker="rust-lld"
---config=target.arm-unknown-linux-musleabihf.linker="rust-lld"
---config=target.x86_64-unknown-linux-musl.linker="rust-lld"
---config=profile.release.lto="thin"

@@ -128,13 +128,14 @@ fn host_triple(sh: &Shell) -> eyre::Result<String> {
 }
 
 fn parse_env_file(path: &str) -> eyre::Result<Vec<(String, String)>> {
+    let pwd = std::env::current_dir()?.to_string_lossy().into_owned();
     let vars = std::fs::read_to_string(path)?
         .lines()
         .map(|s| s.trim())
         .filter(|s| !s.starts_with('#'))
         .filter_map(|s| s.split_once('='))
         .filter(|(k, _)| !k.is_empty())
-        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .map(|(k, v)| (k.trim().to_string(), v.trim().replace("$PWD", &pwd)))
         .collect();
     Ok(vars)
 }

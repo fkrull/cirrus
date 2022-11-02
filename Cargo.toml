@@ -50,6 +50,3 @@ default = [
     "cirrus-desktop-ui",
     "rusqlite/bundled",
 ]
-
-[profile.release]
-lto = "thin"

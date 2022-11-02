@@ -128,7 +128,10 @@ fn host_triple(sh: &Shell) -> eyre::Result<String> {
 }
 
 fn parse_env_file(path: &str) -> eyre::Result<Vec<(String, String)>> {
-    let pwd = std::env::current_dir()?.to_string_lossy().into_owned();
+    let pwd = std::env::current_dir()?
+        .to_str()
+        .ok_or_else(|| eyre::eyre!("your current dir is not UTF-8, sorry :\\"))?
+        .to_string();
     let vars = std::fs::read_to_string(path)?
         .lines()
         .map(|s| s.trim())

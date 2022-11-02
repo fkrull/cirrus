@@ -183,7 +183,7 @@ jobs:
           --build-string ${{ needs.version.outputs.build-string }}
           --target ${{ matrix.target }}
           --meson-cross-file build-scripts/meson-zig-${{ matrix.target }}.ini
-          --cargo-env-file build-scripts/package.cargo-env
+          --cargo-env-file build-scripts/cargo-zig-linux-musl.env
           --features bundled-restic-support
           --static-dbus
           --build-restic

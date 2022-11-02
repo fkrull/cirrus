@@ -152,18 +152,21 @@ impl From<Parent> for String {
     }
 }
 
+// TODO: make private nad hide
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default, Serialize, Deserialize)]
 #[serde(transparent)]
-struct FileId(u64);
+pub struct FileId(u64);
 
+// TODO: make private nad hide
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default, Serialize, Deserialize)]
 #[serde(transparent)]
-struct TreeId(u64);
+pub struct TreeId(u64);
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct File {
+    // TODO: make private nad hide
     #[serde(skip_serializing)]
-    id: FileId,
+    pub id: FileId,
     pub parent: Parent,
     pub name: String,
     #[serde(
@@ -181,8 +184,9 @@ impl File {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Version {
-    file: FileId,
-    tree: TreeId,
+    // TODO: make private nad hide
+    pub file: FileId,
+    pub tree: TreeId,
     #[serde(flatten)]
     pub owner: Owner,
     pub size: Option<FileSize>,

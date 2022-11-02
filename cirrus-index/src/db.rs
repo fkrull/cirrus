@@ -78,7 +78,7 @@ LIMIT :limit",
         Ok(files)
     }
 
-    pub(crate) async fn save_snapshots(
+    pub async fn save_snapshots(
         &mut self,
         snapshots: impl IntoIterator<Item = Snapshot>,
     ) -> eyre::Result<u64> {
@@ -107,7 +107,7 @@ LIMIT :limit",
         Ok(count)
     }
 
-    pub(crate) async fn save_files(
+    pub async fn save_files(
         &mut self,
         snapshot: &Snapshot,
         files: impl Stream<Item = eyre::Result<(File, Version)>>,

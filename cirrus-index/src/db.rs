@@ -153,6 +153,13 @@ async fn insert_snapshot(
     snapshot: &Snapshot,
     generation: u64,
 ) -> eyre::Result<()> {
+    #[derive(serde::Serialize)]
+    struct Insert<'a> {
+        generation: u64,
+        #[serde(flatten)]
+        snapshot: &'a Snapshot,
+    }
+
     //language=SQLite
     let mut stmt = tx.prepare(
         "--
@@ -177,8 +184,10 @@ VALUES (:generation,
         :time,
         :tags)",
     )?;
-    let mut params = serde_rusqlite::to_params_named(snapshot)?;
-    params.push((":generation".to_owned(), Box::new(generation)));
+    let params = serde_rusqlite::to_params_named(Insert {
+        generation,
+        snapshot,
+    })?;
     b(|| stmt.execute(&*params.to_slice())).await?;
     Ok(())
 }
@@ -212,6 +221,13 @@ async fn upsert_version(
     file: FileId,
     version: &Version,
 ) -> eyre::Result<VersionId> {
+    #[derive(serde::Serialize)]
+    struct Insert<'a> {
+        file: FileId,
+        #[serde(flatten)]
+        version: &'a Version,
+    }
+
     //language=SQLite
     let get_stmt = tx.prepare_cached(
         "--
@@ -232,8 +248,7 @@ INSERT INTO file_versions (file, uid, gid, size, mode, mtime, ctime)
 VALUES (:file, :uid, :gid, :size, :mode, :mtime, :ctime)
 RETURNING id",
     )?;
-    let mut params = serde_rusqlite::to_params_named(version)?;
-    params.push((":file".to_string(), Box::new(file.0)));
+    let params = serde_rusqlite::to_params_named(Insert { file, version })?;
     Ok(VersionId(upsert(get_stmt, insert_stmt, params).await?))
 }
 

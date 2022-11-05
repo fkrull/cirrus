@@ -128,7 +128,7 @@ pub async fn index_snapshots(
         .await?;
     let snapshots: Vec<SnapshotJson> = serde_json::from_slice(&buf)?;
     let ret = db
-        .save_snapshots(snapshots.into_iter().map(|e| e.into_snapshot()))
+        .import_snapshots(snapshots.into_iter().map(|e| e.into_snapshot()))
         .await?;
     process.check_wait().await?;
     Ok(ret)
@@ -167,7 +167,7 @@ pub async fn index_files(
         }
     });
 
-    db.save_files(snapshot, files).await
+    db.import_files(snapshot, files).await
 }
 
 #[cfg(test)]

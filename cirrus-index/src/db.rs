@@ -90,7 +90,7 @@ LIMIT :limit",
         Ok(files)
     }
 
-    pub async fn save_snapshots(
+    pub async fn import_snapshots(
         &mut self,
         snapshots: impl IntoIterator<Item = Snapshot>,
     ) -> eyre::Result<u64> {
@@ -119,7 +119,7 @@ LIMIT :limit",
         Ok(count)
     }
 
-    pub async fn save_files(
+    pub async fn import_files(
         &mut self,
         snapshot: &Snapshot,
         files: impl Stream<Item = eyre::Result<(File, Version)>>,
@@ -474,7 +474,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
 
-        db.save_snapshots(snapshots.clone()).await.unwrap();
+        db.import_snapshots(snapshots.clone()).await.unwrap();
 
         let result = db.get_snapshots().await.unwrap();
         assert_eq!(&result, &snapshots);
@@ -487,8 +487,8 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
 
-        db.save_snapshots(snapshots1.clone()).await.unwrap();
-        db.save_snapshots(snapshots2.clone()).await.unwrap();
+        db.import_snapshots(snapshots1.clone()).await.unwrap();
+        db.import_snapshots(snapshots2.clone()).await.unwrap();
 
         let result = db.get_snapshots().await.unwrap();
         assert_eq!(&result, &snapshots2);
@@ -500,7 +500,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
 
-        db.save_snapshots(snapshots.clone()).await.unwrap();
+        db.import_snapshots(snapshots.clone()).await.unwrap();
 
         let result = db.get_unindexed_snapshots(10).await.unwrap();
         assert_eq!(&result, &snapshots);
@@ -514,7 +514,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
 
-        db.save_files(
+        db.import_files(
             &test_snapshot(),
             futures::stream::iter(files_and_versions.clone()).map(Ok),
         )
@@ -541,13 +541,13 @@ mod tests {
             ..test_snapshot()
         };
 
-        db.save_files(
+        db.import_files(
             &snapshot1,
             futures::stream::iter(files_and_versions.clone()).map(Ok),
         )
         .await
         .unwrap();
-        db.save_files(
+        db.import_files(
             &snapshot2,
             futures::stream::iter(files_and_versions.clone()).map(Ok),
         )

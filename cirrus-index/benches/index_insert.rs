@@ -123,7 +123,7 @@ fn bench_index_insert(
                         for (snapshot, files_and_versions) in test_data {
                             let files =
                                 futures::stream::iter(files_and_versions.into_iter().map(Ok));
-                            db.save_files(&snapshot, files).await.unwrap();
+                            db.import_files(&snapshot, files).await.unwrap();
                         }
                     }
                 },

@@ -10,15 +10,15 @@ async fn b<T>(f: impl FnOnce() -> T) -> T {
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
-struct FileId(u64);
+struct FileId(i64);
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
-struct TreeId(u64);
+struct TreeId(i64);
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
-struct VersionId(u64);
+struct VersionId(i64);
 
 #[derive(Debug)]
 pub struct Database {
@@ -297,7 +297,7 @@ async fn upsert(
     mut get_stmt: CachedStatement<'_>,
     mut insert_stmt: CachedStatement<'_>,
     params: serde_rusqlite::NamedParamSlice,
-) -> eyre::Result<u64> {
+) -> eyre::Result<i64> {
     let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
         .await
         .optional()?;

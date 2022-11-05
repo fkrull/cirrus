@@ -102,29 +102,26 @@ fn bench_index_insert(
     id: &str,
     test_data: Vec<(Snapshot, Vec<(File, Version)>)>,
 ) {
-    let bench_rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let tmp = tempfile::tempdir().unwrap();
-    let path = tmp.path();
 
     c.bench_with_input(
         BenchmarkId::new("index_insert", id),
         &test_data,
         |b, test_data| {
             let mut i = 0;
-            b.to_async(&bench_rt).iter_batched(
-                || test_data.clone(),
-                |test_data| {
+            b.iter_batched(
+                || {
                     i += 1;
-                    let i_copy = i;
-                    async move {
-                        let mut db = Database::new(path, &repo::Name(i_copy.to_string()))
-                            .await
-                            .unwrap();
-                        for (snapshot, files_and_versions) in test_data {
-                            let files =
-                                futures::stream::iter(files_and_versions.into_iter().map(Ok));
-                            db.import_files(&snapshot, files).await.unwrap();
-                        }
+                    let db = rt
+                        .block_on(Database::new(tmp.path(), &repo::Name(i.to_string())))
+                        .unwrap();
+                    (db, test_data.clone())
+                },
+                |(mut db, test_data)| {
+                    for (snapshot, files_and_versions) in test_data {
+                        let files = futures::stream::iter(files_and_versions.into_iter().map(Ok));
+                        rt.block_on(db.import_files(&snapshot, files)).unwrap();
                     }
                 },
                 BatchSize::SmallInput,

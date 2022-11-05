@@ -20,7 +20,7 @@ tokio = { version = "1.21.2", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.11", features = ["io-util"] }
 
 [dev-dependencies]
-criterion = { version = "0.4.0", features = ["async_tokio"] }
+criterion = "0.4.0"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 tempfile = "3.3.0"
 time = { version = "0.3.15", features = ["macros"] }

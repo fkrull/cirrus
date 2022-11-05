@@ -1,13 +1,24 @@
-use crate::{File, FileId, Parent, Snapshot, TreeId, Version, VersionId};
+use crate::{File, Parent, Snapshot, Version};
 use cirrus_core::config::repo;
 use futures::{Stream, StreamExt};
 use rusqlite::{params, CachedStatement, Connection, OptionalExtension, Transaction};
-use serde_rusqlite::NamedParamSlice;
 use std::path::Path;
 
 async fn b<T>(f: impl FnOnce() -> T) -> T {
     tokio::task::block_in_place(f)
 }
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+struct FileId(u64);
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+struct TreeId(u64);
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+struct VersionId(u64);
 
 #[derive(Debug)]
 pub struct Database {
@@ -118,11 +129,9 @@ LIMIT :limit",
         let mut count = 0;
         tokio::pin!(files);
         while let Some(file_and_version) = files.next().await {
-            let (file, mut version) = file_and_version?;
+            let (file, version) = file_and_version?;
             let file_id = upsert_file(&tx, &file).await?;
-            version.file = file_id;
-            //version.tree = tree_id;
-            let version_id = upsert_version(&tx, &version).await?;
+            let version_id = upsert_version(&tx, file_id, &version).await?;
             insert_tree_version_map(&tx, tree_id, version_id).await?;
             count += 1;
         }
@@ -198,7 +207,11 @@ async fn upsert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<FileId> 
     Ok(FileId(upsert(get_stmt, insert_stmt, params).await?))
 }
 
-async fn upsert_version(tx: &Transaction<'_>, version: &Version) -> eyre::Result<VersionId> {
+async fn upsert_version(
+    tx: &Transaction<'_>,
+    file: FileId,
+    version: &Version,
+) -> eyre::Result<VersionId> {
     //language=SQLite
     let get_stmt = tx.prepare_cached(
         "--
@@ -219,23 +232,9 @@ INSERT INTO file_versions (file, uid, gid, size, mode, mtime, ctime)
 VALUES (:file, :uid, :gid, :size, :mode, :mtime, :ctime)
 RETURNING id",
     )?;
-    let params = serde_rusqlite::to_params_named(version)?;
+    let mut params = serde_rusqlite::to_params_named(version)?;
+    params.push((":file".to_string(), Box::new(file.0)));
     Ok(VersionId(upsert(get_stmt, insert_stmt, params).await?))
-}
-
-async fn upsert(
-    mut get_stmt: CachedStatement<'_>,
-    mut insert_stmt: CachedStatement<'_>,
-    params: NamedParamSlice,
-) -> eyre::Result<u64> {
-    let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
-        .await
-        .optional()?;
-    let id = match id {
-        Some(id) => id,
-        None => b(|| insert_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?,
-    };
-    Ok(id)
 }
 
 async fn insert_tree_version_map(
@@ -248,6 +247,21 @@ async fn insert_tree_version_map(
         tx.prepare_cached("INSERT INTO tree_version_map (tree, version) VALUES (?, ?);")?;
     b(|| stmt.execute([tree.0, version.0])).await?;
     Ok(())
+}
+
+async fn upsert(
+    mut get_stmt: CachedStatement<'_>,
+    mut insert_stmt: CachedStatement<'_>,
+    params: serde_rusqlite::NamedParamSlice,
+) -> eyre::Result<u64> {
+    let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
+        .await
+        .optional()?;
+    let id = match id {
+        Some(id) => id,
+        None => b(|| insert_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?,
+    };
+    Ok(id)
 }
 
 fn migrations() -> rusqlite_migration::Migrations<'static> {
@@ -399,14 +413,11 @@ mod tests {
         [
             (
                 File {
-                    id: FileId::default(),
                     parent: Parent(None),
                     name: "tmp".to_string(),
                     r#type: Type::Dir,
                 },
                 Version {
-                    id: Default::default(),
-                    file: Default::default(),
                     owner: Owner {
                         uid: Uid(1000),
                         gid: Gid(1000),
@@ -419,14 +430,11 @@ mod tests {
             ),
             (
                 File {
-                    id: FileId::default(),
                     parent: Parent(Some("/tmp".to_string())),
                     name: "test".to_string(),
                     r#type: Type::File,
                 },
                 Version {
-                    id: Default::default(),
-                    file: Default::default(),
                     owner: Owner {
                         uid: Uid(1001),
                         gid: Gid(1001),
@@ -499,24 +507,12 @@ mod tests {
         .unwrap();
 
         let result = db.get_files(&Parent(None), 10).await.unwrap();
-        assert_eq!(
-            &result,
-            &[File {
-                id: result[0].id,
-                ..files_and_versions[0].0.clone()
-            }]
-        );
+        assert_eq!(&result, &[files_and_versions[0].0.clone()]);
         let result = db
             .get_files(&Parent(Some("/tmp".to_string())), 10)
             .await
             .unwrap();
-        assert_eq!(
-            &result,
-            &[File {
-                id: result[0].id,
-                ..files_and_versions[1].0.clone()
-            }]
-        );
+        assert_eq!(&result, &[files_and_versions[1].0.clone()]);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -544,23 +540,11 @@ mod tests {
         .unwrap();
 
         let result = db.get_files(&Parent(None), 10).await.unwrap();
-        assert_eq!(
-            &result,
-            &[File {
-                id: result[0].id,
-                ..files_and_versions[0].0.clone()
-            },]
-        );
+        assert_eq!(&result, &[files_and_versions[0].0.clone()]);
         let result = db
             .get_files(&Parent(Some("/tmp".to_string())), 10)
             .await
             .unwrap();
-        assert_eq!(
-            &result,
-            &[File {
-                id: result[0].id,
-                ..files_and_versions[1].0.clone()
-            },]
-        );
+        assert_eq!(&result, &[files_and_versions[1].0.clone()]);
     }
 }

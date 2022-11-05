@@ -25,14 +25,11 @@ fn index_insert_duplicate_versions(c: &mut Criterion) {
             let files_and_versions = (0..FILES_COUNT)
                 .map(|f_idx| {
                     let file = File {
-                        id: Default::default(),
                         parent: Parent(None),
                         name: f_idx.to_string(),
                         r#type: Type::File,
                     };
                     let version = Version {
-                        id: Default::default(),
-                        file: Default::default(),
                         owner: Owner {
                             uid: Uid(1000),
                             gid: Gid(1000),
@@ -72,14 +69,11 @@ fn index_insert_no_duplicate_versions(c: &mut Criterion) {
             let files_and_versions = (0..FILES_COUNT)
                 .map(|f_idx| {
                     let file = File {
-                        id: Default::default(),
                         parent: Parent(None),
                         name: f_idx.to_string(),
                         r#type: Type::File,
                     };
                     let version = Version {
-                        id: Default::default(),
-                        file: Default::default(),
                         owner: Owner {
                             uid: Uid(f_idx),
                             gid: Gid(0),

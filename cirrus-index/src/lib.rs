@@ -181,6 +181,25 @@ pub struct Version {
     pub ctime: OffsetDateTime,
 }
 
+// TODO: bad name
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct FileSnapshotMeta {
+    pub snapshot_id: SnapshotId,
+    pub hostname: String,
+    #[serde(with = "time::serde::timestamp")]
+    pub time: OffsetDateTime,
+}
+
+impl From<Snapshot> for FileSnapshotMeta {
+    fn from(s: Snapshot) -> Self {
+        FileSnapshotMeta {
+            snapshot_id: s.snapshot_id,
+            hostname: s.hostname,
+            time: s.time,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

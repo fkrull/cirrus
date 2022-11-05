@@ -1,4 +1,4 @@
-use crate::{File, Parent, Snapshot, Version};
+use crate::{File, FileSnapshotMeta, Parent, Snapshot, Version};
 use cirrus_core::config::repo;
 use futures::{Stream, StreamExt};
 use rusqlite::{params, CachedStatement, Connection, OptionalExtension, Transaction};
@@ -68,25 +68,54 @@ LIMIT ?",
         Ok(snapshots)
     }
 
-    pub async fn get_files(&mut self, parent: &Parent, limit: u64) -> eyre::Result<Vec<File>> {
+    pub async fn get_files(
+        &mut self,
+        parent: &Parent,
+        limit: u64,
+    ) -> eyre::Result<Vec<(File, Version, FileSnapshotMeta)>> {
         #[derive(serde::Serialize)]
         struct Params<'a> {
             parent: &'a Parent,
             limit: u64,
         }
 
+        #[derive(serde::Deserialize)]
+        struct RowResult {
+            #[serde(flatten)]
+            file: File,
+            #[serde(flatten)]
+            version: Version,
+            #[serde(flatten)]
+            snapshot_meta: FileSnapshotMeta,
+        }
+
         //language=SQLite
         let mut stmt = self.conn.prepare_cached(
             "--
-SELECT *
+SELECT max(snapshots.time) AS _selector,
+       files.*,
+       file_versions.*,
+       snapshots.snapshot_id,
+       snapshots.hostname,
+       snapshots.time
 FROM files
-WHERE parent = :parent
-ORDER BY name
+         JOIN file_versions ON file_versions.file = files.id
+         JOIN tree_version_map ON tree_version_map.version = file_versions.id
+         JOIN trees ON trees.id = tree_version_map.tree
+         JOIN snapshots ON snapshots.tree_hash = trees.hash
+WHERE files.parent = :parent
+GROUP BY files.id
+ORDER BY files.name
 LIMIT :limit",
         )?;
         let params = serde_rusqlite::to_params_named(Params { parent, limit })?;
         let rows = b(|| stmt.query(&*params.to_slice())).await?;
-        let files = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
+        let files = serde_rusqlite::from_rows::<RowResult>(rows)
+            .map(|row| {
+                let row = row?;
+                Ok((row.file, row.version, row.snapshot_meta))
+            })
+            .collect::<Result<_, eyre::Report>>()?;
         Ok(files)
     }
 
@@ -511,36 +540,56 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn should_save_files() {
         let files_and_versions = files1();
+        let snapshot = test_snapshot();
         let tmp = tempfile::tempdir().unwrap();
         let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
 
+        db.import_snapshots([snapshot.clone()]).await.unwrap();
         db.import_files(
-            &test_snapshot(),
+            &snapshot,
             futures::stream::iter(files_and_versions.clone()).map(Ok),
         )
         .await
         .unwrap();
 
         let result = db.get_files(&Parent(None), 10).await.unwrap();
-        assert_eq!(&result, &[files_and_versions[0].0.clone()]);
+        assert_eq!(
+            &result,
+            &[(
+                files_and_versions[0].0.clone(),
+                files_and_versions[0].1.clone(),
+                snapshot.clone().into(),
+            )]
+        );
         let result = db
             .get_files(&Parent(Some("/tmp".to_string())), 10)
             .await
             .unwrap();
-        assert_eq!(&result, &[files_and_versions[1].0.clone()]);
+        assert_eq!(
+            &result,
+            &[(
+                files_and_versions[1].0.clone(),
+                files_and_versions[1].1.clone(),
+                snapshot.clone().into(),
+            )]
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn should_save_duplicated_files() {
         let files_and_versions = files1();
-        let tmp = tempfile::tempdir().unwrap();
-        let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
         let snapshot1 = test_snapshot();
         let snapshot2 = Snapshot {
             tree_hash: TreeHash("testhash2".to_string()),
+            time: snapshot1.time.replace_year(2023).unwrap(),
             ..test_snapshot()
         };
+        let tmp = tempfile::tempdir().unwrap();
+        let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
 
+        db.import_snapshots([snapshot1.clone(), snapshot2.clone()])
+            .await
+            .unwrap();
         db.import_files(
             &snapshot1,
             futures::stream::iter(files_and_versions.clone()).map(Ok),
@@ -555,11 +604,25 @@ mod tests {
         .unwrap();
 
         let result = db.get_files(&Parent(None), 10).await.unwrap();
-        assert_eq!(&result, &[files_and_versions[0].0.clone()]);
+        assert_eq!(
+            &result,
+            &[(
+                files_and_versions[0].0.clone(),
+                files_and_versions[0].1.clone(),
+                snapshot2.clone().into(),
+            )]
+        );
         let result = db
             .get_files(&Parent(Some("/tmp".to_string())), 10)
             .await
             .unwrap();
-        assert_eq!(&result, &[files_and_versions[1].0.clone()]);
+        assert_eq!(
+            &result,
+            &[(
+                files_and_versions[1].0.clone(),
+                files_and_versions[1].1.clone(),
+                snapshot2.clone().into(),
+            )]
+        );
     }
 }

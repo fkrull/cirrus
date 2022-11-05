@@ -1,7 +1,8 @@
-use crate::{File, FileId, Parent, Snapshot, TreeId, Version};
+use crate::{File, FileId, Parent, Snapshot, TreeId, Version, VersionId};
 use cirrus_core::config::repo;
 use futures::{Stream, StreamExt};
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, CachedStatement, Connection, OptionalExtension, Transaction};
+use serde_rusqlite::NamedParamSlice;
 use std::path::Path;
 
 async fn b<T>(f: impl FnOnce() -> T) -> T {
@@ -118,10 +119,11 @@ LIMIT :limit",
         tokio::pin!(files);
         while let Some(file_and_version) = files.next().await {
             let (file, mut version) = file_and_version?;
-            let file_id = get_or_insert_file(&tx, &file).await?;
+            let file_id = upsert_file(&tx, &file).await?;
             version.file = file_id;
-            version.tree = tree_id;
-            insert_version(&tx, &version).await?;
+            //version.tree = tree_id;
+            let version_id = upsert_version(&tx, &version).await?;
+            insert_tree_version_map(&tx, tree_id, version_id).await?;
             count += 1;
         }
         //language=SQLite
@@ -172,34 +174,6 @@ VALUES (:generation,
     Ok(())
 }
 
-async fn get_or_insert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<FileId> {
-    //language=SQLite
-    let mut get_stmt = tx.prepare_cached(
-        "--
-SELECT id
-FROM files
-WHERE parent = :parent
-  AND name = :name
-  AND type = :type",
-    )?;
-    //language=SQLite
-    let mut insert_stmt = tx.prepare_cached(
-        "--
-INSERT INTO files (parent, name, type)
-VALUES (:parent, :name, :type)
-RETURNING id",
-    )?;
-    let params = serde_rusqlite::to_params_named(file)?;
-    let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
-        .await
-        .optional()?;
-    let id = match id {
-        Some(id) => id,
-        None => b(|| insert_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?,
-    };
-    Ok(FileId(id))
-}
-
 async fn insert_tree(tx: &Transaction<'_>, snapshot: &Snapshot) -> eyre::Result<TreeId> {
     //language=SQLite
     let mut delete_stmt = tx.prepare_cached("DELETE FROM trees WHERE hash = ?")?;
@@ -211,15 +185,68 @@ async fn insert_tree(tx: &Transaction<'_>, snapshot: &Snapshot) -> eyre::Result<
     Ok(TreeId(id))
 }
 
-async fn insert_version(tx: &Transaction<'_>, version: &Version) -> eyre::Result<()> {
+async fn upsert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<FileId> {
     //language=SQLite
-    let mut stmt = tx.prepare_cached(
+    let get_stmt = tx.prepare_cached(
+        "SELECT id FROM files WHERE parent = :parent AND name = :name AND type = :type",
+    )?;
+    //language=SQLite
+    let insert_stmt = tx.prepare_cached(
+        "INSERT INTO files (parent, name, type) VALUES (:parent, :name, :type) RETURNING id",
+    )?;
+    let params = serde_rusqlite::to_params_named(file)?;
+    Ok(FileId(upsert(get_stmt, insert_stmt, params).await?))
+}
+
+async fn upsert_version(tx: &Transaction<'_>, version: &Version) -> eyre::Result<VersionId> {
+    //language=SQLite
+    let get_stmt = tx.prepare_cached(
         "--
-INSERT INTO file_versions (file, tree, uid, gid, size, mode, mtime, ctime)
-VALUES (:file, :tree, :uid, :gid, :size, :mode, :mtime, :ctime)",
+SELECT id
+FROM file_versions
+WHERE file = :file
+  AND uid = :uid
+  AND gid = :gid
+  AND size = :size
+  AND mode = :mode
+  AND mtime = :mtime
+  AND ctime = :ctime",
+    )?;
+    //language=SQLite
+    let insert_stmt = tx.prepare_cached(
+        "--
+INSERT INTO file_versions (file, uid, gid, size, mode, mtime, ctime)
+VALUES (:file, :uid, :gid, :size, :mode, :mtime, :ctime)
+RETURNING id",
     )?;
     let params = serde_rusqlite::to_params_named(version)?;
-    b(|| stmt.execute(&*params.to_slice())).await?;
+    Ok(VersionId(upsert(get_stmt, insert_stmt, params).await?))
+}
+
+async fn upsert(
+    mut get_stmt: CachedStatement<'_>,
+    mut insert_stmt: CachedStatement<'_>,
+    params: NamedParamSlice,
+) -> eyre::Result<u64> {
+    let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
+        .await
+        .optional()?;
+    let id = match id {
+        Some(id) => id,
+        None => b(|| insert_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?,
+    };
+    Ok(id)
+}
+
+async fn insert_tree_version_map(
+    tx: &Transaction<'_>,
+    tree: TreeId,
+    version: VersionId,
+) -> eyre::Result<()> {
+    //language=SQLite
+    let mut stmt =
+        tx.prepare_cached("INSERT INTO tree_version_map (tree, version) VALUES (?, ?);")?;
+    b(|| stmt.execute([tree.0, version.0])).await?;
     Ok(())
 }
 
@@ -248,16 +275,6 @@ CREATE INDEX snapshots_time_idx ON snapshots (time);
         //language=SQLite
         M::up(
             r#"--
-CREATE TABLE files
-(
-    id     INTEGER PRIMARY KEY,
-    parent TEXT NOT NULL,
-    name   TEXT NOT NULL,
-    type   INTEGER NOT NULL
-) STRICT;
-
-CREATE UNIQUE INDEX files_uniq_idx ON files (parent, name, type);
-
 CREATE TABLE trees
 (
     id         INTEGER PRIMARY KEY,
@@ -265,19 +282,38 @@ CREATE TABLE trees
     file_count INTEGER NOT NULL
 ) STRICT;
 
+CREATE TABLE files
+(
+    id     INTEGER PRIMARY KEY,
+    parent TEXT    NOT NULL,
+    name   TEXT    NOT NULL,
+    type   INTEGER NOT NULL
+) STRICT;
+
+CREATE UNIQUE INDEX files_uniq_idx ON files (parent, name, type);
+
 CREATE TABLE file_versions
 (
+    id    INTEGER PRIMARY KEY,
     file  INTEGER NOT NULL,
-    tree  INTEGER NOT NULL,
     uid   INTEGER NOT NULL,
     gid   INTEGER NOT NULL,
     size  INTEGER,
     mode  INTEGER NOT NULL,
     mtime INTEGER NOT NULL,
     ctime INTEGER NOT NULL,
-    PRIMARY KEY (file, tree),
-    FOREIGN KEY (file) REFERENCES files (id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (tree) REFERENCES trees (id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (file) REFERENCES files (id) ON DELETE CASCADE ON UPDATE CASCADE
+) STRICT;
+
+CREATE INDEX file_versions_uniq_idx ON file_versions (file, uid, gid, size, mode, mtime, ctime);
+
+CREATE TABLE tree_version_map
+(
+    tree    INTEGER NOT NULL,
+    version INTEGER NOT NULL,
+    PRIMARY KEY (tree, version),
+    FOREIGN KEY (tree) REFERENCES trees (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (version) REFERENCES file_versions (id) ON DELETE CASCADE ON UPDATE CASCADE
 ) STRICT;
 "#,
         ),
@@ -369,8 +405,8 @@ mod tests {
                     r#type: Type::Dir,
                 },
                 Version {
+                    id: Default::default(),
                     file: Default::default(),
-                    tree: Default::default(),
                     owner: Owner {
                         uid: Uid(1000),
                         gid: Gid(1000),
@@ -389,8 +425,8 @@ mod tests {
                     r#type: Type::File,
                 },
                 Version {
+                    id: Default::default(),
                     file: Default::default(),
-                    tree: Default::default(),
                     owner: Owner {
                         uid: Uid(1001),
                         gid: Gid(1001),
@@ -480,6 +516,51 @@ mod tests {
                 id: result[0].id,
                 ..files_and_versions[1].0.clone()
             }]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn should_save_duplicated_files() {
+        let files_and_versions = files1();
+        let tmp = tempfile::tempdir().unwrap();
+        let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
+        let snapshot1 = test_snapshot();
+        let snapshot2 = Snapshot {
+            tree_hash: TreeHash("testhash2".to_string()),
+            ..test_snapshot()
+        };
+
+        db.save_files(
+            &snapshot1,
+            futures::stream::iter(files_and_versions.clone()).map(Ok),
+        )
+        .await
+        .unwrap();
+        db.save_files(
+            &snapshot2,
+            futures::stream::iter(files_and_versions.clone()).map(Ok),
+        )
+        .await
+        .unwrap();
+
+        let result = db.get_files(&Parent(None), 10).await.unwrap();
+        assert_eq!(
+            &result,
+            &[File {
+                id: result[0].id,
+                ..files_and_versions[0].0.clone()
+            },]
+        );
+        let result = db
+            .get_files(&Parent(Some("/tmp".to_string())), 10)
+            .await
+            .unwrap();
+        assert_eq!(
+            &result,
+            &[File {
+                id: result[0].id,
+                ..files_and_versions[1].0.clone()
+            },]
         );
     }
 }

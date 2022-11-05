@@ -1,6 +1,6 @@
 use crate::{
     Database, File, FileId, FileSize, Gid, Mode, Owner, Parent, Snapshot, SnapshotId, TreeHash,
-    TreeId, Type, Uid, Version,
+    Type, Uid, Version, VersionId,
 };
 use cirrus_core::{
     config::backup,
@@ -85,8 +85,8 @@ impl NodeJson {
             r#type: self.r#type,
         };
         let version = Version {
+            id: VersionId::default(),
             file: FileId::default(),
-            tree: TreeId::default(),
             owner: Owner {
                 uid: self.uid,
                 gid: self.gid,

@@ -31,8 +31,8 @@ fn index_insert_duplicate_versions(c: &mut Criterion) {
                         r#type: Type::File,
                     };
                     let version = Version {
+                        id: Default::default(),
                         file: Default::default(),
-                        tree: Default::default(),
                         owner: Owner {
                             uid: Uid(1000),
                             gid: Gid(1000),
@@ -78,8 +78,8 @@ fn index_insert_no_duplicate_versions(c: &mut Criterion) {
                         r#type: Type::File,
                     };
                     let version = Version {
+                        id: Default::default(),
                         file: Default::default(),
-                        tree: Default::default(),
                         owner: Owner {
                             uid: Uid(f_idx),
                             gid: Gid(0),

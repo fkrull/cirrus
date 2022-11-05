@@ -162,6 +162,11 @@ pub struct FileId(u64);
 #[serde(transparent)]
 pub struct TreeId(u64);
 
+// TODO: make private and hide
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct VersionId(u64);
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct File {
     // TODO: make private nad hide
@@ -185,8 +190,10 @@ impl File {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Version {
     // TODO: make private nad hide
+    #[serde(skip_serializing)]
+    pub id: VersionId,
+    // TODO: make private nad hide
     pub file: FileId,
-    pub tree: TreeId,
     #[serde(flatten)]
     pub owner: Owner,
     pub size: Option<FileSize>,

@@ -105,7 +105,7 @@ FROM files
          JOIN snapshots ON snapshots.tree_hash = trees.hash
 WHERE files.parent = :parent
 GROUP BY files.id
-ORDER BY files.name
+ORDER BY files.type, files.name
 LIMIT :limit",
         )?;
         let params = serde_rusqlite::to_params_named(Params { parent, limit })?;

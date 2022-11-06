@@ -81,8 +81,9 @@ async fn ls(cache: &Cache, repo_name: &repo::Name, args: Ls) -> eyre::Result<()>
         ));
         grid.add(Cell::from(format_time(snapshot.time, now)));
         grid.add(Cell::from(format!("on {}", snapshot.hostname)));
+        grid.add(Cell::from(snapshot.snapshot_id.short_id().to_string()));
     }
-    println!("{}", grid.fit_into_columns(4));
+    println!("{}", grid.fit_into_columns(5));
     Ok(())
 }
 

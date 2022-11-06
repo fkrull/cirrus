@@ -33,6 +33,12 @@ pub struct FileSize(pub u64);
 #[serde(transparent)]
 pub struct SnapshotId(pub String);
 
+impl SnapshotId {
+    pub fn short_id(&self) -> &str {
+        &self.0[0..8]
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TreeHash(pub String);
@@ -101,7 +107,7 @@ pub struct Snapshot {
 
 impl Snapshot {
     pub fn short_id(&self) -> &str {
-        &self.snapshot_id.0[0..8]
+        self.snapshot_id.short_id()
     }
 
     fn serialize_tags<S: serde::Serializer>(v: &[Tag], s: S) -> Result<S::Ok, S::Error> {
@@ -195,6 +201,12 @@ pub struct FileSnapshotMeta {
     pub hostname: String,
     #[serde(with = "time::serde::timestamp")]
     pub time: OffsetDateTime,
+}
+
+impl FileSnapshotMeta {
+    pub fn short_id(&self) -> &str {
+        self.snapshot_id.short_id()
+    }
 }
 
 impl From<Snapshot> for FileSnapshotMeta {

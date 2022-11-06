@@ -139,6 +139,13 @@ jobs:
           name: cirrus_${{ env.target }}
           path: public/*
           if-no-files-found: error
+      - name: Show artifacts
+        run: |
+          cat > $GITHUB_STEP_SUMMARY <<EOF
+          ```
+          $(ls -lh public)
+          ```
+          EOF
 
   package-musl:
     runs-on: ubuntu-latest
@@ -192,6 +199,13 @@ jobs:
           name: cirrus_${{ matrix.target }}
           path: public/*
           if-no-files-found: error
+      - name: Show artifacts
+        run: |
+          cat > $GITHUB_STEP_SUMMARY <<EOF
+          ```
+          $(ls -lh public)
+          ```
+          EOF
 
   publish-container-image:
     if: ${{ github.event_name == 'push' }}

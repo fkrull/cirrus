@@ -52,3 +52,7 @@ default = [
     "cirrus-desktop-ui",
     "rusqlite/bundled",
 ]
+
+[profile.release]
+lto = "fat"
+strip = "debuginfo"

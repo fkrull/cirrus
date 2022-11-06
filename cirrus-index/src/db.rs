@@ -100,8 +100,8 @@ SELECT max(snapshots.time) AS _selector,
        snapshots.time
 FROM files
          JOIN file_versions ON file_versions.file = files.id
-         JOIN tree_version_map ON tree_version_map.version = file_versions.id
-         JOIN trees ON trees.id = tree_version_map.tree
+         JOIN version_tree_map ON version_tree_map.version = file_versions.id
+         JOIN trees ON trees.id = version_tree_map.tree
          JOIN snapshots ON snapshots.tree_hash = trees.hash
 WHERE files.parent = :parent
 GROUP BY files.id
@@ -161,7 +161,7 @@ LIMIT :limit",
             let (file, version) = file_and_version?;
             let file_id = upsert_file(&tx, &file).await?;
             let version_id = upsert_version(&tx, file_id, &version).await?;
-            insert_tree_version_map(&tx, tree_id, version_id).await?;
+            insert_version_tree_map(&tx, version_id, tree_id).await?;
             count += 1;
         }
         //language=SQLite
@@ -281,15 +281,15 @@ RETURNING id",
     Ok(VersionId(upsert(get_stmt, insert_stmt, params).await?))
 }
 
-async fn insert_tree_version_map(
+async fn insert_version_tree_map(
     tx: &Transaction<'_>,
-    tree: TreeId,
     version: VersionId,
+    tree: TreeId,
 ) -> eyre::Result<()> {
     //language=SQLite
     let mut stmt =
-        tx.prepare_cached("INSERT INTO tree_version_map (tree, version) VALUES (?, ?);")?;
-    b(|| stmt.execute([tree.0, version.0])).await?;
+        tx.prepare_cached("INSERT INTO version_tree_map (version, tree) VALUES (?, ?);")?;
+    b(|| stmt.execute([version.0, tree.0])).await?;
     Ok(())
 }
 
@@ -328,11 +328,7 @@ CREATE TABLE snapshots
 ) STRICT;
 
 CREATE INDEX snapshots_time_idx ON snapshots (time);
-"#,
-        ),
-        //language=SQLite
-        M::up(
-            r#"--
+
 CREATE TABLE trees
 (
     id         INTEGER PRIMARY KEY,
@@ -365,20 +361,14 @@ CREATE TABLE file_versions
 
 CREATE INDEX file_versions_uniq_idx ON file_versions (file, uid, gid, size, mode, mtime, ctime);
 
-CREATE TABLE tree_version_map
+CREATE TABLE version_tree_map
 (
-    tree    INTEGER NOT NULL,
     version INTEGER NOT NULL,
-    PRIMARY KEY (tree, version),
-    FOREIGN KEY (tree) REFERENCES trees (id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (version) REFERENCES file_versions (id) ON DELETE CASCADE ON UPDATE CASCADE
+    tree    INTEGER NOT NULL,
+    PRIMARY KEY (version, tree),
+    FOREIGN KEY (version) REFERENCES file_versions (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (tree) REFERENCES trees (id) ON DELETE CASCADE ON UPDATE CASCADE
 ) STRICT;
-"#,
-        ),
-        //language=SQLite
-        M::up(
-            r#"--
-CREATE INDEX version_tree_map_idx ON tree_version_map (version, tree);
 "#,
         ),
     ])

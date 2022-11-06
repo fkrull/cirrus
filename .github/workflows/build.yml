@@ -139,11 +139,11 @@ jobs:
           name: cirrus_${{ env.target }}
           path: public/*
           if-no-files-found: error
-      - name: Show artifacts
+      - name: List archive contents
         run: |
           cat > $GITHUB_STEP_SUMMARY <<EOF
           ```
-          $(ls -lh public)
+          $(tar tvf public/*.tar.xz)
           ```
           EOF
 
@@ -199,11 +199,11 @@ jobs:
           name: cirrus_${{ matrix.target }}
           path: public/*
           if-no-files-found: error
-      - name: Show artifacts
+      - name: List archive contents
         run: |
           cat > $GITHUB_STEP_SUMMARY <<EOF
           ```
-          $(ls -lh public)
+          $(tar tvf public/*.tar.xz)
           ```
           EOF
 

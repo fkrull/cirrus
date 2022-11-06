@@ -34,11 +34,13 @@ color-eyre = "0.6.0"
 dirs-next = "2.0.0"
 tracing = "0.1.23"
 tracing-subscriber = { version = "0.3.5", default-features = false, features = ["fmt", "ansi", "registry", "local-time", "tracing-log"] }
-time = { version = "0.3.5", features = ["macros"] }
+time = { version = "0.3.5", features = ["formatting", "local-offset", "macros"] }
 events = { version = "0.2.0", path = "events" }
 futures = "0.3.25"
 tokio = { version = "1.21.2", features = ["rt-multi-thread", "macros"] }
-rusqlite = "0.28.0"
+rusqlite = { version = "0.28.0", features = ["bundled"] }
+humansize = "2.1.0"
+term_grid = "0.2.0"
 
 [features]
 # enables the CLI flag for bundled restic as well as the behavior to handle it, i.e. running restic from next to the

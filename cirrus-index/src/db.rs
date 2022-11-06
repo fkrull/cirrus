@@ -387,6 +387,12 @@ CREATE TABLE tree_version_map
 ) STRICT;
 "#,
         ),
+        //language=SQLite
+        M::up(
+            r#"--
+CREATE INDEX version_tree_map_idx ON tree_version_map (version, tree);
+"#,
+        ),
     ])
 }
 

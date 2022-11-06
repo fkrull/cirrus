@@ -119,7 +119,7 @@ fn get_files_many_results(c: &mut Criterion) {
             let files_and_versions = (0..FILES_COUNT)
                 .map(|f_idx| {
                     let file = File {
-                        parent: Parent(Some("tmp".to_string())),
+                        parent: Parent(Some("/tmp".to_string())),
                         name: f_idx.to_string(),
                         r#type: Type::File,
                     };
@@ -144,8 +144,9 @@ fn get_files_many_results(c: &mut Criterion) {
         c,
         &format!("{SNAPSHOTS_COUNT} snapshots, {FILES_COUNT} files, many results"),
         test_data,
-        Parent(Some("tmp".to_string())),
+        Parent(Some("/tmp".to_string())),
         10000,
+        1000,
     );
 }
 
@@ -196,6 +197,7 @@ fn get_files_few_results(c: &mut Criterion) {
         test_data,
         Parent(Some("50".to_string())),
         100,
+        10,
     );
 }
 
@@ -244,6 +246,7 @@ fn get_files_many_versions_few_results(c: &mut Criterion) {
         test_data,
         Parent(None),
         10000,
+        20,
     );
 }
 
@@ -282,6 +285,7 @@ fn bench_get_files(
     test_data: Vec<(Snapshot, Vec<(File, Version)>)>,
     parent: Parent,
     limit: u64,
+    expected: usize,
 ) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let tmp = tempfile::tempdir().unwrap();
@@ -297,13 +301,19 @@ fn bench_get_files(
                     let mut db = rt
                         .block_on(Database::new(tmp.path(), &repo::Name(i.to_string())))
                         .unwrap();
-                    for (snapshot, files_and_versions) in test_data.clone() {
-                        let files = futures::stream::iter(files_and_versions.into_iter().map(Ok));
-                        rt.block_on(db.import_files(&snapshot, files)).unwrap();
+                    let snapshots = test_data.iter().map(|o| o.0.clone());
+                    rt.block_on(db.import_snapshots(snapshots)).unwrap();
+                    for (snapshot, files_and_versions) in test_data {
+                        let files =
+                            futures::stream::iter(files_and_versions.iter().cloned().map(Ok));
+                        rt.block_on(db.import_files(snapshot, files)).unwrap();
                     }
                     db
                 },
-                |mut db| rt.block_on(db.get_files(&parent, limit)).unwrap(),
+                |mut db| {
+                    let ret = rt.block_on(db.get_files(&parent, limit)).unwrap().len();
+                    assert_eq!(ret, expected);
+                },
                 BatchSize::SmallInput,
             );
         },

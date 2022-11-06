@@ -80,14 +80,9 @@ LIMIT ?",
         }
 
         #[derive(serde::Deserialize)]
-        struct FileResult {
-            id: FileId,
+        struct RowResult {
             #[serde(flatten)]
             file: File,
-        }
-
-        #[derive(serde::Deserialize)]
-        struct VersionResult {
             #[serde(flatten)]
             version: Version,
             #[serde(flatten)]
@@ -95,40 +90,33 @@ LIMIT ?",
         }
 
         //language=SQLite
-        let mut file_stmt = self.conn.prepare_cached(
-            "SELECT * FROM files WHERE parent = :parent ORDER BY name LIMIT :limit",
-        )?;
-        //language=SQLite
-        let mut version_stmt = self.conn.prepare_cached(
+        let mut stmt = self.conn.prepare_cached(
             "--
-SELECT file_versions.*,
+SELECT max(snapshots.time) AS _selector,
+       files.*,
+       file_versions.*,
        snapshots.snapshot_id,
        snapshots.hostname,
        snapshots.time
-FROM file_versions
+FROM files
+         JOIN file_versions ON file_versions.file = files.id
          JOIN tree_version_map ON tree_version_map.version = file_versions.id
          JOIN trees ON trees.id = tree_version_map.tree
          JOIN snapshots ON snapshots.tree_hash = trees.hash
-WHERE file_versions.file = ?
-ORDER BY snapshots.time DESC
-LIMIT 1",
+WHERE files.parent = :parent
+GROUP BY files.id
+ORDER BY files.name
+LIMIT :limit",
         )?;
         let params = serde_rusqlite::to_params_named(Params { parent, limit })?;
-        let file_rows = b(|| file_stmt.query(&*params.to_slice())).await?;
-        let mut result = Vec::new();
-        for file_result in serde_rusqlite::from_rows(file_rows) {
-            let FileResult { id, file } = file_result?;
-            let version_result =
-                b(|| version_stmt.query_row([id.0], |row| Ok(serde_rusqlite::from_row(row))))
-                    .await
-                    .optional()?;
-            // TODO: different handling for absent snapshots?
-            if let Some(version_result) = version_result {
-                let version: VersionResult = version_result?;
-                result.push((file, version.version, version.snapshot_meta));
-            }
-        }
-        Ok(result)
+        let rows = b(|| stmt.query(&*params.to_slice())).await?;
+        let files = serde_rusqlite::from_rows::<RowResult>(rows)
+            .map(|row| {
+                let row = row?;
+                Ok((row.file, row.version, row.snapshot_meta))
+            })
+            .collect::<Result<_, eyre::Report>>()?;
+        Ok(files)
     }
 
     pub async fn import_snapshots(
@@ -642,20 +630,5 @@ mod tests {
                 snapshot2.clone().into(),
             )]
         );
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    async fn should_skip_files_without_snapshots() {
-        let files_and_versions = files1();
-        let snapshot = test_snapshot();
-        let tmp = tempfile::tempdir().unwrap();
-        let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
-
-        db.import_files(&snapshot, futures::stream::iter(files_and_versions).map(Ok))
-            .await
-            .unwrap();
-
-        let result = db.get_files(&Parent(None), 10000).await.unwrap();
-        assert!(result.is_empty());
     }
 }

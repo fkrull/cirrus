@@ -131,6 +131,13 @@ impl Parent {
             None => format!("/{}", name),
         }
     }
+
+    pub fn to_path(&self) -> &str {
+        match &self.0 {
+            Some(parent) => parent,
+            None => "/",
+        }
+    }
 }
 
 impl From<String> for Parent {

@@ -297,6 +297,9 @@ pub mod repo_contents {
     pub enum Cmd {
         /// Create and populate the contents index for the repository
         Index(Index),
+
+        /// List the contents of the repository
+        Ls(Ls),
     }
 
     #[derive(clap::Parser)]
@@ -304,5 +307,12 @@ pub mod repo_contents {
         /// Set the number of unindexed snapshots to index
         #[arg(short, long, default_value = "20")]
         pub snapshots_count: u32,
+    }
+
+    #[derive(clap::Parser)]
+    pub struct Ls {
+        /// Path to list
+        #[arg()]
+        pub path: String,
     }
 }

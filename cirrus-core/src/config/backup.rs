@@ -1,11 +1,11 @@
 use crate::config::repo;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Name(pub String);
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Path(pub String);
 
@@ -16,7 +16,7 @@ pub struct Exclude(pub String);
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct Trigger(pub schedule_dsl::Schedule);
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Definition {
     pub repository: repo::Name,
     pub path: Path,

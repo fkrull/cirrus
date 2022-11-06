@@ -6,6 +6,7 @@ use cirrus_core::{
 };
 
 pub mod daemon;
+pub mod repo_contents;
 pub mod secret;
 
 pub async fn restic(
@@ -21,13 +22,17 @@ pub async fn restic(
             let repo = config.repository(&repo_name)?;
             let repo_with_secrets = secrets.get_secrets(repo)?;
             restic
-                .run(Some(&repo_with_secrets), &args.cmd, &Options::default())?
+                .run(
+                    Some(&repo_with_secrets),
+                    &args.cmd,
+                    &Options::inherit_output(),
+                )?
                 .check_wait()
                 .await?
         }
         None => {
             restic
-                .run(None, &args.cmd, &Options::default())?
+                .run(None, &args.cmd, &Options::inherit_output())?
                 .check_wait()
                 .await?
         }
@@ -50,7 +55,7 @@ pub async fn backup(
             &repo_with_secrets,
             &backup_name,
             backup,
-            &Options::default(),
+            &Options::inherit_output(),
         )?
         .check_wait()
         .await?;

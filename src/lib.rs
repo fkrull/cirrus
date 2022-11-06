@@ -1,9 +1,39 @@
 use crate::cli::ResticArg;
 use cirrus_core::{config::Config, restic, secrets::Secrets};
-use std::path::PathBuf;
+use dirs_next as dirs;
+use std::path::{Path, PathBuf};
 
 mod cli;
 mod commands;
+
+#[derive(Debug)]
+pub struct Cache(PathBuf);
+
+impl Cache {
+    const CACHEDIR_TAG_FILENAME: &'static str = "CACHEDIR.TAG";
+
+    const CACHEDIR_TAG_CONTENT: &'static str = "Signature: 8a477f597d28d172789f06886806bc55
+# This file is a cache directory tag created by cirrus.
+# For information about cache directory tags see https://bford.info/cachedir/
+";
+
+    fn new() -> eyre::Result<Cache> {
+        let path = dirs::cache_dir()
+            .ok_or_else(|| eyre::eyre!("can't determine cache directory"))?
+            .join("cirrus");
+        Ok(Cache(path))
+    }
+
+    pub(crate) async fn get(&self) -> eyre::Result<&Path> {
+        tokio::fs::create_dir_all(&self.0).await?;
+        tokio::fs::write(
+            self.0.join(Self::CACHEDIR_TAG_FILENAME),
+            Self::CACHEDIR_TAG_CONTENT,
+        )
+        .await?;
+        Ok(&self.0)
+    }
+}
 
 async fn load_config(args: &cli::Cli) -> eyre::Result<Config> {
     let config = if let Some(config_string) = &args.config_string {
@@ -68,6 +98,7 @@ pub async fn main() -> eyre::Result<()> {
     let maybe_config = load_config(&args).await;
     let restic = restic::Restic::new(restic_config(args.restic)?);
     let secrets = Secrets;
+    let cache = Cache::new()?;
 
     match args.subcommand {
         cli::Cmd::Daemon(args) => commands::daemon::run(args, restic, secrets, maybe_config?).await,
@@ -80,6 +111,10 @@ pub async fn main() -> eyre::Result<()> {
         cli::Cmd::Restic(args) => commands::restic(&restic, &secrets, maybe_config, args).await,
         #[cfg(feature = "cirrus-self")]
         cli::Cmd::SelfCommands(args) => cirrus_self::self_action(args),
+        cli::Cmd::RepoContents(args) => {
+            commands::repo_contents::repo_contents(&restic, &secrets, &maybe_config?, &cache, args)
+                .await
+        }
         cli::Cmd::Version => commands::version(&restic).await,
     }
 }

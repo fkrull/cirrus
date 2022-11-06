@@ -2,7 +2,9 @@ use crate::{config::backup, secrets::RepoWithSecrets};
 use std::{ffi::OsStr, path::PathBuf, process::Stdio};
 use tokio::process::Command;
 
+use crate::tag::Tag;
 pub use process::*;
+
 mod process;
 mod util;
 
@@ -32,10 +34,39 @@ impl Verbosity {
 }
 
 #[derive(Debug, Default, Copy, Clone)]
+pub enum Output {
+    #[default]
+    Null,
+    Inherit,
+    Capture,
+}
+
+impl From<Output> for Stdio {
+    fn from(v: Output) -> Self {
+        match v {
+            Output::Null => Stdio::null(),
+            Output::Inherit => Stdio::inherit(),
+            Output::Capture => Stdio::piped(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone)]
 pub struct Options {
-    pub capture_output: bool,
+    pub stdout: Output,
+    pub stderr: Output,
     pub json: bool,
     pub verbose: Verbosity,
+}
+
+impl Options {
+    pub fn inherit_output() -> Options {
+        Options {
+            stdout: Output::Inherit,
+            stderr: Output::Inherit,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -134,11 +165,12 @@ impl Restic {
         definition: &backup::Definition,
         options: &Options,
     ) -> Result<ResticProcess, Error> {
-        let mut args = Vec::new();
-        args.push("backup".to_owned());
-        args.push(definition.path.0.clone());
-        args.push("--tag".to_owned());
-        args.push(format!("cirrus.{}", name.0));
+        let mut args = vec![
+            "backup".to_owned(),
+            definition.path.0.clone(),
+            "--tag".to_owned(),
+            Tag::for_backup(name).0,
+        ];
         for exclude in &definition.excludes {
             args.push(Self::EXCLUDE_PARAM.to_owned());
             args.push(exclude.0.clone());
@@ -165,8 +197,11 @@ impl Restic {
         options: &Options,
     ) -> Result<ResticProcess, Error> {
         let mut cmd = config.to_command();
-        // kill-on-drop is a final fallback, normally the process gets terminated gracefully
-        cmd.stdin(Stdio::null()).kill_on_drop(true);
+        cmd.stdin(Stdio::null())
+            .stdout(options.stdout)
+            .stderr(options.stderr)
+            // kill-on-drop is a final fallback, normally the process gets terminated gracefully
+            .kill_on_drop(true);
 
         if let Some(repo_with_secrets) = repo_with_secrets {
             cmd.env("RESTIC_PASSWORD", &repo_with_secrets.repo_password.0);
@@ -178,10 +213,6 @@ impl Restic {
 
         for arg in extra_args {
             cmd.arg(arg.as_ref());
-        }
-
-        if options.capture_output {
-            cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
         }
         if options.json {
             cmd.arg("--json");
@@ -196,6 +227,6 @@ impl Restic {
         }
 
         let child = cmd.spawn().map_err(Error::FailedToStartResticProcess)?;
-        Ok(ResticProcess::new(child))
+        Ok(ResticProcess(child))
     }
 }

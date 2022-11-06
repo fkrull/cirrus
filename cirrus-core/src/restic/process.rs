@@ -1,11 +1,6 @@
 use super::Error;
-use futures::{prelude::*, stream::BoxStream};
 use std::time::Duration;
-use tokio::{
-    io::{AsyncBufReadExt as _, BufReader},
-    process::Child,
-};
-use tokio_stream::wrappers::LinesStream;
+use tokio::process::{Child, ChildStderr, ChildStdout};
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum ExitStatus {
@@ -46,32 +41,6 @@ impl From<std::process::ExitStatus> for ExitStatus {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum Event {
-    StdoutLine(String),
-    StderrLine(String),
-}
-
-fn merge_output_streams(child: &'_ mut Child) -> BoxStream<'static, Result<Event, Error>> {
-    let stdout = child.stdout.take().map(|io| {
-        LinesStream::new(BufReader::new(io).lines())
-            .map_ok(Event::StdoutLine)
-            .map_err(Error::SubprocessIoError)
-    });
-    let stderr = child.stderr.take().map(|io| {
-        LinesStream::new(BufReader::new(io).lines())
-            .map_ok(Event::StderrLine)
-            .map_err(Error::SubprocessIoError)
-    });
-
-    match (stdout, stderr) {
-        (Some(stdout), Some(stderr)) => Box::pin(stream::select(stdout, stderr)),
-        (Some(stdout), None) => Box::pin(stdout),
-        (None, Some(stderr)) => Box::pin(stderr),
-        (None, None) => Box::pin(stream::empty()),
-    }
-}
-
 #[cfg(unix)]
 fn ask_to_terminate(child: &mut Child) -> Result<(), Error> {
     // TODO maybe not expect?
@@ -88,31 +57,20 @@ fn ask_to_terminate(child: &mut Child) -> Result<(), Error> {
     Ok(())
 }
 
-#[pin_project::pin_project]
-pub struct ResticProcess {
-    child: Child,
-    #[pin]
-    events: BoxStream<'static, Result<Event, Error>>,
-}
-
-impl std::fmt::Debug for ResticProcess {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ResticProcess")
-            .field("child", &self.child)
-            .field("events", &"<...>")
-            .finish()
-    }
-}
+#[derive(Debug)]
+pub struct ResticProcess(pub(crate) Child);
 
 impl ResticProcess {
-    pub(super) fn new(mut child: Child) -> Self {
-        let events = merge_output_streams(&mut child);
-        ResticProcess { child, events }
+    pub fn stdout(&mut self) -> &mut Option<ChildStdout> {
+        &mut self.0.stdout
+    }
+
+    pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
+        &mut self.0.stderr
     }
 
     pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
-        while self.next().await.is_some() {}
-        self.child
+        self.0
             .wait()
             .await
             .map(ExitStatus::from)
@@ -123,10 +81,10 @@ impl ResticProcess {
         self.wait().await?.check_status()
     }
 
-    #[tracing::instrument(level = "debug", skip_all, fields(pid = self.child.id(), grace_period_secs = grace_period.as_secs_f64()))]
+    #[tracing::instrument(level = "debug", skip_all, fields(pid = self.0.id(), grace_period_secs = grace_period.as_secs_f64()))]
     pub async fn terminate(&mut self, grace_period: Duration) -> Result<(), Error> {
         tracing::debug!("trying to terminate gracefully");
-        ask_to_terminate(&mut self.child)?;
+        ask_to_terminate(&mut self.0)?;
         match tokio::time::timeout(grace_period, self.wait()).await {
             Ok(result) => {
                 tracing::debug!("process terminated before timeout");
@@ -134,28 +92,13 @@ impl ResticProcess {
             }
             Err(_) => {
                 tracing::debug!("process did not terminate before timeout, killing it instead");
-                self.child
+                self.0
                     .kill()
                     .await
                     .map_err(Error::SubprocessTerminateError)?;
             }
         };
         Ok(())
-    }
-}
-
-impl Stream for ResticProcess {
-    type Item = Result<Event, Error>;
-
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        self.project().events.poll_next(cx)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.events.size_hint()
     }
 }
 

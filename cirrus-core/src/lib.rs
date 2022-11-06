@@ -2,6 +2,7 @@ pub mod config;
 pub mod restic;
 pub mod schedule;
 pub mod secrets;
+pub mod tag;
 
 const fn filter_empty(s: Option<&str>) -> Option<&str> {
     match s {

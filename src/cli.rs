@@ -197,6 +197,9 @@ pub enum Cmd {
     #[command(name = "self")]
     SelfCommands(cirrus_self::Cli),
 
+    /// List and search repository contents
+    RepoContents(repo_contents::Cli),
+
     /// Prints version information
     Version,
 }
@@ -276,5 +279,40 @@ pub mod restic {
         /// Command-line arguments to pass to restic
         #[arg(trailing_var_arg = true)]
         pub cmd: Vec<OsString>,
+    }
+}
+
+pub mod repo_contents {
+    #[derive(clap::Parser)]
+    pub struct Cli {
+        /// The repository to use
+        #[arg(short, long, env = "CIRRUS_REPOSITORY")]
+        pub repository: String,
+
+        #[command(subcommand)]
+        pub subcommand: Cmd,
+    }
+
+    #[derive(clap::Parser)]
+    pub enum Cmd {
+        /// Create and populate the contents index for the repository
+        Index(Index),
+
+        /// List the contents of the repository
+        Ls(Ls),
+    }
+
+    #[derive(clap::Parser)]
+    pub struct Index {
+        /// Set the number of unindexed snapshots to index
+        #[arg(short, long, default_value = "20")]
+        pub snapshots_count: u32,
+    }
+
+    #[derive(clap::Parser)]
+    pub struct Ls {
+        /// Path to list
+        #[arg()]
+        pub path: String,
     }
 }

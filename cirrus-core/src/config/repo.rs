@@ -17,6 +17,14 @@ pub enum Secret {
     },
 }
 
+impl Default for Secret {
+    fn default() -> Self {
+        Secret::FromEnvVar {
+            env_var: Default::default(),
+        }
+    }
+}
+
 impl Secret {
     pub fn label(&self) -> &str {
         match self {
@@ -27,19 +35,19 @@ impl Secret {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Name(pub String);
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Url(pub String);
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct SecretName(pub String);
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Definition {
     pub url: Url,
     #[serde(alias = "parallel-jobs")]

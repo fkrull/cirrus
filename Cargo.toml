@@ -38,7 +38,7 @@ time = { version = "0.3.5", features = ["formatting", "local-offset", "macros"] 
 events = { version = "0.2.0", path = "events" }
 futures = "0.3.25"
 tokio = { version = "1.21.2", features = ["rt-multi-thread", "macros"] }
-rusqlite = { version = "0.28.0", features = ["bundled"] }
+rusqlite = "0.28.0"
 humansize = "2.1.0"
 term_grid = "0.2.0"
 

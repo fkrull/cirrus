@@ -1,7 +1,7 @@
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
 pub(crate) fn check() -> eyre::Result<()> {
-    zbus::blocking::Connection::session()?;
+    dbus::blocking::Connection::new_session()?;
     Ok(())
 }
 

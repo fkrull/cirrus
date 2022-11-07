@@ -89,10 +89,10 @@ async fn ls(cache: &Cache, repo_name: &repo::Name, args: Ls) -> eyre::Result<()>
 
 // TODO: test
 fn parse_path(s: &str) -> Parent {
-    let trimmed = s.trim().trim_end_matches("/").trim();
+    let trimmed = s.trim().trim_end_matches('/').trim();
     if trimmed.is_empty() {
         Parent(None)
-    } else if !trimmed.starts_with("/") {
+    } else if !trimmed.starts_with('/') {
         Parent(Some(format!("/{trimmed}")))
     } else {
         Parent(Some(trimmed.to_string()))
@@ -113,14 +113,14 @@ fn format_size(bytes: FileSize) -> String {
 
 fn format_time(time: OffsetDateTime, local_now: OffsetDateTime) -> String {
     let local_time = time.to_offset(local_now.offset());
-    const TODAY_FORMAT: &'static [FormatItem<'static>] = format_description!("[hour]:[minute]");
-    const YESTERDAY_FORMAT: &'static [FormatItem<'static>] =
+    const TODAY_FORMAT: &[FormatItem<'static>] = format_description!("[hour]:[minute]");
+    const YESTERDAY_FORMAT: &[FormatItem<'static>] =
         format_description!("yesterday [hour]:[minute]");
-    const LAST_WEEK_FORMAT: &'static [FormatItem<'static>] =
+    const LAST_WEEK_FORMAT: &[FormatItem<'static>] =
         format_description!("[weekday repr:short] [hour]:[minute]");
-    const THIS_YEAR_FORMAT: &'static [FormatItem<'static>] =
+    const THIS_YEAR_FORMAT: &[FormatItem<'static>] =
         format_description!("[day] [month repr:short]");
-    const FALLBACK_FORMAT: &'static [FormatItem<'static>] =
+    const FALLBACK_FORMAT: &[FormatItem<'static>] =
         format_description!("[day] [month repr:short] [year]");
     let day_diff = local_now.to_julian_day() - local_time.to_julian_day();
     let format = if day_diff == 0 {

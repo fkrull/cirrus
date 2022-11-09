@@ -16,6 +16,7 @@ members = [
     "build-scripts",
     "selfinstaller",
     "schedule-dsl",
+    "snisni",
 ]
 
 [dependencies]

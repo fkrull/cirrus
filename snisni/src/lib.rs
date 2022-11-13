@@ -1,126 +1,86 @@
-mod dbus;
-pub mod menu;
-mod notifier;
-pub use notifier::*;
+use std::{fmt::Debug, future::Future, hash::Hash};
+
+pub mod sni;
+pub mod watcher;
+
+//mod dbus;
+//pub mod menu;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Category {
-    ApplicationStatus,
-    Communications,
-    SystemServices,
-    Hardware,
+pub struct SniName {
+    pid: u32,
+    app_internal_id: u32,
 }
 
-impl From<Category> for &'static str {
-    fn from(v: Category) -> Self {
-        match v {
-            Category::ApplicationStatus => "ApplicationStatus",
-            Category::Communications => "Communications",
-            Category::SystemServices => "SystemServices",
-            Category::Hardware => "Hardware",
+impl SniName {
+    pub fn new(app_internal_id: u32) -> SniName {
+        SniName {
+            pid: std::process::id(),
+            app_internal_id,
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Status {
-    Passive,
-    Active,
-    NeedsAttention,
-}
-
-impl From<Status> for &'static str {
-    fn from(v: Status) -> Self {
-        match v {
-            Status::Passive => "Passive",
-            Status::Active => "Active",
-            Status::NeedsAttention => "NeedsAttention",
-        }
+impl From<SniName> for String {
+    fn from(v: SniName) -> Self {
+        format!("org.kde.StatusNotifierItem-{}-{}", v.pid, v.app_internal_id)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
-pub struct Pixmap {
-    pub width: i32,
-    pub height: i32,
-    /// Image data in ARGB32 format in network byte order.
-    pub data: Vec<u8>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
-pub struct Icon {
-    pub name: String,
-    pub pixmaps: Vec<Pixmap>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
-pub struct Tooltip {
-    pub title: String,
-    pub text: String,
-    pub icon: Icon,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Item {
-    pub icon: Icon,
-    pub overlay_icon: Icon,
-    pub attention_icon: Icon,
-    pub attention_movie_name: String,
-    pub icon_theme_path: String,
-
-    pub id: String,
-    pub title: String,
-    pub tooltip: Tooltip,
-    pub category: Category,
-    pub status: Status,
-    pub window_id: i32,
-    pub item_is_menu: bool,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum ScrollOrientation {
-    Horizontal,
-    Vertical,
-}
-
-impl<'a> TryFrom<&'a str> for ScrollOrientation {
-    type Error = &'a str;
-
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        if value.eq_ignore_ascii_case("horizontal") {
-            Ok(ScrollOrientation::Horizontal)
-        } else if value.eq_ignore_ascii_case("vertical") {
-            Ok(ScrollOrientation::Vertical)
-        } else {
-            Err(value)
-        }
+impl From<SniName> for zbus::names::WellKnownName<'static> {
+    fn from(v: SniName) -> Self {
+        zbus::names::WellKnownName::try_from(String::from(v)).expect("valid name")
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Event<Ev> {
-    Activate {
-        x: i32,
-        y: i32,
-    },
-    ContextMenu {
-        x: i32,
-        y: i32,
-    },
-    Scroll {
-        delta: i32,
-        orientation: ScrollOrientation,
-    },
-    SecondaryActivate {
-        x: i32,
-        y: i32,
-    },
-    MenuEvent {
-        event_type: menu::EventType,
-
-        event: Ev,
-    },
+pub trait OnEvent<Ev>: Send + Sync {
+    fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send>;
 }
 
-const ITEM_OBJECT_PATH: &str = "/StatusNotifierItem";
-const MENU_OBJECT_PATH: &str = "/StatusNotifierItem/Menu";
+impl<Ev, F> OnEvent<Ev> for F
+where
+    F: Fn(Ev) -> Box<dyn Future<Output = ()> + Send> + Send + Sync,
+{
+    fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send> {
+        (self)(event)
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl<Ev: Debug + Send + 'static> OnEvent<Ev> for tokio::sync::mpsc::Sender<Ev> {
+    fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send> {
+        let send = self.clone();
+        Box::new(async move {
+            send.send(event).await.expect("channel to not be closed");
+        })
+    }
+}
+
+#[cfg(all(feature = "tokio"))]
+impl<Ev: Debug + Send + 'static> OnEvent<Ev> for tokio::sync::mpsc::UnboundedSender<Ev> {
+    fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send> {
+        let send = self.clone();
+        Box::new(async move {
+            send.send(event).expect("channel to not be closed");
+        })
+    }
+}
+
+pub const ITEM_OBJECT_PATH: &str = "/StatusNotifierItem";
+pub const MENU_OBJECT_PATH: &str = "/StatusNotifierItem/Menu";
+
+struct Hasher(fnv::FnvHasher);
+
+impl Hasher {
+    const INITIAL_KEY: u64 = 7581889071078416883;
+
+    fn new() -> Hasher {
+        Hasher(fnv::FnvHasher::with_key(Hasher::INITIAL_KEY))
+    }
+
+    fn hash(&mut self, v: impl Hash) -> u64 {
+        use std::hash::Hasher as _;
+        v.hash(&mut self.0);
+        self.0.finish()
+    }
+}

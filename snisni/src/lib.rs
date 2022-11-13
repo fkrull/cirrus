@@ -1,4 +1,5 @@
 mod dbus;
+pub mod menu;
 mod notifier;
 pub use notifier::*;
 
@@ -76,11 +77,6 @@ pub struct Item {
     pub item_is_menu: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Menu {
-    // TODO
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum ScrollOrientation {
     Horizontal,
@@ -102,7 +98,7 @@ impl<'a> TryFrom<&'a str> for ScrollOrientation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Event {
+pub enum Event<Ev> {
     Activate {
         x: i32,
         y: i32,
@@ -119,7 +115,10 @@ pub enum Event {
         x: i32,
         y: i32,
     },
-    // TODO menu event
+    MenuEvent {
+        event_type: menu::EventType,
+        event: Ev,
+    },
 }
 
 const ITEM_OBJECT_PATH: &str = "/StatusNotifierItem";

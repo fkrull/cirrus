@@ -1,6 +1,9 @@
 use snisni::*;
 use std::future::Future;
 
+#[derive(Debug)]
+enum MenuEvent {}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let item = Item {
@@ -20,7 +23,12 @@ async fn main() {
         window_id: 0,
         item_is_menu: false,
     };
-    let menu = Menu {};
+    let menu = menu::Menu::<MenuEvent> {
+        text_direction: menu::TextDirection::LeftToRight,
+        status: menu::Status::Normal,
+        icon_theme_path: "".to_string(),
+        items: vec![],
+    };
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
     let notifier = StatusNotifier::new(1, item, menu, Box::new(send))
         .await

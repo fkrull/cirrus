@@ -1,4 +1,4 @@
-use crate::{Event, Item, Menu, OnEvent, Pixmap, ScrollOrientation, MENU_OBJECT_PATH};
+use crate::{menu, Event, Item, OnEvent, Pixmap, ScrollOrientation, MENU_OBJECT_PATH};
 use zbus::{dbus_interface, dbus_proxy, SignalContext};
 
 /// DBus interface proxy for `org.kde.StatusNotifierWatcher`
@@ -42,24 +42,24 @@ pub(crate) trait StatusNotifierWatcher {
     fn registered_status_notifier_items(&self) -> zbus::Result<Vec<String>>;
 }
 
-pub(crate) struct StatusNotifierItem {
+pub(crate) struct StatusNotifierItem<Ev> {
     pub(crate) model: Item,
-    pub(crate) on_event: Box<dyn OnEvent>,
+    pub(crate) on_event: Box<dyn OnEvent<Ev>>,
 }
 
 fn convert_pixmap(p: &Pixmap) -> (i32, i32, &[u8]) {
     (p.width, p.height, &p.data)
 }
 
-impl StatusNotifierItem {
-    async fn on_event(&self, event: Event) {
+impl<Ev> StatusNotifierItem<Ev> {
+    async fn on_event(&self, event: Event<Ev>) {
         let pinned = Box::into_pin(self.on_event.on_event(event));
         pinned.await;
     }
 }
 
 #[dbus_interface(interface = "org.kde.StatusNotifierItem")]
-impl StatusNotifierItem {
+impl<Ev: Send + 'static> StatusNotifierItem<Ev> {
     /// Activate method
     async fn activate(&self, x: i32, y: i32) {
         self.on_event(Event::Activate { x, y }).await;
@@ -230,12 +230,13 @@ impl StatusNotifierItem {
 }
 
 #[derive(Debug)]
-pub(crate) struct DBusMenu {
-    pub(crate) model: Menu,
+pub(crate) struct DBusMenu<Ev> {
+    pub(crate) model: menu::Menu<Ev>,
+    pub(crate) revision: u32,
 }
 
 #[dbus_interface(interface = "com.canonical.dbusmenu")]
-impl DBusMenu {
+impl<Ev: Send + Sync + 'static> DBusMenu<Ev> {
     /// AboutToShow method
     async fn about_to_show(&self, id: i32) -> bool {
         todo!()
@@ -288,6 +289,7 @@ impl DBusMenu {
         (
             i32,
             std::collections::HashMap<String, zbus::zvariant::OwnedValue>,
+            Vec<zbus::zvariant::OwnedValue>,
         ),
     ) {
         todo!()

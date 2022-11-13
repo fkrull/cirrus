@@ -1,6 +1,10 @@
-use crate::{dbus, Event, Item, Menu, Status, ITEM_OBJECT_PATH, MENU_OBJECT_PATH};
-use std::future::Future;
-use std::hash::{Hash, Hasher};
+use crate::{dbus, menu::Menu, Event, Item, Status, ITEM_OBJECT_PATH, MENU_OBJECT_PATH};
+use std::fmt::Debug;
+use std::marker::PhantomData;
+use std::{
+    future::Future,
+    hash::{Hash, Hasher},
+};
 use zbus::names::WellKnownName;
 
 const INITIAL_KEY: u64 = 7581889071078416883;
@@ -50,48 +54,48 @@ impl ItemHashes {
     }
 }
 
-async fn signal_updates(
+async fn signal_updates<Ev: Send + 'static>(
     ctx: &zbus::SignalContext<'_>,
     old: &ItemHashes,
     new: &ItemHashes,
 ) -> zbus::Result<()> {
     if old.attention_icon != new.attention_icon {
-        dbus::StatusNotifierItem::new_attention_icon(ctx).await?;
+        dbus::StatusNotifierItem::<Ev>::new_attention_icon(ctx).await?;
     }
     if old.icon != new.icon {
-        dbus::StatusNotifierItem::new_icon(ctx).await?;
+        dbus::StatusNotifierItem::<Ev>::new_icon(ctx).await?;
     }
     if old.overlay_icon != new.overlay_icon {
-        dbus::StatusNotifierItem::new_overlay_icon(ctx).await?;
+        dbus::StatusNotifierItem::<Ev>::new_overlay_icon(ctx).await?;
     }
     if old.status != new.status {
-        dbus::StatusNotifierItem::new_status(ctx, new.status_value.into()).await?;
+        dbus::StatusNotifierItem::<Ev>::new_status(ctx, new.status_value.into()).await?;
     }
     if old.title != new.title {
-        dbus::StatusNotifierItem::new_title(ctx).await?;
+        dbus::StatusNotifierItem::<Ev>::new_title(ctx).await?;
     }
     if old.tooltip != new.tooltip {
-        dbus::StatusNotifierItem::new_tool_tip(ctx).await?;
+        dbus::StatusNotifierItem::<Ev>::new_tool_tip(ctx).await?;
     }
     Ok(())
 }
 
-pub trait OnEvent: Send + Sync {
-    fn on_event(&self, event: Event) -> Box<dyn Future<Output = ()> + Send>;
+pub trait OnEvent<Ev>: Send + Sync {
+    fn on_event(&self, event: Event<Ev>) -> Box<dyn Future<Output = ()> + Send>;
 }
 
-impl<F> OnEvent for F
+impl<Ev, F> OnEvent<Ev> for F
 where
-    F: Fn(Event) -> Box<dyn Future<Output = ()> + Send> + Send + Sync,
+    F: Fn(Event<Ev>) -> Box<dyn Future<Output = ()> + Send> + Send + Sync,
 {
-    fn on_event(&self, event: Event) -> Box<dyn Future<Output = ()> + Send> {
+    fn on_event(&self, event: Event<Ev>) -> Box<dyn Future<Output = ()> + Send> {
         (self)(event)
     }
 }
 
 #[cfg(all(feature = "tokio"))]
-impl OnEvent for tokio::sync::mpsc::Sender<Event> {
-    fn on_event(&self, event: Event) -> Box<dyn Future<Output = ()> + Send> {
+impl<Ev: Debug + Send + 'static> OnEvent<Ev> for tokio::sync::mpsc::Sender<Event<Ev>> {
+    fn on_event(&self, event: Event<Ev>) -> Box<dyn Future<Output = ()> + Send> {
         let send = self.clone();
         Box::new(async move {
             send.send(event).await.expect("channel to not be closed");
@@ -100,8 +104,8 @@ impl OnEvent for tokio::sync::mpsc::Sender<Event> {
 }
 
 #[cfg(all(feature = "tokio"))]
-impl OnEvent for tokio::sync::mpsc::UnboundedSender<Event> {
-    fn on_event(&self, event: Event) -> Box<dyn Future<Output = ()> + Send> {
+impl<Ev: Debug + Send + 'static> OnEvent<Ev> for tokio::sync::mpsc::UnboundedSender<Event<Ev>> {
+    fn on_event(&self, event: Event<Ev>) -> Box<dyn Future<Output = ()> + Send> {
         let send = self.clone();
         Box::new(async move {
             send.send(event).expect("channel to not be closed");
@@ -110,19 +114,20 @@ impl OnEvent for tokio::sync::mpsc::UnboundedSender<Event> {
 }
 
 #[derive(Debug)]
-pub struct StatusNotifier {
+pub struct StatusNotifier<Ev> {
     name: String,
     conn: zbus::Connection,
+    _ev: PhantomData<Ev>,
 }
 
-impl StatusNotifier {
+impl<Ev: Send + Sync + 'static> StatusNotifier<Ev> {
     // TODO error type
     pub async fn new(
         app_internal_id: u32,
         item: Item,
-        menu: Menu,
-        on_event: Box<dyn OnEvent>,
-    ) -> zbus::Result<StatusNotifier> {
+        menu: Menu<Ev>,
+        on_event: Box<dyn OnEvent<Ev>>,
+    ) -> zbus::Result<StatusNotifier<Ev>> {
         StatusNotifier::new_with_connection_internal(
             zbus::ConnectionBuilder::session()?,
             app_internal_id,
@@ -138,9 +143,9 @@ impl StatusNotifier {
         mut connection_builder: zbus::ConnectionBuilder<'_>,
         app_internal_id: u32,
         item: Item,
-        menu: Menu,
-        on_event: Box<dyn OnEvent>,
-    ) -> zbus::Result<StatusNotifier> {
+        menu: Menu<Ev>,
+        on_event: Box<dyn OnEvent<Ev>>,
+    ) -> zbus::Result<StatusNotifier<Ev>> {
         let name = format!(
             "org.kde.StatusNotifierItem-{}-{}",
             std::process::id(),
@@ -155,10 +160,20 @@ impl StatusNotifier {
                     on_event,
                 },
             )?
-            .serve_at(MENU_OBJECT_PATH, dbus::DBusMenu { model: menu })?
+            .serve_at(
+                MENU_OBJECT_PATH,
+                dbus::DBusMenu {
+                    model: menu,
+                    revision: 0,
+                },
+            )?
             .build()
             .await?;
-        Ok(StatusNotifier { name, conn })
+        Ok(StatusNotifier {
+            name,
+            conn,
+            _ev: PhantomData,
+        })
     }
 
     // TODO error type
@@ -167,9 +182,9 @@ impl StatusNotifier {
         mut connection_builder: zbus::ConnectionBuilder<'_>,
         app_internal_id: u32,
         item: Item,
-        menu: Menu,
-        on_event: Box<dyn OnEvent>,
-    ) -> zbus::Result<StatusNotifier> {
+        menu: Menu<Ev>,
+        on_event: Box<dyn OnEvent<Ev>>,
+    ) -> zbus::Result<StatusNotifier<Ev>> {
         StatusNotifier::new_with_connection_internal(
             connection_builder,
             app_internal_id,
@@ -195,7 +210,7 @@ impl StatusNotifier {
     pub async fn update_item(&self, f: impl FnOnce(&mut Item)) -> zbus::Result<()> {
         let object_server = self.conn.object_server();
         let iface = object_server
-            .interface::<'_, _, dbus::StatusNotifierItem>(ITEM_OBJECT_PATH)
+            .interface::<'_, _, dbus::StatusNotifierItem<Ev>>(ITEM_OBJECT_PATH)
             .await?;
         let (old, new) = {
             let mut item = iface.get_mut().await;
@@ -204,7 +219,7 @@ impl StatusNotifier {
             let new = ItemHashes::hash(&item.model);
             (old, new)
         };
-        signal_updates(iface.signal_context(), &old, &new).await?;
+        signal_updates::<Ev>(iface.signal_context(), &old, &new).await?;
         Ok(())
     }
 }

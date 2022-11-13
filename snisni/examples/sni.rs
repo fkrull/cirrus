@@ -25,6 +25,7 @@ async fn main() {
         item_is_menu: false,
     };
     let menu = Menu {};
-    let _conn = run(1, item, menu, on_event).await.unwrap();
+    let notifier = StatusNotifier::new(1, item, menu, on_event).await.unwrap();
+    notifier.register().await.unwrap();
     tokio::time::sleep(Duration::from_secs(3600)).await;
 }

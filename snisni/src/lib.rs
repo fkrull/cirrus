@@ -1,3 +1,4 @@
+use std::future::Future;
 use zbus::names::WellKnownName;
 
 mod dbus;
@@ -60,7 +61,7 @@ pub struct Tooltip {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Model {
+pub struct Item {
     pub icon: Icon,
     pub overlay_icon: Icon,
     pub attention_icon: Icon,
@@ -74,15 +75,78 @@ pub struct Model {
     pub status: Status,
     pub window_id: i32,
     pub item_is_menu: bool,
-    // TODO type
-    // pub menu: Menu,
 }
 
-pub async fn run(id: u32, model: Model) -> zbus::Result<zbus::Connection> {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Menu {
+    // TODO
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum ScrollOrientation {
+    Horizontal,
+    Vertical,
+}
+
+impl<'a> TryFrom<&'a str> for ScrollOrientation {
+    type Error = &'a str;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        if value.eq_ignore_ascii_case("horizontal") {
+            Ok(ScrollOrientation::Horizontal)
+        } else if value.eq_ignore_ascii_case("vertical") {
+            Ok(ScrollOrientation::Vertical)
+        } else {
+            Err(value)
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Event {
+    Activate {
+        x: i32,
+        y: i32,
+    },
+    ContextMenu {
+        x: i32,
+        y: i32,
+    },
+    Scroll {
+        delta: i32,
+        orientation: ScrollOrientation,
+    },
+    SecondaryActivate {
+        x: i32,
+        y: i32,
+    },
+    // TODO menu event
+}
+
+const ITEM_OBJECT_PATH: &str = "/StatusNotifierItem";
+const MENU_OBJECT_PATH: &str = "/StatusNotifierItem/Menu";
+
+pub async fn run<F, Fut>(
+    id: u32,
+    item: Item,
+    menu: Menu,
+    on_event: F,
+) -> zbus::Result<zbus::Connection>
+where
+    F: Fn(Event) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send,
+{
     let name = format!("org.kde.StatusNotifierItem-{}-{}", std::process::id(), id);
     let conn = zbus::ConnectionBuilder::session()?
         .name(WellKnownName::try_from(name.as_str())?)?
-        .serve_at("/StatusNotifierItem", dbus::StatusNotifierItem { model })?
+        .serve_at(
+            ITEM_OBJECT_PATH,
+            dbus::StatusNotifierItem {
+                model: item,
+                on_event,
+            },
+        )?
+        .serve_at(MENU_OBJECT_PATH, dbus::DBusMenu { model: menu })?
         .build()
         .await?;
     let watcher = dbus::StatusNotifierWatcherProxy::new(&conn).await?;

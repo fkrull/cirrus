@@ -1,4 +1,5 @@
-use crate::{Model, Pixmap};
+use crate::{Event, Item, Menu, Pixmap, ScrollOrientation, MENU_OBJECT_PATH};
+use std::future::Future;
 use zbus::{dbus_interface, dbus_proxy, SignalContext};
 
 /// DBus interface proxy for `org.kde.StatusNotifierWatcher`
@@ -43,8 +44,9 @@ pub(crate) trait StatusNotifierWatcher {
 }
 
 #[derive(Debug)]
-pub(crate) struct StatusNotifierItem {
-    pub(crate) model: Model,
+pub(crate) struct StatusNotifierItem<F> {
+    pub(crate) model: Item,
+    pub(crate) on_event: F,
 }
 
 fn convert_pixmap(p: &Pixmap) -> (i32, i32, &[u8]) {
@@ -52,25 +54,33 @@ fn convert_pixmap(p: &Pixmap) -> (i32, i32, &[u8]) {
 }
 
 #[dbus_interface(interface = "org.kde.StatusNotifierItem")]
-impl StatusNotifierItem {
+impl<F: Fn(Event) -> Fut + Send + Sync + 'static, Fut: Future<Output = ()> + Send>
+    StatusNotifierItem<F>
+{
     /// Activate method
-    fn activate(&self, x: i32, y: i32) {
-        println!("activate");
+    async fn activate(&self, x: i32, y: i32) {
+        (self.on_event)(Event::Activate { x, y }).await;
     }
 
     /// ContextMenu method
     async fn context_menu(&self, x: i32, y: i32) {
-        println!("context_menu");
+        (self.on_event)(Event::ContextMenu { x, y }).await;
     }
 
     /// Scroll method
-    async fn scroll(&self, delta: i32, orientation: &str) {
-        println!("scroll");
+    async fn scroll(&self, delta: i32, orientation: &str) -> Result<(), zbus::fdo::Error> {
+        match ScrollOrientation::try_from(orientation) {
+            Ok(orientation) => {
+                (self.on_event)(Event::Scroll { delta, orientation }).await;
+                Ok(())
+            }
+            Err(value) => Err(zbus::fdo::Error::InvalidArgs(value.to_string())),
+        }
     }
 
     /// SecondaryActivate method
     async fn secondary_activate(&self, x: i32, y: i32) {
-        println!("secondary_activate");
+        (self.on_event)(Event::SecondaryActivate { x, y }).await;
     }
 
     /// NewAttentionIcon signal
@@ -159,7 +169,8 @@ impl StatusNotifierItem {
     /// Menu property
     #[dbus_interface(property)]
     fn menu(&self) -> zbus::zvariant::OwnedObjectPath {
-        zbus::zvariant::OwnedObjectPath::try_from("/").unwrap()
+        zbus::zvariant::OwnedObjectPath::try_from(MENU_OBJECT_PATH)
+            .expect("constant string to be a valid path")
     }
 
     /// OverlayIconName property
@@ -216,7 +227,9 @@ impl StatusNotifierItem {
 }
 
 #[derive(Debug)]
-pub(crate) struct DBusMenu;
+pub(crate) struct DBusMenu {
+    pub(crate) model: Menu,
+}
 
 #[dbus_interface(interface = "com.canonical.dbusmenu")]
 impl DBusMenu {

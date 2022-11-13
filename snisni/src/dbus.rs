@@ -1,4 +1,6 @@
+use crate::menu::Type;
 use crate::{menu, Event, Item, OnEvent, Pixmap, ScrollOrientation, MENU_OBJECT_PATH};
+use std::collections::HashMap;
 use zbus::{dbus_interface, dbus_proxy, SignalContext};
 
 /// DBus interface proxy for `org.kde.StatusNotifierWatcher`
@@ -233,18 +235,19 @@ impl<Ev: Send + 'static> StatusNotifierItem<Ev> {
 pub(crate) struct DBusMenu<Ev> {
     pub(crate) model: menu::Menu<Ev>,
     pub(crate) revision: u32,
+    pub(crate) indices: HashMap<menu::Id, usize>,
 }
 
 #[dbus_interface(interface = "com.canonical.dbusmenu")]
 impl<Ev: Send + Sync + 'static> DBusMenu<Ev> {
     /// AboutToShow method
     async fn about_to_show(&self, id: i32) -> bool {
-        todo!()
+        false
     }
 
     /// AboutToShowGroup method
     async fn about_to_show_group(&self, ids: Vec<i32>) -> (Vec<i32>, Vec<i32>) {
-        todo!()
+        (Vec::new(), Vec::new())
     }
 
     /// Event method
@@ -252,10 +255,25 @@ impl<Ev: Send + Sync + 'static> DBusMenu<Ev> {
         &self,
         id: i32,
         event_id: &str,
-        data: zbus::zvariant::Value<'_>,
-        timestamp: u32,
-    ) {
-        todo!()
+        _data: zbus::zvariant::Value<'_>,
+        _timestamp: u32,
+    ) -> Result<(), zbus::fdo::Error> {
+        let event_type = menu::EventType::try_from(event_id)
+            .map_err(|s| zbus::fdo::Error::InvalidArgs(s.to_string()))?;
+        if let Some(item) = self
+            .indices
+            .get(&menu::Id(id))
+            .and_then(|&index| self.model.items.get(index))
+        {
+            match &item.r#type {
+                Type::Standard { event, .. } => {}
+                Type::Separator => {}
+                Type::Checkmark { .. } => {}
+                Type::Radio { .. } => {}
+                Type::SubMenu { .. } => {}
+            }
+        }
+        if let Some(&index) = self.indices.get(&menu::Id(id)) {}
     }
 
     /// EventGroup method

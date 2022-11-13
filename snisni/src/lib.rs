@@ -117,6 +117,7 @@ pub enum Event<Ev> {
     },
     MenuEvent {
         event_type: menu::EventType,
+
         event: Ev,
     },
 }

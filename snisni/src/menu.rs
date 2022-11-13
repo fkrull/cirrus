@@ -1,5 +1,5 @@
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Id(i32);
+pub struct Id(pub i32);
 
 impl Id {
     pub const ROOT: Id = Id(0);

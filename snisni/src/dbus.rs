@@ -1,7 +1,11 @@
+use crate::{Model, Pixmap};
 use zbus::{dbus_interface, dbus_proxy, SignalContext};
 
-/// # DBus interface proxy for `org.kde.StatusNotifierWatcher`
-#[dbus_proxy(interface = "org.kde.StatusNotifierWatcher")]
+/// DBus interface proxy for `org.kde.StatusNotifierWatcher`
+#[dbus_proxy(
+    interface = "org.kde.StatusNotifierWatcher",
+    default_path = "/StatusNotifierWatcher"
+)]
 pub(crate) trait StatusNotifierWatcher {
     /// RegisterStatusNotifierHost method
     fn register_status_notifier_host(&self, service: &str) -> zbus::Result<()>;
@@ -39,28 +43,34 @@ pub(crate) trait StatusNotifierWatcher {
 }
 
 #[derive(Debug)]
-pub(crate) struct StatusNotifierItem;
+pub(crate) struct StatusNotifierItem {
+    pub(crate) model: Model,
+}
+
+fn convert_pixmap(p: &Pixmap) -> (i32, i32, &[u8]) {
+    (p.width, p.height, &p.data)
+}
 
 #[dbus_interface(interface = "org.kde.StatusNotifierItem")]
 impl StatusNotifierItem {
     /// Activate method
     fn activate(&self, x: i32, y: i32) {
-        todo!()
+        println!("activate");
     }
 
     /// ContextMenu method
     async fn context_menu(&self, x: i32, y: i32) {
-        todo!()
+        println!("context_menu");
     }
 
     /// Scroll method
     async fn scroll(&self, delta: i32, orientation: &str) {
-        todo!()
+        println!("scroll");
     }
 
     /// SecondaryActivate method
     async fn secondary_activate(&self, x: i32, y: i32) {
-        todo!()
+        println!("secondary_activate");
     }
 
     /// NewAttentionIcon signal
@@ -90,97 +100,118 @@ impl StatusNotifierItem {
     /// AttentionIconName property
     #[dbus_interface(property)]
     fn attention_icon_name(&self) -> String {
-        todo!()
+        self.model.attention_icon.name.clone()
     }
 
     /// AttentionIconPixmap property
     #[dbus_interface(property)]
-    fn attention_icon_pixmap(&self) -> Vec<(i32, i32, Vec<u8>)> {
-        todo!()
+    fn attention_icon_pixmap(&self) -> Vec<(i32, i32, &[u8])> {
+        self.model
+            .attention_icon
+            .pixmaps
+            .iter()
+            .map(convert_pixmap)
+            .collect()
     }
 
     /// AttentionMovieName property
     #[dbus_interface(property)]
-    fn attention_movie_name(&self) -> String {
-        todo!()
+    fn attention_movie_name(&self) -> &str {
+        &self.model.attention_movie_name
     }
 
     /// Category property
     #[dbus_interface(property)]
-    fn category(&self) -> String {
-        todo!()
+    fn category(&self) -> &str {
+        self.model.category.into()
     }
 
     /// IconName property
     #[dbus_interface(property)]
-    fn icon_name(&self) -> String {
-        todo!()
+    fn icon_name(&self) -> &str {
+        &self.model.icon.name
     }
 
     /// IconPixmap property
     #[dbus_interface(property)]
-    fn icon_pixmap(&self) -> Vec<(i32, i32, Vec<u8>)> {
-        todo!()
+    fn icon_pixmap(&self) -> Vec<(i32, i32, &[u8])> {
+        self.model.icon.pixmaps.iter().map(convert_pixmap).collect()
     }
 
     /// IconThemePath property
     #[dbus_interface(property)]
-    fn icon_theme_path(&self) -> String {
-        todo!()
+    fn icon_theme_path(&self) -> &str {
+        &self.model.icon_theme_path
     }
 
     /// Id property
     #[dbus_interface(property)]
-    fn id(&self) -> String {
-        todo!()
+    fn id(&self) -> &str {
+        &self.model.id
     }
 
     /// ItemIsMenu property
     #[dbus_interface(property)]
     fn item_is_menu(&self) -> bool {
-        todo!()
+        self.model.item_is_menu
     }
 
     /// Menu property
     #[dbus_interface(property)]
     fn menu(&self) -> zbus::zvariant::OwnedObjectPath {
-        todo!()
+        zbus::zvariant::OwnedObjectPath::try_from("/").unwrap()
     }
 
     /// OverlayIconName property
     #[dbus_interface(property)]
-    fn overlay_icon_name(&self) -> String {
-        todo!()
+    fn overlay_icon_name(&self) -> &str {
+        &self.model.overlay_icon.name
     }
 
     /// OverlayIconPixmap property
     #[dbus_interface(property)]
-    fn overlay_icon_pixmap(&self) -> Vec<(i32, i32, Vec<u8>)> {
-        todo!()
+    fn overlay_icon_pixmap(&self) -> Vec<(i32, i32, &[u8])> {
+        self.model
+            .overlay_icon
+            .pixmaps
+            .iter()
+            .map(convert_pixmap)
+            .collect()
     }
 
     /// Status property
     #[dbus_interface(property)]
-    fn status(&self) -> String {
-        todo!()
+    fn status(&self) -> &str {
+        self.model.status.into()
     }
 
     /// Title property
     #[dbus_interface(property)]
-    fn title(&self) -> String {
-        todo!()
+    fn title(&self) -> &str {
+        &self.model.title
     }
 
     /// ToolTip property
     #[dbus_interface(property)]
-    fn tool_tip(&self) -> (String, Vec<(i32, i32, Vec<u8>)>) {
-        todo!()
+    fn tool_tip(&self) -> (&str, Vec<(i32, i32, &[u8])>, &str, &str) {
+        (
+            &self.model.tooltip.icon.name,
+            self.model
+                .tooltip
+                .icon
+                .pixmaps
+                .iter()
+                .map(convert_pixmap)
+                .collect(),
+            &self.model.tooltip.title,
+            &self.model.tooltip.text,
+        )
     }
 
     /// WindowId property
     #[dbus_interface(property)]
     fn window_id(&self) -> i32 {
-        todo!()
+        self.model.window_id
     }
 }
 

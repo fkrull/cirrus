@@ -6,14 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+fnv = { version = "1.0.7", default-features = false }
 thiserror = "1.0.37"
+tokio = { version = "1.21.2", default-features = false, optional = true }
 zbus = { version = "3.4.0", default-features = false }
 
 [dev-dependencies]
-tokio = { version = "1.21.2", features = ["rt", "macros"] }
-zbus = { version = "3.4.0", default-features = false, features = ["tokio"] }
+tokio = { version = "1.21.2", default-features = false, features = ["rt", "macros"] }
 
 [features]
 async-io = ["zbus/async-io"]
-tokio = ["zbus/tokio"]
+tokio = ["dep:tokio", "zbus/tokio", "tokio/sync"]
 zbus-api = []
+
+[[example]]
+name = "sni"
+required-features = ["tokio"]

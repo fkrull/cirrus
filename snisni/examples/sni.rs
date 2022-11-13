@@ -1,9 +1,5 @@
 use snisni::*;
-use std::time::Duration;
-
-async fn on_event(event: Event) {
-    println!("event={event:?}");
-}
+use std::future::Future;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -25,7 +21,29 @@ async fn main() {
         item_is_menu: false,
     };
     let menu = Menu {};
-    let notifier = StatusNotifier::new(1, item, menu, on_event).await.unwrap();
+    let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
+    let notifier = StatusNotifier::new(1, item, menu, Box::new(send))
+        .await
+        .unwrap();
     notifier.register().await.unwrap();
-    tokio::time::sleep(Duration::from_secs(3600)).await;
+    let mut download = false;
+    while let Some(event) = recv.recv().await {
+        println!("event={event:?}");
+        if let Event::Activate { .. } = event {
+            download = !download;
+            let icon = if download {
+                "folder-download"
+            } else {
+                "folder"
+            };
+            notifier
+                .update_item(|item| {
+                    item.icon.name = icon.to_string();
+                    item.attention_icon.name = "audio-headphones".to_string();
+                    item.status = Status::NeedsAttention;
+                })
+                .await
+                .unwrap();
+        }
+    }
 }

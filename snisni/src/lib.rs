@@ -1,7 +1,6 @@
-use std::future::Future;
-use zbus::names::WellKnownName;
-
 mod dbus;
+mod notifier;
+pub use notifier::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Category {
@@ -125,99 +124,3 @@ pub enum Event {
 
 const ITEM_OBJECT_PATH: &str = "/StatusNotifierItem";
 const MENU_OBJECT_PATH: &str = "/StatusNotifierItem/Menu";
-
-#[derive(Debug)]
-pub struct StatusNotifier {
-    name: String,
-    conn: zbus::Connection,
-}
-
-impl StatusNotifier {
-    // TODO error type
-    pub async fn new<F, Fut>(
-        app_internal_id: u32,
-        item: Item,
-        menu: Menu,
-        on_event: F,
-    ) -> zbus::Result<StatusNotifier>
-    where
-        F: Fn(Event) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = ()> + Send,
-    {
-        StatusNotifier::new_with_connection_internal(
-            zbus::ConnectionBuilder::session()?,
-            app_internal_id,
-            item,
-            menu,
-            on_event,
-        )
-        .await
-    }
-
-    // TODO error type
-    async fn new_with_connection_internal<F, Fut>(
-        mut connection_builder: zbus::ConnectionBuilder<'_>,
-        app_internal_id: u32,
-        item: Item,
-        menu: Menu,
-        on_event: F,
-    ) -> zbus::Result<StatusNotifier>
-    where
-        F: Fn(Event) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = ()> + Send,
-    {
-        let name = format!(
-            "org.kde.StatusNotifierItem-{}-{}",
-            std::process::id(),
-            app_internal_id
-        );
-        let conn = connection_builder
-            .name(WellKnownName::try_from(name.as_str())?)?
-            .serve_at(
-                ITEM_OBJECT_PATH,
-                dbus::StatusNotifierItem {
-                    model: item,
-                    on_event,
-                },
-            )?
-            .serve_at(MENU_OBJECT_PATH, dbus::DBusMenu { model: menu })?
-            .build()
-            .await?;
-        Ok(StatusNotifier { name, conn })
-    }
-
-    // TODO error type
-    #[cfg(feature = "zbus-api")]
-    pub async fn new_with_connection<F, Fut>(
-        mut connection_builder: zbus::ConnectionBuilder<'_>,
-        app_internal_id: u32,
-        item: Item,
-        menu: Menu,
-        on_event: F,
-    ) -> zbus::Result<StatusNotifier>
-    where
-        F: Fn(Event) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = ()> + Send,
-    {
-        StatusNotifier::new_with_connection_internal(
-            connection_builder,
-            app_internal_id,
-            item,
-            menu,
-            on_event,
-        )
-        .await
-    }
-
-    // TODO error type
-    pub async fn register(&self) -> zbus::Result<()> {
-        let watcher = dbus::StatusNotifierWatcherProxy::new(&self.conn).await?;
-        watcher.register_status_notifier_item(&self.name).await?;
-        Ok(())
-    }
-
-    #[cfg(feature = "zbus-api")]
-    pub fn connection(&self) -> &zbus::Connection {
-        &self.conn
-    }
-}

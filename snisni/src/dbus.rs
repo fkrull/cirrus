@@ -1,5 +1,4 @@
-use crate::{Event, Item, Menu, Pixmap, ScrollOrientation, MENU_OBJECT_PATH};
-use std::future::Future;
+use crate::{Event, Item, Menu, OnEvent, Pixmap, ScrollOrientation, MENU_OBJECT_PATH};
 use zbus::{dbus_interface, dbus_proxy, SignalContext};
 
 /// DBus interface proxy for `org.kde.StatusNotifierWatcher`
@@ -43,35 +42,39 @@ pub(crate) trait StatusNotifierWatcher {
     fn registered_status_notifier_items(&self) -> zbus::Result<Vec<String>>;
 }
 
-#[derive(Debug)]
-pub(crate) struct StatusNotifierItem<F> {
+pub(crate) struct StatusNotifierItem {
     pub(crate) model: Item,
-    pub(crate) on_event: F,
+    pub(crate) on_event: Box<dyn OnEvent>,
 }
 
 fn convert_pixmap(p: &Pixmap) -> (i32, i32, &[u8]) {
     (p.width, p.height, &p.data)
 }
 
+impl StatusNotifierItem {
+    async fn on_event(&self, event: Event) {
+        let pinned = Box::into_pin(self.on_event.on_event(event));
+        pinned.await;
+    }
+}
+
 #[dbus_interface(interface = "org.kde.StatusNotifierItem")]
-impl<F: Fn(Event) -> Fut + Send + Sync + 'static, Fut: Future<Output = ()> + Send>
-    StatusNotifierItem<F>
-{
+impl StatusNotifierItem {
     /// Activate method
     async fn activate(&self, x: i32, y: i32) {
-        (self.on_event)(Event::Activate { x, y }).await;
+        self.on_event(Event::Activate { x, y }).await;
     }
 
     /// ContextMenu method
     async fn context_menu(&self, x: i32, y: i32) {
-        (self.on_event)(Event::ContextMenu { x, y }).await;
+        self.on_event(Event::ContextMenu { x, y }).await;
     }
 
     /// Scroll method
     async fn scroll(&self, delta: i32, orientation: &str) -> Result<(), zbus::fdo::Error> {
         match ScrollOrientation::try_from(orientation) {
             Ok(orientation) => {
-                (self.on_event)(Event::Scroll { delta, orientation }).await;
+                self.on_event(Event::Scroll { delta, orientation }).await;
                 Ok(())
             }
             Err(value) => Err(zbus::fdo::Error::InvalidArgs(value.to_string())),
@@ -80,32 +83,32 @@ impl<F: Fn(Event) -> Fut + Send + Sync + 'static, Fut: Future<Output = ()> + Sen
 
     /// SecondaryActivate method
     async fn secondary_activate(&self, x: i32, y: i32) {
-        (self.on_event)(Event::SecondaryActivate { x, y }).await;
+        self.on_event(Event::SecondaryActivate { x, y }).await;
     }
 
     /// NewAttentionIcon signal
     #[dbus_interface(signal)]
-    async fn new_attention_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
+    pub(crate) async fn new_attention_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewIcon signal
     #[dbus_interface(signal)]
-    async fn new_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
+    pub(crate) async fn new_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewOverlayIcon signal
     #[dbus_interface(signal)]
-    async fn new_overlay_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
+    pub(crate) async fn new_overlay_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewStatus signal
     #[dbus_interface(signal)]
-    async fn new_status(ctx: &SignalContext<'_>, status: &str) -> zbus::Result<()>;
+    pub(crate) async fn new_status(ctx: &SignalContext<'_>, status: &str) -> zbus::Result<()>;
 
     /// NewTitle signal
     #[dbus_interface(signal)]
-    async fn new_title(ctx: &SignalContext<'_>) -> zbus::Result<()>;
+    pub(crate) async fn new_title(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewToolTip signal
     #[dbus_interface(signal)]
-    async fn new_tool_tip(ctx: &SignalContext<'_>) -> zbus::Result<()>;
+    pub(crate) async fn new_tool_tip(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// AttentionIconName property
     #[dbus_interface(property)]

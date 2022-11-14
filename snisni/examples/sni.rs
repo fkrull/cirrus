@@ -22,6 +22,23 @@ async fn main() {
         window_id: 0,
         item_is_menu: false,
     };
+    let menu = menu::Model::<()> {
+        text_direction: menu::TextDirection::LeftToRight,
+        status: menu::Status::Normal,
+        icon_theme_path: vec![],
+        items: vec![menu::Item {
+            id: menu::Id::ROOT,
+            message: None,
+            r#type: menu::Type::Standard,
+            label: "Menu Item".to_string(),
+            enabled: false,
+            visible: true,
+            icon_name: "folder".to_string(),
+            icon_data: vec![],
+            shortcuts: vec![],
+            disposition: menu::Disposition::Normal,
+        }],
+    };
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
     let notifier = sni::StatusNotifierItem::new(model, Box::new(send));
     let name = SniName::new(1);
@@ -30,6 +47,11 @@ async fn main() {
         .name(name)
         .unwrap()
         .serve_at(ITEM_OBJECT_PATH, notifier)
+        .unwrap()
+        .serve_at(
+            MENU_OBJECT_PATH,
+            menu::DBusMenu::new(menu, Box::new(|_| async move {})),
+        )
         .unwrap()
         .build()
         .await

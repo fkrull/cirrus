@@ -1,3 +1,6 @@
+use crate::OnEvent;
+use std::collections::HashMap;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Id(pub i32);
 
@@ -55,18 +58,19 @@ impl From<Status> for &'static str {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Type<Ev> {
-    Standard { event: Ev },
+pub enum Type {
+    Standard,
     Separator,
-    Checkmark { selected: bool, event: Ev },
-    Radio { selected: bool, event: Ev },
-    SubMenu { children: Vec<Id>, event: Ev },
+    Checkmark { selected: bool },
+    Radio { selected: bool },
+    SubMenu { children: Vec<Id> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Item<Ev> {
+pub struct Item<M> {
     pub id: Id,
-    pub r#type: Type<Ev>,
+    pub message: Option<M>,
+    pub r#type: Type,
     /// Text of the item, except that:
     /// - two consecutive underscore characters `__` are displayed as a
     ///   single underscore,
@@ -120,9 +124,193 @@ impl<'a> TryFrom<&'a str> for EventType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Menu<Ev> {
+pub struct Event<M> {
+    pub r#type: EventType,
+    pub message: M,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Model<M> {
     pub text_direction: TextDirection,
     pub status: Status,
-    pub icon_theme_path: String,
-    pub items: Vec<Item<Ev>>,
+    pub icon_theme_path: Vec<String>,
+    pub items: Vec<Item<M>>,
+}
+
+pub struct DBusMenu<M> {
+    revision: u32,
+    model: Model<M>,
+    indices: HashMap<Id, usize>,
+    on_event: Box<dyn OnEvent<Event<M>>>,
+}
+
+impl<M> DBusMenu<M> {
+    pub fn new(model: Model<M>, on_event: Box<dyn OnEvent<Event<M>>>) -> DBusMenu<M> {
+        // TODO hierarchical model I suppose
+        let mut menu = DBusMenu {
+            revision: 0,
+            model,
+            on_event,
+            indices: HashMap::new(),
+        };
+        menu.build_index();
+        menu
+    }
+
+    fn build_index(&mut self) {
+        // TODO impl
+    }
+
+    async fn on_event(&self, event: Event<M>) {
+        let pinned = Box::into_pin(self.on_event.on_event(event));
+        pinned.await;
+    }
+}
+
+impl<M: Clone> DBusMenu<M> {
+    async fn handle_event(&self, id: i32, event_id: &str) -> Result<bool, zbus::fdo::Error> {
+        let r#type = EventType::try_from(event_id)
+            .map_err(|s| zbus::fdo::Error::InvalidArgs(s.to_string()))?;
+        if let Some(item) = self
+            .indices
+            .get(&Id(id))
+            .and_then(|&index| self.model.items.get(index))
+        {
+            if let Some(message) = &item.message {
+                self.on_event(Event {
+                    r#type,
+                    message: message.clone(),
+                })
+                .await;
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+}
+
+#[zbus::dbus_interface(interface = "com.canonical.dbusmenu")]
+impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
+    /// AboutToShow method
+    async fn about_to_show(&self, id: i32) -> bool {
+        false
+    }
+
+    /// AboutToShowGroup method
+    async fn about_to_show_group(&self, ids: Vec<i32>) -> (Vec<i32>, Vec<i32>) {
+        (Vec::new(), Vec::new())
+    }
+
+    /// Event method
+    async fn event(
+        &self,
+        id: i32,
+        event_id: &str,
+        _data: zbus::zvariant::Value<'_>,
+        _timestamp: u32,
+    ) -> Result<(), zbus::fdo::Error> {
+        if !self.handle_event(id, event_id).await? {
+            Err(zbus::fdo::Error::InvalidArgs(format!("unknown ID {id}")))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// EventGroup method
+    async fn event_group(
+        &self,
+        events: Vec<(i32, &str, zbus::zvariant::Value<'_>, u32)>,
+    ) -> Result<Vec<i32>, zbus::fdo::Error> {
+        let mut errors = Vec::new();
+        for &(id, event_type, _, _) in &events {
+            if !self.handle_event(id, event_type).await? {
+                errors.push(id);
+            }
+        }
+        if errors.len() == events.len() {
+            Err(zbus::fdo::Error::InvalidArgs("no valid IDs".to_string()))
+        } else {
+            Ok(errors)
+        }
+    }
+
+    /// GetGroupProperties method
+    async fn get_group_properties(
+        &self,
+        ids: Vec<i32>,
+        property_names: Vec<&str>,
+    ) -> Vec<(i32, HashMap<String, zbus::zvariant::OwnedValue>)> {
+        todo!()
+    }
+
+    /// GetLayout method
+    async fn get_layout(
+        &self,
+        parent_id: i32,
+        recursion_depth: i32,
+        property_names: Vec<&str>,
+    ) -> (
+        u32,
+        (
+            i32,
+            HashMap<String, zbus::zvariant::OwnedValue>,
+            Vec<zbus::zvariant::OwnedValue>,
+        ),
+    ) {
+        todo!()
+    }
+
+    /// GetProperty method
+    async fn get_property(&self, id: i32, name: &str) -> zbus::zvariant::OwnedValue {
+        todo!()
+    }
+
+    /// ItemActivationRequested signal
+    #[dbus_interface(signal)]
+    async fn item_activation_requested(
+        ctx: &zbus::SignalContext<'_>,
+        id: i32,
+        timestamp: u32,
+    ) -> zbus::Result<()>;
+
+    /// ItemsPropertiesUpdated signal
+    #[dbus_interface(signal)]
+    async fn items_properties_updated(
+        ctx: &zbus::SignalContext<'_>,
+        updated_props: &[(i32, HashMap<&str, zbus::zvariant::Value<'_>>)],
+        removed_props: &[(i32, &[&str])],
+    ) -> zbus::Result<()>;
+
+    /// LayoutUpdated signal
+    #[dbus_interface(signal)]
+    async fn layout_updated(
+        ctx: &zbus::SignalContext<'_>,
+        revision: u32,
+        parent: i32,
+    ) -> zbus::Result<()>;
+
+    /// IconThemePath property
+    #[dbus_interface(property)]
+    fn icon_theme_path(&self) -> Vec<String> {
+        self.model.icon_theme_path.clone()
+    }
+
+    /// Status property
+    #[dbus_interface(property)]
+    fn status(&self) -> &str {
+        self.model.status.into()
+    }
+
+    /// TextDirection property
+    #[dbus_interface(property)]
+    fn text_direction(&self) -> &str {
+        self.model.text_direction.into()
+    }
+
+    /// Version property
+    #[dbus_interface(property)]
+    fn version(&self) -> u32 {
+        1
+    }
 }

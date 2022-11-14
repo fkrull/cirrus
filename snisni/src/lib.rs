@@ -1,10 +1,8 @@
 use std::{fmt::Debug, future::Future, hash::Hash};
 
+pub mod menu;
 pub mod sni;
 pub mod watcher;
-
-//mod dbus;
-//pub mod menu;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SniName {
@@ -37,12 +35,14 @@ pub trait OnEvent<Ev>: Send + Sync {
     fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send>;
 }
 
-impl<Ev, F> OnEvent<Ev> for F
+impl<Ev, F, Fut> OnEvent<Ev> for F
 where
-    F: Fn(Ev) -> Box<dyn Future<Output = ()> + Send> + Send + Sync,
+    F: Fn(Ev) -> Fut + Send + Sync,
+    Fut: Future<Output = ()> + Send + 'static,
 {
     fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send> {
-        (self)(event)
+        let fut = (self)(event);
+        Box::new(fut)
     }
 }
 

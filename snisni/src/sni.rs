@@ -253,28 +253,27 @@ impl StatusNotifierItem {
 
     /// NewAttentionIcon signal
     #[dbus_interface(signal)]
-    pub(crate) async fn new_attention_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_attention_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewIcon signal
     #[dbus_interface(signal)]
-    pub(crate) async fn new_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewOverlayIcon signal
     #[dbus_interface(signal)]
-    pub(crate) async fn new_overlay_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_overlay_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewStatus signal
     #[dbus_interface(signal)]
-    pub(crate) async fn new_status(ctx: &zbus::SignalContext<'_>, status: &str)
-        -> zbus::Result<()>;
+    pub async fn new_status(ctx: &zbus::SignalContext<'_>, status: &str) -> zbus::Result<()>;
 
     /// NewTitle signal
     #[dbus_interface(signal)]
-    pub(crate) async fn new_title(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_title(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewToolTip signal
     #[dbus_interface(signal)]
-    pub(crate) async fn new_tool_tip(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_tool_tip(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
 
     /// AttentionIconName property
     #[dbus_interface(property)]

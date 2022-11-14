@@ -34,7 +34,7 @@ async fn main() {
             visible: true,
             icon_name: "folder".to_string(),
             icon_data: vec![],
-            shortcuts: vec![],
+            shortcut: vec![],
             disposition: menu::Disposition::Normal,
         }],
     };

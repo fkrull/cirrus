@@ -20,10 +20,6 @@ use zbus::{
 #[serde(transparent)]
 pub struct Id(pub i32);
 
-impl Id {
-    pub const ROOT: Id = Id(0);
-}
-
 impl std::fmt::Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -38,14 +34,15 @@ pub enum Disposition {
     Alert,
 }
 
-impl From<Disposition> for &'static str {
+impl From<Disposition> for OwnedValue {
     fn from(v: Disposition) -> Self {
-        match v {
+        let s = match v {
             Disposition::Normal => "normal",
             Disposition::Informative => "informative",
             Disposition::Warning => "warning",
             Disposition::Alert => "alert",
-        }
+        };
+        Str::from(s).into()
     }
 }
 
@@ -221,7 +218,7 @@ impl<M> Item<M> {
             Prop::ToggleType => Str::from("").into(),
             Prop::ToggleState => (-1).into(),
             Prop::ChildrenDisplay => Str::from("").into(),
-            Prop::Disposition => Str::from(Into::<&str>::into(self.disposition)).into(),
+            Prop::Disposition => self.disposition.into(),
         }
     }
 
@@ -290,8 +287,8 @@ impl<M> Item<M> {
                 _ => None,
             },
             Prop::ToggleState => match &self.r#type {
-                Type::Checkmark { selected } => Some(if *selected { 1 } else { 0 }.into()),
-                Type::Radio { selected } => Some(if *selected { 1 } else { 0 }.into()),
+                Type::Checkmark { selected } => Some(i32::from(*selected).into()),
+                Type::Radio { selected } => Some(i32::from(*selected).into()),
                 _ => None,
             },
             Prop::ChildrenDisplay => {
@@ -303,7 +300,7 @@ impl<M> Item<M> {
             }
             Prop::Disposition => {
                 if self.disposition != Self::DEFAULT.disposition {
-                    Some(Str::from(Into::<&str>::into(self.disposition)).into())
+                    Some(self.disposition.into())
                 } else {
                     None
                 }
@@ -402,7 +399,7 @@ impl<M> DBusMenu<M> {
         let item = self
             .get(id)
             .ok_or_else(|| Error::InvalidArgs(format!("invalid ID {id}")))?;
-        let props = item.get_properties_filtered(&property_names);
+        let props = item.get_properties_filtered(property_names);
         let children = if recursion_depth != 0 {
             let new_recursion_depth = if recursion_depth < 0 {
                 recursion_depth
@@ -562,6 +559,7 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
     /// Version property
     #[dbus_interface(property)]
     fn version(&self) -> u32 {
-        1
+        // that's what ksni uses *shrug emoji*
+        3
     }
 }

@@ -1,6 +1,7 @@
 use crate::OnEvent;
 use std::collections::HashMap;
-use zbus::zvariant::{Array, OwnedValue, Signature, Str, Value};
+use zbus::fdo::Error;
+use zbus::zvariant::{Array, OwnedValue, Signature, Str, Structure, Value};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Id(pub i32);
@@ -99,6 +100,22 @@ pub struct Item<M> {
     /// - `warning` looking at potentially harmful results
     /// - `alert` something bad could potentially happen
     pub disposition: Disposition,
+}
+
+impl<M> Default for Item<M> {
+    fn default() -> Self {
+        Item {
+            message: None,
+            r#type: Type::Standard,
+            label: "".to_string(),
+            enabled: true,
+            visible: true,
+            icon_name: "".to_string(),
+            icon_data: vec![],
+            shortcut: vec![],
+            disposition: Disposition::Normal,
+        }
+    }
 }
 
 impl<M> Item<M> {
@@ -251,12 +268,55 @@ impl<M> DBusMenu<M> {
         let pinned = Box::into_pin(self.on_event.on_event(event));
         pinned.await;
     }
+
+    fn get_layout_recursive(
+        &self,
+        id: i32,
+        recursion_depth: i32,
+        property_names: &[&str],
+    ) -> Result<
+        (
+            i32,
+            HashMap<String, OwnedValue>,
+            Vec<zbus::zvariant::OwnedValue>,
+        ),
+        Error,
+    > {
+        let item = self
+            .get(id)
+            .ok_or_else(|| Error::InvalidArgs(format!("invalid ID {id}")))?;
+        let props = item.get_properties_filtered(&property_names);
+        let children = if recursion_depth != 0 {
+            let new_recursion_depth = if recursion_depth < 0 {
+                recursion_depth
+            } else {
+                recursion_depth - 1
+            };
+            if let Type::SubMenu { children } = &item.r#type {
+                children
+                    .iter()
+                    .map(|&Id(id)| {
+                        self.get_layout_recursive(id, new_recursion_depth, property_names)
+                    })
+                    .map(|x| match x {
+                        Ok(x) => Ok(Structure::from(x).into()),
+                        Err(e) => Err(e),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+        Ok((id, props, children))
+    }
 }
 
 impl<M: Clone> DBusMenu<M> {
-    async fn handle_event(&self, id: i32, event_id: &str) -> Result<bool, zbus::fdo::Error> {
-        let r#type = EventType::try_from(event_id)
-            .map_err(|s| zbus::fdo::Error::InvalidArgs(s.to_string()))?;
+    async fn handle_single_event(&self, id: i32, event_id: &str) -> Result<bool, Error> {
+        let r#type =
+            EventType::try_from(event_id).map_err(|s| Error::InvalidArgs(s.to_string()))?;
         if let Some(item) = self.get(id) {
             if let Some(message) = &item.message {
                 self.on_event(Event {
@@ -291,9 +351,9 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
         event_id: &str,
         _data: zbus::zvariant::Value<'_>,
         _timestamp: u32,
-    ) -> Result<(), zbus::fdo::Error> {
-        if !self.handle_event(id, event_id).await? {
-            Err(zbus::fdo::Error::InvalidArgs(format!("unknown ID {id}")))
+    ) -> Result<(), Error> {
+        if !self.handle_single_event(id, event_id).await? {
+            Err(Error::InvalidArgs(format!("unknown ID {id}")))
         } else {
             Ok(())
         }
@@ -303,15 +363,15 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
     async fn event_group(
         &self,
         events: Vec<(i32, &str, zbus::zvariant::Value<'_>, u32)>,
-    ) -> Result<Vec<i32>, zbus::fdo::Error> {
+    ) -> Result<Vec<i32>, Error> {
         let mut errors = Vec::new();
         for &(id, event_type, _, _) in &events {
-            if !self.handle_event(id, event_type).await? {
+            if !self.handle_single_event(id, event_type).await? {
                 errors.push(id);
             }
         }
         if errors.len() == events.len() {
-            Err(zbus::fdo::Error::InvalidArgs("no valid IDs".to_string()))
+            Err(Error::InvalidArgs("no valid IDs".to_string()))
         } else {
             Ok(errors)
         }
@@ -344,24 +404,28 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
         parent_id: i32,
         recursion_depth: i32,
         property_names: Vec<&str>,
-    ) -> (
-        u32,
+    ) -> Result<
         (
-            i32,
-            HashMap<String, zbus::zvariant::OwnedValue>,
-            Vec<zbus::zvariant::OwnedValue>,
+            u32,
+            (
+                i32,
+                HashMap<String, OwnedValue>,
+                Vec<zbus::zvariant::OwnedValue>,
+            ),
         ),
-    ) {
-        todo!()
+        Error,
+    > {
+        let layout = self.get_layout_recursive(parent_id, recursion_depth, &property_names)?;
+        Ok((self.revision, layout))
     }
 
     /// GetProperty method
-    fn get_property(&self, id: i32, name: &str) -> Result<OwnedValue, zbus::fdo::Error> {
+    fn get_property(&self, id: i32, name: &str) -> Result<OwnedValue, Error> {
         let item = self
             .get(id)
-            .ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!("invalid ID {id}")))?;
+            .ok_or_else(|| Error::InvalidArgs(format!("invalid ID {id}")))?;
         item.get_property(name)
-            .ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!("invalid property name {name}")))
+            .ok_or_else(|| Error::InvalidArgs(format!("invalid property name {name}")))
     }
 
     /// ItemActivationRequested signal

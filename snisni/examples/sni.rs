@@ -26,17 +26,19 @@ async fn main() {
         text_direction: menu::TextDirection::LeftToRight,
         status: menu::Status::Normal,
         icon_theme_path: vec![],
-        items: vec![menu::Item {
-            message: None,
-            r#type: menu::Type::Standard,
-            label: "Menu Item".to_string(),
-            enabled: false,
-            visible: true,
-            icon_name: "folder".to_string(),
-            icon_data: vec![],
-            shortcut: vec![],
-            disposition: menu::Disposition::Normal,
-        }],
+        items: vec![
+            menu::Item {
+                r#type: menu::Type::SubMenu {
+                    children: vec![menu::Id(1)],
+                },
+                ..menu::Item::default()
+            },
+            menu::Item {
+                label: "Menu Item".to_string(),
+                icon_name: "folder".to_string(),
+                ..menu::Item::default()
+            },
+        ],
     };
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
     let notifier = sni::StatusNotifierItem::new(model, Box::new(send));

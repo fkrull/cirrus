@@ -1,6 +1,11 @@
 use crate::OnEvent;
+use zbus::{
+    zvariant::{Str, Structure, Value},
+    SignalContext,
+};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, zbus::zvariant::Type)]
+#[zvariant(signature = "s")]
 pub enum Category {
     ApplicationStatus,
     Communications,
@@ -8,40 +13,61 @@ pub enum Category {
     Hardware,
 }
 
-impl From<Category> for &'static str {
+impl From<Category> for Value<'static> {
     fn from(v: Category) -> Self {
-        match v {
+        let s = match v {
             Category::ApplicationStatus => "ApplicationStatus",
             Category::Communications => "Communications",
             Category::SystemServices => "SystemServices",
             Category::Hardware => "Hardware",
-        }
+        };
+        Value::from(Str::from(s))
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    zbus::zvariant::Type,
+)]
+#[zvariant(signature = "s")]
 pub enum Status {
     Passive,
     Active,
     NeedsAttention,
 }
 
-impl From<Status> for &'static str {
+impl From<Status> for Value<'static> {
     fn from(v: Status) -> Self {
-        match v {
+        let s = match v {
             Status::Passive => "Passive",
             Status::Active => "Active",
             Status::NeedsAttention => "NeedsAttention",
-        }
+        };
+        Value::from(Str::from(s))
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Default, zbus::zvariant::Type, zbus::zvariant::Value,
+)]
 pub struct Pixmap {
     pub width: i32,
     pub height: i32,
     /// Image data in ARGB32 format in network byte order.
     pub data: Vec<u8>,
+}
+
+impl<'a> From<&'a Pixmap> for Value<'a> {
+    fn from(p: &'a Pixmap) -> Self {
+        Value::from(Structure::from((p.width, p.height, &p.data)))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -74,24 +100,12 @@ pub struct Model {
     pub item_is_menu: bool,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Deserialize, zbus::zvariant::Type)]
+#[serde(rename_all = "lowercase")]
+#[zvariant(signature = "s")]
 pub enum ScrollOrientation {
     Horizontal,
     Vertical,
-}
-
-impl<'a> TryFrom<&'a str> for ScrollOrientation {
-    type Error = &'a str;
-
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        if value.eq_ignore_ascii_case("horizontal") {
-            Ok(ScrollOrientation::Horizontal)
-        } else if value.eq_ignore_ascii_case("vertical") {
-            Ok(ScrollOrientation::Vertical)
-        } else {
-            Err(value)
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -153,11 +167,7 @@ impl Hashes {
     }
 }
 
-async fn signal_changes(
-    ctx: &zbus::SignalContext<'_>,
-    old: &Hashes,
-    new: &Hashes,
-) -> zbus::Result<()> {
+async fn signal_changes(ctx: &SignalContext<'_>, old: &Hashes, new: &Hashes) -> zbus::Result<()> {
     if old.attention_icon != new.attention_icon {
         StatusNotifierItem::new_attention_icon(ctx).await?;
     }
@@ -168,7 +178,7 @@ async fn signal_changes(
         StatusNotifierItem::new_overlay_icon(ctx).await?;
     }
     if old.status != new.status {
-        StatusNotifierItem::new_status(ctx, new.status_value.into()).await?;
+        StatusNotifierItem::new_status(ctx, new.status_value).await?;
     }
     if old.title != new.title {
         StatusNotifierItem::new_title(ctx).await?;
@@ -200,7 +210,7 @@ impl StatusNotifierItem {
 
     pub async fn update(
         &mut self,
-        ctx: &zbus::SignalContext<'_>,
+        ctx: &SignalContext<'_>,
         f: impl FnOnce(&mut Model),
     ) -> zbus::Result<()> {
         let (old, new) = {
@@ -219,10 +229,6 @@ impl StatusNotifierItem {
     }
 }
 
-fn convert_pixmap(p: &Pixmap) -> (i32, i32, &[u8]) {
-    (p.width, p.height, &p.data)
-}
-
 #[zbus::dbus_interface(interface = "org.kde.StatusNotifierItem")]
 impl StatusNotifierItem {
     /// Activate method
@@ -236,14 +242,8 @@ impl StatusNotifierItem {
     }
 
     /// Scroll method
-    async fn scroll(&self, delta: i32, orientation: &str) -> Result<(), zbus::fdo::Error> {
-        match ScrollOrientation::try_from(orientation) {
-            Ok(orientation) => {
-                self.on_event(Event::Scroll { delta, orientation }).await;
-                Ok(())
-            }
-            Err(value) => Err(zbus::fdo::Error::InvalidArgs(value.to_string())),
-        }
+    async fn scroll(&self, delta: i32, orientation: ScrollOrientation) {
+        self.on_event(Event::Scroll { delta, orientation }).await;
     }
 
     /// SecondaryActivate method
@@ -253,27 +253,27 @@ impl StatusNotifierItem {
 
     /// NewAttentionIcon signal
     #[dbus_interface(signal)]
-    pub async fn new_attention_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_attention_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewIcon signal
     #[dbus_interface(signal)]
-    pub async fn new_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewOverlayIcon signal
     #[dbus_interface(signal)]
-    pub async fn new_overlay_icon(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_overlay_icon(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewStatus signal
     #[dbus_interface(signal)]
-    pub async fn new_status(ctx: &zbus::SignalContext<'_>, status: &str) -> zbus::Result<()>;
+    pub async fn new_status(ctx: &SignalContext<'_>, status: Status) -> zbus::Result<()>;
 
     /// NewTitle signal
     #[dbus_interface(signal)]
-    pub async fn new_title(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_title(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// NewToolTip signal
     #[dbus_interface(signal)]
-    pub async fn new_tool_tip(ctx: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    pub async fn new_tool_tip(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     /// AttentionIconName property
     #[dbus_interface(property)]
@@ -283,13 +283,8 @@ impl StatusNotifierItem {
 
     /// AttentionIconPixmap property
     #[dbus_interface(property)]
-    fn attention_icon_pixmap(&self) -> Vec<(i32, i32, &[u8])> {
-        self.model
-            .attention_icon
-            .pixmaps
-            .iter()
-            .map(convert_pixmap)
-            .collect()
+    fn attention_icon_pixmap(&self) -> Vec<&Pixmap> {
+        self.model.attention_icon.pixmaps.iter().collect()
     }
 
     /// AttentionMovieName property
@@ -300,8 +295,8 @@ impl StatusNotifierItem {
 
     /// Category property
     #[dbus_interface(property)]
-    fn category(&self) -> &str {
-        self.model.category.into()
+    fn category(&self) -> Category {
+        self.model.category
     }
 
     /// IconName property
@@ -312,8 +307,8 @@ impl StatusNotifierItem {
 
     /// IconPixmap property
     #[dbus_interface(property)]
-    fn icon_pixmap(&self) -> Vec<(i32, i32, &[u8])> {
-        self.model.icon.pixmaps.iter().map(convert_pixmap).collect()
+    fn icon_pixmap(&self) -> Vec<&Pixmap> {
+        self.model.icon.pixmaps.iter().collect()
     }
 
     /// IconThemePath property
@@ -349,19 +344,14 @@ impl StatusNotifierItem {
 
     /// OverlayIconPixmap property
     #[dbus_interface(property)]
-    fn overlay_icon_pixmap(&self) -> Vec<(i32, i32, &[u8])> {
-        self.model
-            .overlay_icon
-            .pixmaps
-            .iter()
-            .map(convert_pixmap)
-            .collect()
+    fn overlay_icon_pixmap(&self) -> Vec<&Pixmap> {
+        self.model.overlay_icon.pixmaps.iter().collect()
     }
 
     /// Status property
     #[dbus_interface(property)]
-    fn status(&self) -> &str {
-        self.model.status.into()
+    fn status(&self) -> Status {
+        self.model.status
     }
 
     /// Title property
@@ -372,16 +362,10 @@ impl StatusNotifierItem {
 
     /// ToolTip property
     #[dbus_interface(property)]
-    fn tool_tip(&self) -> (&str, Vec<(i32, i32, &[u8])>, &str, &str) {
+    fn tool_tip(&self) -> (&str, Vec<&Pixmap>, &str, &str) {
         (
             &self.model.tooltip.icon.name,
-            self.model
-                .tooltip
-                .icon
-                .pixmaps
-                .iter()
-                .map(convert_pixmap)
-                .collect(),
+            self.model.tooltip.icon.pixmaps.iter().collect(),
             &self.model.tooltip.title,
             &self.model.tooltip.text,
         )

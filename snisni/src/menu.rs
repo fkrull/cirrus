@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use zbus::{
     fdo::Error,
     zvariant::{Array, OwnedValue, Signature, Str, Structure, Value},
+    SignalContext,
 };
 
 #[derive(
@@ -102,7 +103,7 @@ pub enum Type {
 )]
 #[serde(rename_all = "kebab-case")]
 #[zvariant(signature = "s")]
-enum Prop {
+pub enum Prop {
     Type,
     Label,
     Enabled,
@@ -422,6 +423,19 @@ impl<M> DBusMenu<M> {
     }
 }
 
+impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
+    pub async fn update(
+        &mut self,
+        ctx: &SignalContext<'_>,
+        f: impl FnOnce(&mut Model<M>),
+    ) -> zbus::Result<()> {
+        f(&mut self.model);
+        self.revision += 1;
+        DBusMenu::<M>::layout_updated(ctx, self.revision, Id(0)).await?;
+        Ok(())
+    }
+}
+
 #[zbus::dbus_interface(interface = "com.canonical.dbusmenu")]
 impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
     /// AboutToShow method
@@ -514,26 +528,39 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
         Ok(item.get_property_or_default(name))
     }
 
-    /// ItemActivationRequested signal
+    /// The server is requesting that all clients displaying this
+    /// menu open it to the user. This would be for things like
+    /// hotkeys that when the user presses them the menu should
+    /// open and display itself to the user.
+    ///
+    /// * `id` - ID of the menu that should be activated
+    /// * `timestamp` - The time that the event occured
     #[dbus_interface(signal)]
-    async fn item_activation_requested(
-        ctx: &zbus::SignalContext<'_>,
+    pub async fn item_activation_requested(
+        ctx: &SignalContext<'_>,
         id: Id,
         timestamp: u32,
     ) -> zbus::Result<()>;
 
-    /// ItemsPropertiesUpdated signal
+    /// Triggered when there are lots of property updates across many items so they all get grouped
+    /// into a single dbus message. The format is the ID of the item with a hashtable of names and
+    /// values for those properties.
     #[dbus_interface(signal)]
-    async fn items_properties_updated(
-        ctx: &zbus::SignalContext<'_>,
+    pub async fn items_properties_updated(
+        ctx: &SignalContext<'_>,
         updated_props: &[(Id, HashMap<Prop, Value<'_>>)],
         removed_props: &[(Id, &[Prop])],
     ) -> zbus::Result<()>;
 
-    /// LayoutUpdated signal
+    ///Triggered by the application to notify display of a layout update, up to
+    /// revision.
+    ///
+    /// * `revision` - The revision of the layout that we're currently on
+    /// * `parent` - If the layout update is only of a subtree, this is the parent item for the
+    ///   entries that have changed. It is zero if the whole layout should be considered invalid.
     #[dbus_interface(signal)]
-    async fn layout_updated(
-        ctx: &zbus::SignalContext<'_>,
+    pub async fn layout_updated(
+        ctx: &SignalContext<'_>,
         revision: u32,
         parent: Id,
     ) -> zbus::Result<()>;

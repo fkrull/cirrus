@@ -27,7 +27,6 @@ async fn main() {
         status: menu::Status::Normal,
         icon_theme_path: vec![],
         items: vec![menu::Item {
-            id: menu::Id::ROOT,
             message: None,
             r#type: menu::Type::Standard,
             label: "Menu Item".to_string(),

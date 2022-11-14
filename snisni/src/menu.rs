@@ -68,7 +68,6 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Item<M> {
-    pub id: Id,
     pub message: Option<M>,
     pub r#type: Type,
     /// Text of the item, except that:
@@ -140,7 +139,6 @@ pub struct Model<M> {
 pub struct DBusMenu<M> {
     revision: u32,
     model: Model<M>,
-    indices: HashMap<Id, usize>,
     on_event: Box<dyn OnEvent<Event<M>>>,
 }
 
@@ -151,14 +149,12 @@ impl<M> DBusMenu<M> {
             revision: 0,
             model,
             on_event,
-            indices: HashMap::new(),
         };
-        menu.build_index();
         menu
     }
 
-    fn build_index(&mut self) {
-        // TODO impl
+    fn get(&self, id: i32) -> Option<&Item<M>> {
+        self.model.items.get(id as usize)
     }
 
     async fn on_event(&self, event: Event<M>) {
@@ -171,11 +167,7 @@ impl<M: Clone> DBusMenu<M> {
     async fn handle_event(&self, id: i32, event_id: &str) -> Result<bool, zbus::fdo::Error> {
         let r#type = EventType::try_from(event_id)
             .map_err(|s| zbus::fdo::Error::InvalidArgs(s.to_string()))?;
-        if let Some(item) = self
-            .indices
-            .get(&Id(id))
-            .and_then(|&index| self.model.items.get(index))
-        {
+        if let Some(item) = self.get(id) {
             if let Some(message) = &item.message {
                 self.on_event(Event {
                     r#type,

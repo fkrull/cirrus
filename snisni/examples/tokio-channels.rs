@@ -39,15 +39,15 @@ fn menu(activated: bool) -> menu::Model<u32> {
     let items = if activated {
         menubuilder::MenuBuilder::default()
             .disabled("Item 1")
-            .sub_menu(menubuilder::MenuBuilder::new("Menu 2").standard_item("Subitem 3", 3))
-            .standard_item("Dummy", 4)
-            .separator()
+            .sub_menu(menubuilder::MenuBuilder::new("Item 2").standard_item("Subitem 3", 3))
+            .standard_item("Sneparator", 4)
             .standard_item("Exit", 66)
             .build()
     } else {
         menubuilder::MenuBuilder::new_with_item(Default::default())
             .standard_item("Item 1", 1)
             .standard_item("Item 2", 2)
+            .standard_item("Item 3", 3)
             .separator()
             .standard_item("Exit", 66)
             .build()

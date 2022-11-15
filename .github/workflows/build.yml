@@ -125,11 +125,11 @@ jobs:
       - name: Build package
         run: >
           ./_build package
-            --version ${{ needs.version.outputs.version }}
-            --build-string ${{ needs.version.outputs.build-string }}
-            --target ${{ env.target }}
-            --features bundled-restic-support
-            --build-restic
+          --version ${{ needs.version.outputs.version }}
+          --build-string ${{ needs.version.outputs.build-string }}
+          --target ${{ env.target }}
+          --features bundled-restic-support
+          --build-restic
       - uses: actions/upload-artifact@v3
         with:
           name: cirrus_${{ env.target }}
@@ -178,12 +178,12 @@ jobs:
       - name: Build package
         run: >
           ./_build package
-            --version ${{ needs.version.outputs.version }}
-            --build-string ${{ needs.version.outputs.build-string }}
-            --target ${{ matrix.target }}
-            --features bundled-restic-support
-            --build-restic
-            --cargo-env-file build-scripts/cargo-zig-linux-musl.env
+          --version ${{ needs.version.outputs.version }}
+          --build-string ${{ needs.version.outputs.build-string }}
+          --target ${{ matrix.target }}
+          --features bundled-restic-support
+          --build-restic
+          --cargo-env-file build-scripts/cargo-zig-linux-musl.env
       - uses: actions/upload-artifact@v3
         with:
           name: cirrus_${{ matrix.target }}

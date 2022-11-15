@@ -1553,7 +1553,6 @@ dependencies = [
  "cirrus",
  "cirrus-core",
  "eyre",
- "maplit",
  "tempfile",
  "tokio",
  "toml",

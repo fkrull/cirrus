@@ -20,6 +20,10 @@ impl<M> Default for MenuBuilder<M> {
 }
 
 impl<M> MenuBuilder<M> {
+    pub fn new_root() -> Self {
+        MenuBuilder::new_with_item(Item::default())
+    }
+
     pub fn new(label: impl Into<String>) -> Self {
         MenuBuilder::new_with_item(Item {
             label: label.into(),
@@ -61,6 +65,11 @@ impl<M> MenuBuilder<M> {
 
     pub fn item(mut self, item: Item<M>) -> Self {
         self.children.push(SubMenuItem::Item(item));
+        self
+    }
+
+    pub fn items(mut self, items: impl Iterator<Item = Item<M>>) -> Self {
+        self.children.extend(items.map(SubMenuItem::Item));
         self
     }
 

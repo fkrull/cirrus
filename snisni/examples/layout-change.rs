@@ -63,7 +63,7 @@ async fn main() {
     let mut activated = false;
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
     let name = SniName::new(1);
-    let notifier = Notifier::new(
+    let handle = Handle::new(
         name,
         sni_model(activated),
         menu_model(activated),
@@ -72,17 +72,14 @@ async fn main() {
     )
     .await
     .unwrap();
-    notifier.register().await.unwrap();
+    handle.register().await.unwrap();
     while let Some(event) = recv.recv().await {
         println!("event={event:?}");
         match event {
             Event::Notifier(sni::Event::Activate { .. }) => {
                 activated = !activated;
-                notifier
-                    .update(|m| *m = sni_model(activated))
-                    .await
-                    .unwrap();
-                notifier
+                handle.update(|m| *m = sni_model(activated)).await.unwrap();
+                handle
                     .update_menu(|m| *m = menu_model(activated))
                     .await
                     .unwrap();

@@ -37,6 +37,15 @@ pub trait OnEvent<Ev>: Send + Sync {
     fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send>;
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct DiscardEvents;
+
+impl<Ev> OnEvent<Ev> for DiscardEvents {
+    fn on_event(&self, _event: Ev) -> Box<dyn Future<Output = ()> + Send> {
+        Box::new(async move {})
+    }
+}
+
 impl<Ev, F, Fut> OnEvent<Ev> for F
 where
     F: Fn(Ev) -> Fut + Send + Sync,
@@ -98,13 +107,13 @@ impl Hasher {
 }
 
 #[derive(Debug)]
-pub struct Notifier<M> {
+pub struct Handle<M> {
     name: SniName,
     conn: zbus::Connection,
     _m: PhantomData<M>,
 }
 
-impl<M: Clone + Send + Sync + 'static> Notifier<M> {
+impl<M: Clone + Send + Sync + 'static> Handle<M> {
     pub async fn new_with_connection(
         name: SniName,
         model: sni::Model,
@@ -125,7 +134,7 @@ impl<M: Clone + Send + Sync + 'static> Notifier<M> {
             )?
             .build()
             .await?;
-        Ok(Notifier {
+        Ok(Handle {
             name,
             conn,
             _m: PhantomData,
@@ -139,7 +148,7 @@ impl<M: Clone + Send + Sync + 'static> Notifier<M> {
         on_event: Box<dyn OnEvent<sni::Event>>,
         on_menu_event: Box<dyn OnEvent<menu::Event<M>>>,
     ) -> zbus::Result<Self> {
-        Notifier::new_with_connection(
+        Handle::new_with_connection(
             name,
             model,
             menu_model,

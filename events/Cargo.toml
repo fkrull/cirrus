@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 parking_lot = "0.12.1"
 thiserror = "1.0.37"
-tokio = { version = "1.21.2", features = ["sync"] }
-tracing = "0.1.36"
+tokio = { version = "1.21.2", default-features = false, features = ["sync"] }
+tracing = { version = "0.1.36", default-features = false }

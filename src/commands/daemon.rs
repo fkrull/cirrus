@@ -69,17 +69,11 @@ async fn run_daemon(
     let mut signal_handler = signal_handler::SignalHandler::new(&mut events);
 
     #[cfg(feature = "cirrus-desktop-ui")]
-    let status_icon = match cirrus_desktop_ui::StatusIcon::new(
+    let status_icon = cirrus_desktop_ui::StatusIcon::new(
         config.clone(),
         &mut events,
         *suspend_service.get_suspend(),
-    ) {
-        Ok(status_icon) => Some(status_icon),
-        Err(error) => {
-            tracing::warn!(%error, "failed to create status icon");
-            None
-        }
-    };
+    );
 
     // run everything
     let instance_name = hostname::get()?.to_string_lossy().into_owned();
@@ -99,9 +93,11 @@ async fn run_daemon(
     tokio::spawn(async move { suspend_service.run().await.unwrap() });
     tokio::spawn(async move { signal_handler.run().await.unwrap() });
     #[cfg(feature = "cirrus-desktop-ui")]
-    if let Some(status_icon) = status_icon {
-        tokio::spawn(async move { status_icon.run().await.unwrap() });
-    }
+    tokio::spawn(async move {
+        if let Err(error) = status_icon.run().await {
+            tracing::warn!(%error, "error while running the status icon");
+        }
+    });
 
     tracing::info!("running forever...");
     futures::future::pending::<eyre::Result<()>>().await

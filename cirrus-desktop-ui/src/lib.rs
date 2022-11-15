@@ -25,19 +25,18 @@ pub struct StatusIcon {
 }
 
 impl StatusIcon {
-    pub fn new(config: Arc<Config>, events: &mut Builder, suspend: Suspend) -> eyre::Result<Self> {
-        platform_specific::check()?;
+    pub fn new(config: Arc<Config>, events: &mut Builder, suspend: Suspend) -> Self {
         let model = Model::new(config, events.sender(), suspend);
-        Ok(StatusIcon {
+        StatusIcon {
             model,
             sub_status_change: events.subscribe(),
             sub_config_reload: events.subscribe(),
             sub_suspend: events.subscribe(),
-        })
+        }
     }
 
     pub async fn run(mut self) -> eyre::Result<()> {
-        let mut handle = platform_specific::start(self.model)?;
+        let mut handle = platform_specific::start(self.model).await?;
         loop {
             let event = tokio::select! {
                 status_change = self.sub_status_change.recv() => Event::JobStatusChange(status_change?),

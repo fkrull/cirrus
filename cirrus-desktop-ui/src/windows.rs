@@ -2,11 +2,7 @@ use crate::{Event, Model};
 use std::sync::mpsc::Sender;
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 
-pub(crate) fn check() -> eyre::Result<()> {
-    Ok(())
-}
-
-pub(crate) fn start(model: Model) -> eyre::Result<Handle> {
+pub(crate) async fn start(model: Model) -> eyre::Result<Handle> {
     let (send, recv) = std::sync::mpsc::channel();
     std::thread::spawn(move || event_loop_thread(model, send));
     let evloop_proxy = recv.recv()?;

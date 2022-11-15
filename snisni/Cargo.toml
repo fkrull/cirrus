@@ -6,4 +6,26 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zbus = "3.4.0"
+fnv = { version = "1.0.7", default-features = false }
+serde = { version = "1.0.147", default-features = false, features = ["derive"] }
+tokio = { version = "1.21.2", default-features = false, optional = true }
+zbus = { version = "3.4.0", default-features = false }
+
+[dev-dependencies]
+tokio = { version = "1.21.2", default-features = false, features = ["rt", "macros"] }
+
+[features]
+async-io = ["zbus/async-io"]
+tokio = ["dep:tokio", "zbus/tokio", "tokio/sync"]
+
+[[example]]
+name = "simple"
+required-features = ["async-io"]
+
+[[example]]
+name = "tokio-channels"
+required-features = ["tokio"]
+
+[[example]]
+name = "layout-change"
+required-features = ["tokio"]

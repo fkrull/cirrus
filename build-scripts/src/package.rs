@@ -22,12 +22,6 @@ pub struct Args {
     /// build the restic binary from the vendored source and include it in the package
     #[argh(switch)]
     build_restic: bool,
-    /// build and statically link libdbus
-    #[argh(switch)]
-    static_dbus: bool,
-    /// cross-compiler config file for Meson
-    #[argh(option)]
-    meson_cross_file: Option<String>,
     /// cargo env file
     #[argh(option)]
     cargo_env_file: Option<String>,
@@ -56,24 +50,6 @@ pub fn main(args: Args) -> eyre::Result<()> {
         sh.copy_file(bin_path, tmp.path().join(bin))?;
     }
 
-    // compile dbus
-    let dbus_link_args = if args.static_dbus {
-        let dbus_build_dir = format!("./target/{target}/dbus");
-        sh.create_dir(&dbus_build_dir)?;
-        let meson_cross_file = args.meson_cross_file.map(|s| format!("--cross-file={s}"));
-        cmd!(sh, "meson setup --auto-features=disabled --default-library=static {meson_cross_file...} vendor/dbus {dbus_build_dir}").run()?;
-        cmd!(sh, "meson compile -C {dbus_build_dir} dbus-1").run()?;
-
-        let host_triple = host_triple(&sh)?;
-        vec![
-            format!(r#"--config=target.{host_triple}.dbus.rustc-link-lib=["dbus-1"]"#),
-            format!(r#"--config=target.{target}.dbus.rustc-link-lib=["dbus-1"]"#),
-            format!(r#"--config=target.{target}.dbus.rustc-link-search=["{dbus_build_dir}/dbus"]"#),
-        ]
-    } else {
-        vec![]
-    };
-
     // compile cirrus
     let features = args.features;
     let cargo_env = match args.cargo_env_file {
@@ -82,11 +58,7 @@ pub fn main(args: Args) -> eyre::Result<()> {
     };
     cmd!(
         sh,
-        "cargo build
-                --release
-                --target={target}
-                --features={features}
-                {dbus_link_args...}"
+        "cargo build --release --target={target} --features={features}"
     )
     .envs(cargo_env)
     .run()?;

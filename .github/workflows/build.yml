@@ -34,8 +34,6 @@ jobs:
           toolchain: stable
           profile: minimal
           components: clippy
-      - name: Install libdbus-1-dev
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
@@ -51,8 +49,6 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-      - name: Install libdbus-1-dev
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo test
         uses: actions-rs/cargo@v1
@@ -172,8 +168,6 @@ jobs:
           go-version: ${{env.go-version }}
           cache: true
           cache-dependency-path: vendor/restic/go.sum
-      - name: Install meson
-        run: sudo pip3 install meson ninja
       - name: Setup Zig
         uses: goto-bus-stop/setup-zig@v1
         with:
@@ -187,11 +181,9 @@ jobs:
           --version ${{ needs.version.outputs.version }}
           --build-string ${{ needs.version.outputs.build-string }}
           --target ${{ matrix.target }}
-          --meson-cross-file build-scripts/meson-zig-${{ matrix.target }}.ini
-          --cargo-env-file build-scripts/cargo-zig-linux-musl.env
           --features bundled-restic-support
-          --static-dbus
           --build-restic
+          --cargo-env-file build-scripts/cargo-zig-linux-musl.env
       - uses: actions/upload-artifact@v3
         with:
           name: cirrus_${{ matrix.target }}

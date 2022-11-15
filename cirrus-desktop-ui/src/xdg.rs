@@ -1,182 +1,187 @@
+use snisni::{menu, menubuilder::MenuBuilder, sni};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+
 const APP_ID: &str = "io.gitlab.fkrull.cirrus.Cirrus";
 
-pub(crate) fn check() -> eyre::Result<()> {
-    dbus::blocking::Connection::new_session()?;
-    Ok(())
+pub(crate) async fn start(model: super::Model) -> eyre::Result<Handle> {
+    let (mut status_notifier_item, send) = StatusNotifierItem::new(model).await?;
+    tokio::spawn(async move {
+        if let Err(error) = status_notifier_item.run().await {
+            tracing::warn!(%error, "error while running the status icon");
+        }
+    });
+    Ok(Handle(send))
 }
 
-pub(crate) fn start(model: super::Model) -> eyre::Result<Handle> {
-    let service = ksni::TrayService::new(model);
-    let handle = service.handle();
-    service.spawn();
-    Ok(Handle { handle })
-}
-
-pub(crate) struct Handle {
-    handle: ksni::Handle<super::Model>,
-}
-
-impl std::fmt::Debug for Handle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("StatusIcon")
-            .field("handle", &"...")
-            .finish()
-    }
-}
+#[derive(Debug)]
+pub(crate) struct Handle(UnboundedSender<super::Event>);
 
 impl Handle {
     pub(crate) fn send(&mut self, event: super::Event) -> eyre::Result<()> {
-        self.handle.update(|model| {
-            model.handle_event(event.clone()).unwrap();
-        });
+        self.0.send(event)?;
         Ok(())
     }
 }
 
-impl ksni::Tray for super::Model {
-    fn id(&self) -> String {
-        APP_ID.to_owned()
-    }
-
-    fn title(&self) -> String {
-        self.app_name().to_owned()
-    }
-
-    fn icon_pixmap(&self) -> Vec<ksni::Icon> {
-        match self.status() {
-            super::Status::Idle => icons::idle().clone(),
-            super::Status::Running => icons::running().clone(),
-            super::Status::Suspended => icons::suspend().clone(),
-        }
-    }
-
-    fn tool_tip(&self) -> ksni::ToolTip {
-        ksni::ToolTip {
-            title: self.tooltip(),
+fn sni_model(model: &super::Model) -> sni::Model {
+    let icon = match model.status() {
+        super::Status::Idle => icons::idle(),
+        super::Status::Running => icons::running(),
+        super::Status::Suspended => icons::suspend(),
+    };
+    sni::Model {
+        icon: icon.clone(),
+        id: APP_ID.to_string(),
+        title: model.app_name().to_string(),
+        tooltip: sni::Tooltip {
+            title: model.tooltip(),
             ..Default::default()
-        }
+        },
+        ..Default::default()
+    }
+}
+
+fn menu(model: &super::Model) -> menu::Model<super::Event> {
+    let items = MenuBuilder::new_root()
+        .disabled(model.status_text())
+        .sub_menu(
+            MenuBuilder::new("Run Backup").items(model.backups().map(|name| menu::Item {
+                label: name.0.clone(),
+                message: Some(super::Event::RunBackup(name.clone())),
+                ..Default::default()
+            })),
+        )
+        .item(menu::Item {
+            label: "Suspended".to_string(),
+            r#type: menu::Type::Checkmark {
+                selected: model.is_suspended(),
+            },
+            message: Some(super::Event::ToggleSuspended),
+            ..Default::default()
+        })
+        .separator()
+        .item(menu::Item {
+            label: "Open Configuration".to_string(),
+            message: Some(super::Event::OpenConfigFile),
+            enabled: model.can_open_config_file(),
+            ..Default::default()
+        })
+        .standard_item("Exit", super::Event::Exit)
+        .build();
+
+    menu::Model {
+        items,
+        ..Default::default()
+    }
+}
+
+#[derive(Debug)]
+struct StatusNotifierItem {
+    model: super::Model,
+    handle: snisni::Handle<super::Event>,
+    recv: UnboundedReceiver<super::Event>,
+}
+
+impl StatusNotifierItem {
+    async fn new(
+        model: super::Model,
+    ) -> eyre::Result<(StatusNotifierItem, UnboundedSender<super::Event>)> {
+        let (send, recv) = tokio::sync::mpsc::unbounded_channel();
+        let send2 = send.clone();
+        let handle = snisni::Handle::new(
+            snisni::SniName::new(0),
+            sni_model(&model),
+            menu(&model),
+            Box::new(snisni::DiscardEvents),
+            Box::new(move |ev: menu::Event<super::Event>| {
+                let send2 = send2.clone();
+                async move {
+                    if ev.r#type == menu::EventType::Clicked {
+                        send2.send(ev.message).unwrap();
+                    }
+                }
+            }),
+        )
+        .await?;
+        let sni = StatusNotifierItem {
+            model,
+            handle,
+            recv,
+        };
+        Ok((sni, send))
     }
 
-    fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
-        use ksni::menu::*;
-
-        let backups_menu = self
-            .backups()
-            .map(|name| {
-                let name = name.clone();
-                StandardItem {
-                    label: name.0.clone(),
-                    activate: Box::new(move |this: &mut super::Model| {
-                        this.handle_event(super::Event::RunBackup(name.clone()))
-                            .unwrap();
-                    }),
-                    ..Default::default()
-                }
-                .into()
-            })
-            .collect();
-
-        vec![
-            StandardItem {
-                label: self.status_text().into_owned(),
-                enabled: false,
-                ..Default::default()
+    #[tracing::instrument(name = "StatusNotifierItem", skip_all)]
+    async fn run(&mut self) -> eyre::Result<()> {
+        self.handle.register().await?;
+        while let Some(ev) = self.recv.recv().await {
+            if let super::HandleEventOutcome::UpdateView = self.model.handle_event(ev)? {
+                self.handle.update(|m| *m = sni_model(&self.model)).await?;
+                self.handle.update_menu(|m| *m = menu(&self.model)).await?;
             }
-            .into(),
-            SubMenu {
-                label: "Run Backup".to_string(),
-                submenu: backups_menu,
-                ..Default::default()
-            }
-            .into(),
-            CheckmarkItem {
-                label: "Suspended".to_owned(),
-                checked: self.is_suspended(),
-                activate: Box::new(move |this: &mut super::Model| {
-                    this.handle_event(super::Event::ToggleSuspended).unwrap();
-                }),
-                ..Default::default()
-            }
-            .into(),
-            MenuItem::Separator,
-            StandardItem {
-                label: "Open Configuration".to_owned(),
-                activate: Box::new(move |this: &mut super::Model| {
-                    this.handle_event(super::Event::OpenConfigFile).unwrap();
-                }),
-                enabled: self.can_open_config_file(),
-                ..Default::default()
-            }
-            .into(),
-            StandardItem {
-                label: "Exit".to_owned(),
-                activate: Box::new(move |this: &mut super::Model| {
-                    this.handle_event(super::Event::Exit).unwrap();
-                }),
-                ..Default::default()
-            }
-            .into(),
-        ]
+        }
+        Ok(())
     }
 }
 
 mod icons {
     use once_cell::sync::Lazy;
+    use snisni::sni;
 
-    static IDLE_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
+    static IDLE_LIGHT: Lazy<sni::Icon> = Lazy::new(|| {
         const ICON_DATA: [&[u8]; 4] = [
             include_bytes!("resources/16/cirrus-idle.light.png"),
             include_bytes!("resources/24/cirrus-idle.light.png"),
             include_bytes!("resources/32/cirrus-idle.light.png"),
             include_bytes!("resources/48/cirrus-idle.light.png"),
         ];
-        ICON_DATA
-            .iter()
-            .map(|&data| load_png(data))
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap()
+        to_icon(&ICON_DATA)
     });
-    static RUNNING_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
+    static RUNNING_LIGHT: Lazy<sni::Icon> = Lazy::new(|| {
         const ICON_DATA: [&[u8]; 4] = [
             include_bytes!("resources/16/cirrus-running.light.png"),
             include_bytes!("resources/24/cirrus-running.light.png"),
             include_bytes!("resources/32/cirrus-running.light.png"),
             include_bytes!("resources/48/cirrus-running.light.png"),
         ];
-        ICON_DATA
-            .iter()
-            .map(|&data| load_png(data))
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap()
+        to_icon(&ICON_DATA)
     });
 
-    static SUSPEND_LIGHT: Lazy<Vec<ksni::Icon>> = Lazy::new(|| {
+    static SUSPEND_LIGHT: Lazy<sni::Icon> = Lazy::new(|| {
         const ICON_DATA: [&[u8]; 4] = [
             include_bytes!("resources/16/cirrus-suspend.light.png"),
             include_bytes!("resources/24/cirrus-suspend.light.png"),
             include_bytes!("resources/32/cirrus-suspend.light.png"),
             include_bytes!("resources/48/cirrus-suspend.light.png"),
         ];
-        ICON_DATA
-            .iter()
-            .map(|&data| load_png(data))
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap()
+        to_icon(&ICON_DATA)
     });
 
-    pub(crate) fn idle() -> &'static Vec<ksni::Icon> {
+    pub(crate) fn idle() -> &'static sni::Icon {
         &IDLE_LIGHT
     }
 
-    pub(crate) fn running() -> &'static Vec<ksni::Icon> {
+    pub(crate) fn running() -> &'static sni::Icon {
         &RUNNING_LIGHT
     }
 
-    pub(crate) fn suspend() -> &'static Vec<ksni::Icon> {
+    pub(crate) fn suspend() -> &'static sni::Icon {
         &SUSPEND_LIGHT
     }
 
-    fn load_png(data: &[u8]) -> eyre::Result<ksni::Icon> {
+    fn to_icon(icon_data: &[&[u8]]) -> sni::Icon {
+        let pixmaps = icon_data
+            .iter()
+            .map(|&data| load_png(data))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        sni::Icon {
+            name: String::new(),
+            pixmaps,
+        }
+    }
+
+    fn load_png(data: &[u8]) -> eyre::Result<sni::Pixmap> {
         use png::{BitDepth, ColorType, Decoder};
 
         let mut reader = Decoder::new(data).read_info()?;
@@ -196,7 +201,7 @@ mod icons {
         let info = reader.info();
         rgba_to_argb(&mut data);
 
-        Ok(ksni::Icon {
+        Ok(sni::Pixmap {
             width: info.width as i32,
             height: info.height as i32,
             data,

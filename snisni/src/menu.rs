@@ -396,6 +396,14 @@ impl std::fmt::Display for AdjustedId {
     }
 }
 
+enum LayoutDiff {
+    PropertiesUpdated {
+        props_updated: Vec<(AdjustedId, HashMap<Prop, OwnedValue>)>,
+        props_removed: Vec<(AdjustedId, Vec<Prop>)>,
+    },
+    LayoutInvalidated,
+}
+
 pub struct DBusMenu<M> {
     revision: u32,
     offset: usize,
@@ -419,6 +427,11 @@ impl<M> DBusMenu<M> {
         }
     }
 
+    async fn on_event(&self, event: Event<M>) {
+        let pinned = Box::into_pin(self.on_event.on_event(event));
+        pinned.await;
+    }
+
     fn to_offset(&self, id: AdjustedId) -> usize {
         if id.0 == 0 {
             0
@@ -439,9 +452,41 @@ impl<M> DBusMenu<M> {
         self.model.items.get(self.to_offset(id))
     }
 
-    async fn on_event(&self, event: Event<M>) {
-        let pinned = Box::into_pin(self.on_event.on_event(event));
-        pinned.await;
+    fn diff_layouts(&self, old: &[Item<M>]) -> LayoutDiff {
+        let new = &self.model.items;
+        let mut invalidated = false;
+        let mut props_updated = Vec::new();
+        let mut props_removed = Vec::new();
+        if old.len() != new.len() {
+            invalidated = true;
+        } else {
+            let diffs = old
+                .iter()
+                .zip(new.iter())
+                .map(|(a, b)| a.diff(b))
+                .enumerate();
+            for (offset, (updated, removed, invalidate)) in diffs {
+                if invalidate {
+                    invalidated = true;
+                    break;
+                }
+                if !updated.is_empty() {
+                    props_updated.push((self.to_id(offset), updated));
+                }
+                if !removed.is_empty() {
+                    props_removed.push((self.to_id(offset), removed));
+                }
+            }
+        }
+
+        if invalidated {
+            LayoutDiff::LayoutInvalidated
+        } else {
+            LayoutDiff::PropertiesUpdated {
+                props_updated,
+                props_removed,
+            }
+        }
     }
 
     fn get_layout_recursive(
@@ -484,36 +529,19 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
     ) -> zbus::Result<()> {
         let old = self.model.items.clone();
         f(&mut self.model);
-        let mut layout_changed = false;
-        let mut all_updated = Vec::new();
-        let mut all_removed = Vec::new();
-        if old.len() != self.model.items.len() {
-            layout_changed = true;
-        } else {
-            let diffs = old
-                .iter()
-                .zip(self.model.items.iter())
-                .map(|(a, b)| a.diff(b))
-                .enumerate();
-            for (offset, (updated, removed, invalidate)) in diffs {
-                if invalidate {
-                    layout_changed = true;
-                    break;
-                }
-                if !updated.is_empty() {
-                    all_updated.push((self.to_id(offset), updated));
-                }
-                if !removed.is_empty() {
-                    all_removed.push((self.to_id(offset), removed));
-                }
+        match self.diff_layouts(&old) {
+            LayoutDiff::PropertiesUpdated {
+                props_updated,
+                props_removed,
+            } => {
+                DBusMenu::<M>::items_properties_updated(ctx, &props_updated, &props_removed)
+                    .await?;
             }
-        }
-        if layout_changed {
-            self.offset += old.len();
-            self.revision += 1;
-            DBusMenu::<M>::layout_updated(ctx, self.revision, AdjustedId(0)).await?;
-        } else {
-            DBusMenu::<M>::items_properties_updated(ctx, &all_updated, &all_removed).await?;
+            LayoutDiff::LayoutInvalidated => {
+                self.revision += 1;
+                self.offset += old.len();
+                DBusMenu::<M>::layout_updated(ctx, self.revision, AdjustedId(0)).await?;
+            }
         }
         Ok(())
     }

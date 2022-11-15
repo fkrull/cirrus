@@ -2837,6 +2837,7 @@ name = "snisni"
 version = "0.1.0"
 dependencies = [
  "fnv",
+ "itertools",
  "serde",
  "thiserror",
  "tokio",

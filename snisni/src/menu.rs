@@ -1,4 +1,5 @@
 use crate::OnEvent;
+use itertools::{EitherOrBoth, Itertools};
 use std::collections::HashMap;
 use zbus::{
     fdo::Error,
@@ -20,6 +21,12 @@ use zbus::{
 )]
 #[serde(transparent)]
 pub struct Id(pub i32);
+
+impl Id {
+    pub fn next(&self) -> Id {
+        Id(self.0 + 1)
+    }
+}
 
 impl std::fmt::Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -315,7 +322,7 @@ impl<M> Item<M> {
     }
 
     fn get_properties_filtered(&self, property_names: &[Prop]) -> HashMap<Prop, OwnedValue> {
-        let props = if property_names.is_empty() {
+        let props = if !property_names.is_empty() {
             property_names.iter()
         } else {
             Prop::ALL_PROPS.iter()
@@ -324,6 +331,14 @@ impl<M> Item<M> {
             .copied()
             .filter_map(|p| self.get_property(p).map(|v| (p, v)))
             .collect()
+    }
+
+    fn children(&self) -> Option<&[Id]> {
+        if let Type::SubMenu { children } = &self.r#type {
+            Some(children)
+        } else {
+            None
+        }
     }
 }
 
@@ -361,8 +376,66 @@ pub struct Model<M> {
     pub items: Vec<Item<M>>,
 }
 
+impl<M> Default for Model<M> {
+    fn default() -> Self {
+        Model {
+            text_direction: TextDirection::LeftToRight,
+            status: Status::Normal,
+            icon_theme_path: Vec::new(),
+            items: Vec::new(),
+        }
+    }
+}
+
+fn diff_items<M>(
+    old: &[Item<M>],
+    new: &[Item<M>],
+) -> (
+    Vec<(Id, HashMap<Prop, OwnedValue>)>,
+    Vec<(Id, Vec<Prop>)>,
+    Vec<Id>,
+) {
+    let mut updated = Vec::new();
+    let mut removed = Vec::new();
+    let mut layout_changed = Vec::new();
+    for (idx, items) in old.iter().zip_longest(new.iter()).enumerate() {
+        let id = Id(idx as i32);
+        match items {
+            EitherOrBoth::Both(old, new) => {
+                let old_props = old.get_properties_filtered(&[]);
+                let new_props = new.get_properties_filtered(&[]);
+                let mut removed_props = Vec::new();
+                for old_key in old_props.keys() {
+                    if !new_props.contains_key(old_key) {
+                        removed_props.push(*old_key);
+                    }
+                }
+                if !new_props.is_empty() {
+                    updated.push((id, new_props));
+                }
+                if !removed_props.is_empty() {
+                    removed.push((id, removed_props));
+                }
+                if old.children() != new.children() {
+                    layout_changed.push(id);
+                }
+            }
+            EitherOrBoth::Left(old) => {
+                let props = old.get_properties_filtered(&[]).into_keys().collect();
+                removed.push((id, props));
+            }
+            EitherOrBoth::Right(new) => {
+                let props = new.get_properties_filtered(&[]);
+                updated.push((id, props));
+            }
+        }
+    }
+    (updated, removed, layout_changed)
+}
+
 pub struct DBusMenu<M> {
     revision: u32,
+    offset: usize,
     model: Model<M>,
     on_event: Box<dyn OnEvent<Event<M>>>,
 }
@@ -377,13 +450,18 @@ impl<M> DBusMenu<M> {
     pub fn new(model: Model<M>, on_event: Box<dyn OnEvent<Event<M>>>) -> DBusMenu<M> {
         DBusMenu {
             revision: 0,
+            offset: 0,
             model,
             on_event,
         }
     }
 
     fn get(&self, id: Id) -> Option<&Item<M>> {
-        self.model.items.get(id.0 as usize)
+        if id.0 == 0 {
+            self.model.items.get(0)
+        } else {
+            self.model.items.get(id.0 as usize - self.offset)
+        }
     }
 
     async fn on_event(&self, event: Event<M>) {
@@ -410,7 +488,13 @@ impl<M> DBusMenu<M> {
             if let Type::SubMenu { children } = &item.r#type {
                 children
                     .iter()
-                    .map(|&id| self.get_layout_recursive(id, new_recursion_depth, property_names))
+                    .map(|&id| {
+                        self.get_layout_recursive(
+                            Id(id.0 + self.offset as i32),
+                            new_recursion_depth,
+                            property_names,
+                        )
+                    })
                     .map(|result| result.map(|s| Structure::from(s).into()))
                     .collect::<Result<Vec<_>, _>>()?
             } else {
@@ -429,10 +513,23 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
         ctx: &SignalContext<'_>,
         f: impl FnOnce(&mut Model<M>),
     ) -> zbus::Result<()> {
+        let old = self.model.items.clone();
         f(&mut self.model);
         self.revision += 1;
-        DBusMenu::<M>::layout_updated(ctx, self.revision, Id(0)).await?;
+        //self.offset += old.len();
+        let (updated, removed, layout_changed) = diff_items(&old, &self.model.items);
+        DBusMenu::<M>::items_properties_updated(ctx, &updated, &removed).await?;
+        for id in layout_changed {
+            DBusMenu::<M>::layout_updated(ctx, self.revision, id).await?;
+        }
         Ok(())
+    }
+
+    pub async fn replace(&mut self, ctx: &SignalContext<'_>, model: Model<M>) -> zbus::Result<()> {
+        self.update(ctx, |m| {
+            *m = model;
+        })
+        .await
     }
 }
 
@@ -499,7 +596,12 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
                 .items
                 .iter()
                 .enumerate()
-                .map(|(id, item)| (Id(id as i32), item.get_properties_filtered(&property_names)))
+                .map(|(id, item)| {
+                    (
+                        Id((id + self.offset) as i32),
+                        item.get_properties_filtered(&property_names),
+                    )
+                })
                 .collect()
         } else {
             ids.iter()
@@ -548,8 +650,8 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
     #[dbus_interface(signal)]
     pub async fn items_properties_updated(
         ctx: &SignalContext<'_>,
-        updated_props: &[(Id, HashMap<Prop, Value<'_>>)],
-        removed_props: &[(Id, &[Prop])],
+        updated_props: &[(Id, HashMap<Prop, OwnedValue>)],
+        removed_props: &[(Id, Vec<Prop>)],
     ) -> zbus::Result<()>;
 
     ///Triggered by the application to notify display of a layout update, up to

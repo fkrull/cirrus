@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::{fmt::Debug, future::Future, hash::Hash};
 
 pub mod menu;
@@ -93,5 +94,93 @@ impl Hasher {
         use std::hash::Hasher as _;
         v.hash(&mut self.0);
         self.0.finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct Notifier<M> {
+    name: SniName,
+    conn: zbus::Connection,
+    _m: PhantomData<M>,
+}
+
+impl<M: Clone + Send + Sync + 'static> Notifier<M> {
+    pub async fn new_with_connection(
+        name: SniName,
+        model: sni::Model,
+        menu_model: menu::Model<M>,
+        on_event: Box<dyn OnEvent<sni::Event>>,
+        on_menu_event: Box<dyn OnEvent<menu::Event<M>>>,
+        conn_builder: zbus::ConnectionBuilder<'_>,
+    ) -> zbus::Result<Self> {
+        let conn = conn_builder
+            .name(String::from(name))?
+            .serve_at(
+                ITEM_OBJECT_PATH,
+                sni::StatusNotifierItem::new(model, on_event),
+            )?
+            .serve_at(
+                MENU_OBJECT_PATH,
+                menu::DBusMenu::new(menu_model, on_menu_event),
+            )?
+            .build()
+            .await?;
+        Ok(Notifier {
+            name,
+            conn,
+            _m: PhantomData,
+        })
+    }
+
+    pub async fn new(
+        name: SniName,
+        model: sni::Model,
+        menu_model: menu::Model<M>,
+        on_event: Box<dyn OnEvent<sni::Event>>,
+        on_menu_event: Box<dyn OnEvent<menu::Event<M>>>,
+    ) -> zbus::Result<Self> {
+        Notifier::new_with_connection(
+            name,
+            model,
+            menu_model,
+            on_event,
+            on_menu_event,
+            zbus::ConnectionBuilder::session()?,
+        )
+        .await
+    }
+
+    pub async fn register(&self) -> zbus::Result<()> {
+        let watcher = watcher::StatusNotifierWatcherProxy::new(&self.conn).await?;
+        watcher
+            .register_status_notifier_item(&String::from(self.name))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update(&self, f: impl FnOnce(&mut sni::Model)) -> zbus::Result<()> {
+        let object_server = self.conn.object_server();
+        let iface = object_server
+            .interface::<_, sni::StatusNotifierItem>(ITEM_OBJECT_PATH)
+            .await?;
+        iface
+            .get_mut()
+            .await
+            .update(iface.signal_context(), f)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update_menu(&self, f: impl FnOnce(&mut menu::Model<M>)) -> zbus::Result<()> {
+        let object_server = self.conn.object_server();
+        let iface = object_server
+            .interface::<_, menu::DBusMenu<M>>(MENU_OBJECT_PATH)
+            .await?;
+        iface
+            .get_mut()
+            .await
+            .update(iface.signal_context(), f)
+            .await?;
+        Ok(())
     }
 }

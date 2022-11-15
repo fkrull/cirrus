@@ -8,7 +8,7 @@ fn main() {
             name: "network-cellular-5g-symbolic".to_string(),
             pixmaps: vec![],
         },
-        id: "simple-example".to_string(),
+        id: "simple".to_string(),
         title: "Basic example".to_string(),
         ..Default::default()
     };

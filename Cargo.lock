@@ -2838,7 +2838,6 @@ version = "0.1.0"
 dependencies = [
  "fnv",
  "serde",
- "thiserror",
  "tokio",
  "zbus 3.4.0",
 ]

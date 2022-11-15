@@ -1,5 +1,5 @@
 use crate::menu;
-use crate::menu::{Id, Item};
+use crate::menu::Item;
 
 #[derive(Debug, Clone)]
 enum SubMenuItem<M> {
@@ -80,8 +80,7 @@ impl<M> MenuBuilder<M> {
         let mut children = Vec::new();
         vec.push(self.item);
         for child in self.children {
-            let id = Id(vec.len() as i32);
-            children.push(id);
+            children.push(vec.len());
             match child {
                 SubMenuItem::Item(item) => {
                     vec.push(item);

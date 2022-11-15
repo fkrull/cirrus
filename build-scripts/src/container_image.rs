@@ -31,8 +31,8 @@ pub fn main(args: Args) -> eyre::Result<()> {
         .ok_or_else(|| eyre::eyre!("no file name"))?;
     cmd!(
         sh,
-        "buildah build-using-dockerfile
-            --build-arg=IMAGE_ARCH={container_arch}
+        "podman build
+            --arch={container_arch}
             --build-arg=TARBALL={tarball}
             --tag={tag}
             --file=Containerfile

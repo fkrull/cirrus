@@ -89,16 +89,6 @@ fn package_tar_xz(sh: &Shell, dir: &Path, dest: &Path) -> eyre::Result<()> {
     Ok(())
 }
 
-fn host_triple(sh: &Shell) -> eyre::Result<String> {
-    cmd!(sh, "rustc --version --verbose")
-        .read()?
-        .lines()
-        .filter_map(|s| s.strip_prefix("host:"))
-        .next()
-        .map(|s| s.trim().to_owned())
-        .ok_or_else(|| eyre::eyre!("could not find host triple"))
-}
-
 fn parse_env_file(path: &str) -> eyre::Result<Vec<(String, String)>> {
     let pwd = std::env::current_dir()?
         .to_str()

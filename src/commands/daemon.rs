@@ -67,8 +67,6 @@ async fn run_daemon(
         config_reload::ConfigReloadService::new(config.clone(), &mut events)?;
     let mut shutdown_service = shutdown::ShutdownService::new(&mut events);
     let mut signal_handler = signal_handler::SignalHandler::new(&mut events);
-
-    #[cfg(feature = "cirrus-desktop-ui")]
     let status_icon = cirrus_desktop_ui::StatusIcon::new(
         config.clone(),
         &mut events,
@@ -92,7 +90,6 @@ async fn run_daemon(
     tokio::spawn(async move { shutdown_service.run().await.unwrap() });
     tokio::spawn(async move { suspend_service.run().await.unwrap() });
     tokio::spawn(async move { signal_handler.run().await.unwrap() });
-    #[cfg(feature = "cirrus-desktop-ui")]
     tokio::spawn(async move {
         if let Err(error) = status_icon.run().await {
             tracing::warn!(%error, "error while running the status icon");

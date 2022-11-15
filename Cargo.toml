@@ -22,7 +22,7 @@ members = [
 [dependencies]
 cirrus-core = { path = "cirrus-core", features = ["keyring"] }
 cirrus-daemon = { path = "cirrus-daemon" }
-cirrus-desktop-ui = { path = "cirrus-desktop-ui", optional = true }
+cirrus-desktop-ui = { path = "cirrus-desktop-ui" }
 cirrus-index = { version = "0.1.0", path = "cirrus-index" }
 cirrus-self = { path = "cirrus-self", optional = true }
 eyre = "0.6.1"
@@ -50,7 +50,6 @@ bundled-restic-support = []
 
 default = [
     "cirrus-self",
-    "cirrus-desktop-ui",
     "rusqlite/bundled",
 ]
 

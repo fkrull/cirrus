@@ -100,6 +100,25 @@ pub struct Model {
     pub item_is_menu: bool,
 }
 
+impl Default for Model {
+    fn default() -> Self {
+        Model {
+            icon: Icon::default(),
+            overlay_icon: Icon::default(),
+            attention_icon: Icon::default(),
+            attention_movie_name: String::new(),
+            icon_theme_path: String::new(),
+            id: String::new(),
+            title: String::new(),
+            tooltip: Tooltip::default(),
+            category: Category::ApplicationStatus,
+            status: Status::Active,
+            window_id: 0,
+            item_is_menu: false,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Deserialize, zbus::zvariant::Type)]
 #[serde(rename_all = "lowercase")]
 #[zvariant(signature = "s")]
@@ -221,6 +240,13 @@ impl StatusNotifierItem {
         };
         signal_changes(ctx, &old, &new).await?;
         Ok(())
+    }
+
+    pub async fn replace(&mut self, ctx: &SignalContext<'_>, model: Model) -> zbus::Result<()> {
+        self.update(ctx, |m| {
+            *m = model;
+        })
+        .await
     }
 
     async fn on_event(&self, event: Event) {

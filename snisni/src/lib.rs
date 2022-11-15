@@ -1,6 +1,7 @@
 use std::{fmt::Debug, future::Future, hash::Hash};
 
 pub mod menu;
+pub mod menubuilder;
 pub mod sni;
 pub mod watcher;
 
@@ -47,21 +48,31 @@ where
 }
 
 #[cfg(feature = "tokio")]
-impl<Ev: Debug + Send + 'static> OnEvent<Ev> for tokio::sync::mpsc::Sender<Ev> {
+impl<T, Ev> OnEvent<Ev> for tokio::sync::mpsc::Sender<T>
+where
+    Ev: Send + 'static,
+    T: From<Ev> + Debug + Send + 'static,
+{
     fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send> {
         let send = self.clone();
         Box::new(async move {
-            send.send(event).await.expect("channel to not be closed");
+            send.send(event.into())
+                .await
+                .expect("channel to not be closed");
         })
     }
 }
 
 #[cfg(all(feature = "tokio"))]
-impl<Ev: Debug + Send + 'static> OnEvent<Ev> for tokio::sync::mpsc::UnboundedSender<Ev> {
+impl<T, Ev> OnEvent<Ev> for tokio::sync::mpsc::UnboundedSender<T>
+where
+    Ev: Send + 'static,
+    T: From<Ev> + Debug + Send + 'static,
+{
     fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send> {
         let send = self.clone();
         Box::new(async move {
-            send.send(event).expect("channel to not be closed");
+            send.send(event.into()).expect("channel to not be closed");
         })
     }
 }

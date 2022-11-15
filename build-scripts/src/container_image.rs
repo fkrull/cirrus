@@ -32,10 +32,10 @@ pub fn main(args: Args) -> eyre::Result<()> {
     cmd!(
         sh,
         "podman build
-            --arch={container_arch}
             --build-arg=TARBALL={tarball}
+            --arch={container_arch}
             --tag={tag}
-            --file=Containerfile
+            --file=Dockerfile
             {context_path}"
     )
     .run()?;

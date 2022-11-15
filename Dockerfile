@@ -1,4 +1,4 @@
-FROM docker.io/library/alpine:3.15
+FROM docker.io/library/alpine:3.16.3
 RUN apk add --no-cache \
     ca-certificates \
     openssh-client

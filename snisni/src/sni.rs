@@ -1,4 +1,5 @@
 use crate::OnEvent;
+use zbus::zvariant::OwnedObjectPath;
 use zbus::{
     zvariant::{Str, Structure, Value},
     SignalContext,
@@ -210,6 +211,7 @@ async fn signal_changes(ctx: &SignalContext<'_>, old: &Hashes, new: &Hashes) -> 
 
 pub struct StatusNotifierItem {
     model: Model,
+    menu: OwnedObjectPath,
     on_event: Box<dyn OnEvent<Event>>,
 }
 
@@ -224,7 +226,21 @@ impl std::fmt::Debug for StatusNotifierItem {
 
 impl StatusNotifierItem {
     pub fn new(model: Model, on_event: Box<dyn OnEvent<Event>>) -> StatusNotifierItem {
-        StatusNotifierItem { model, on_event }
+        let menu = OwnedObjectPath::try_from(crate::MENU_OBJECT_PATH)
+            .expect("constant string to be a valid path");
+        StatusNotifierItem::new_with_menu(model, menu, on_event)
+    }
+
+    pub fn new_with_menu(
+        model: Model,
+        menu: OwnedObjectPath,
+        on_event: Box<dyn OnEvent<Event>>,
+    ) -> StatusNotifierItem {
+        StatusNotifierItem {
+            model,
+            menu,
+            on_event,
+        }
     }
 
     pub async fn update(
@@ -357,9 +373,8 @@ impl StatusNotifierItem {
 
     /// Menu property
     #[dbus_interface(property)]
-    fn menu(&self) -> zbus::zvariant::OwnedObjectPath {
-        zbus::zvariant::OwnedObjectPath::try_from(crate::MENU_OBJECT_PATH)
-            .expect("constant string to be a valid path")
+    fn menu(&self) -> zbus::zvariant::ObjectPath {
+        self.menu.as_ref()
     }
 
     /// OverlayIconName property

@@ -22,3 +22,7 @@ tokio = ["dep:tokio", "zbus/tokio", "tokio/sync"]
 [[example]]
 name = "tokio-channels"
 required-features = ["tokio"]
+
+[[example]]
+name = "simple"
+required-features = ["async-io"]

@@ -21,7 +21,7 @@ pub fn main(args: Args) -> eyre::Result<()> {
     let sh = Shell::new()?;
     let binaries_tar = Path::new(&args.binaries_tar);
     let target_vars = TargetVars::for_target(&args.target)?;
-    let container_arch = target_vars.container_arch;
+    let container_platform = target_vars.container_platform;
     let tag = args.tag;
     let context_path = binaries_tar
         .parent()
@@ -33,7 +33,7 @@ pub fn main(args: Args) -> eyre::Result<()> {
         sh,
         "podman build
             --build-arg=TARBALL={tarball}
-            --arch={container_arch}
+            --platform={container_platform}
             --tag={tag}
             --file=Dockerfile
             {context_path}"

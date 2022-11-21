@@ -16,7 +16,7 @@ serde = { version = "1.0.147", features = ["derive"] }
 serde_json = "1.0.87"
 serde_rusqlite = "0.31.0"
 time = { version = "0.3.17", features = ["serde-well-known"] }
-tokio = { version = "1.21.2", features = ["rt-multi-thread"] }
+tokio = { version = "1.22.0", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.11", features = ["io-util"] }
 
 [dev-dependencies]
@@ -24,7 +24,7 @@ criterion = "0.4.0"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 tempfile = "3.3.0"
 time = { version = "0.3.17", features = ["macros"] }
-tokio = { version = "1.21.2", features = ["macros"] }
+tokio = { version = "1.22.0", features = ["macros"] }
 
 [[bench]]
 name = "db"

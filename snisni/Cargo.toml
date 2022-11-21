@@ -8,11 +8,11 @@ edition = "2021"
 [dependencies]
 fnv = { version = "1.0.7", default-features = false }
 serde = { version = "1.0.147", default-features = false, features = ["derive"] }
-tokio = { version = "1.21.2", default-features = false, optional = true }
+tokio = { version = "1.22.0", default-features = false, optional = true }
 zbus = { version = "3.4.0", default-features = false }
 
 [dev-dependencies]
-tokio = { version = "1.21.2", default-features = false, features = ["rt", "macros"] }
+tokio = { version = "1.22.0", default-features = false, features = ["rt", "macros"] }
 
 [features]
 async-io = ["zbus/async-io"]

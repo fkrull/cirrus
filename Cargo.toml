@@ -38,7 +38,7 @@ tracing-subscriber = { version = "0.3.5", default-features = false, features = [
 time = { version = "0.3.17", features = ["formatting", "local-offset", "macros"] }
 events = { version = "0.2.0", path = "events" }
 futures = "0.3.25"
-tokio = { version = "1.21.2", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.22.0", features = ["rt-multi-thread", "macros"] }
 rusqlite = "0.28.0"
 humansize = "2.1.0"
 term_grid = "0.2.0"

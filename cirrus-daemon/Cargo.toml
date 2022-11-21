@@ -12,4 +12,4 @@ notify = { version = "5.0.0", default-features = false }
 tracing = "0.1.23"
 time = "0.3.17"
 events = { version = "0.2.0", path = "../events" }
-tokio = { version = "1.21.2", features = ["signal", "time", "rt"] }
+tokio = { version = "1.22.0", features = ["signal", "time", "rt"] }

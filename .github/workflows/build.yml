@@ -169,7 +169,7 @@ jobs:
           cache: true
           cache-dependency-path: vendor/restic/go.sum
       - name: Setup Zig
-        uses: goto-bus-stop/setup-zig@v1
+        uses: goto-bus-stop/setup-zig@v2
         with:
           version: ${{ env.zig-version }}
       - uses: Swatinem/rust-cache@v2

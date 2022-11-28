@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 fnv = { version = "1.0.7", default-features = false }
-serde = { version = "1.0.147", default-features = false, features = ["derive"] }
+serde = { version = "1.0.148", default-features = false, features = ["derive"] }
 tokio = { version = "1.22.0", default-features = false, optional = true }
 zbus = { version = "3.4.0", default-features = false }
 

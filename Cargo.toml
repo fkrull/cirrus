@@ -28,7 +28,7 @@ cirrus-self = { path = "cirrus-self", optional = true }
 eyre = "0.6.1"
 clap = { version = "4.0.26", features = ["derive", "env"] }
 hostname = "0.3.1"
-rpassword = "7.1.0"
+rpassword = "7.2.0"
 termcolor = "1.1.0"
 toml = "0.5.6"
 color-eyre = "0.6.0"

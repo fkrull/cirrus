@@ -1,19 +1,13 @@
 name: rust
-description: "Install Rust toolchain, with caching"
+description: Install Rust toolchain with caching
 
 inputs:
-  rust:
-    required: false
-    description: "Rust toolchain, e.g. 'stable' or 'nightly'"
-    default: stable
   targets:
     required: false
-    description: Additional rustup targets to install
-    default: ''
+    description: Comma-separated string of additional targets to install e.g. wasm32-unknown-unknown
   components:
     required: false
-    description: Additional components to install via rustup, e.g. clippy
-    default: ''
+    description: Comma-separated string of additional components to install e.g. clippy, rustfmt
   cache-key:
     required: false
     description: Extra key to resolve cache
@@ -22,21 +16,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Rust
-      run: |
-        rustup toolchain install ${{ inputs.rust }} --profile minimal --component ${{ inputs.components }} --target ${{ inputs.targets }} --no-self-update
-        rustup default ${{ inputs.rust }}
-      shell: bash
-    - name: Set up Rust cache
-      uses: Swatinem/rust-cache@v2
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ inputs.targets }}
+        components: ${{ inputs.components }}
+    - uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ inputs.cache-key }}
-
-    - name: "Set environment variables used by toolchain"
-      run: |
-        echo CARGO_TERM_COLOR=always >> $GITHUB_ENV
-        echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV
-        echo RUST_BACKTRACE=1 >> $GITHUB_ENV
-        
-        rustc --version --verbose
-      shell: bash

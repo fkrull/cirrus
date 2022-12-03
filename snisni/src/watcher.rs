@@ -20,11 +20,11 @@ pub(crate) trait StatusNotifierWatcher {
 
     /// StatusNotifierItemRegistered signal
     #[dbus_proxy(signal)]
-    fn status_notifier_item_registered(&self, arg_1: &str) -> zbus::Result<()>;
+    fn status_notifier_item_registered(&self, service: &str) -> zbus::Result<()>;
 
     /// StatusNotifierItemUnregistered signal
     #[dbus_proxy(signal)]
-    fn status_notifier_item_unregistered(&self, arg_1: &str) -> zbus::Result<()>;
+    fn status_notifier_item_unregistered(&self, service: &str) -> zbus::Result<()>;
 
     /// IsStatusNotifierHostRegistered property
     #[dbus_proxy(property)]

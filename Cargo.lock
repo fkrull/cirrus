@@ -2843,6 +2843,7 @@ name = "snisni"
 version = "0.1.0"
 dependencies = [
  "fnv",
+ "futures",
  "serde",
  "tokio",
  "zbus 3.5.0",

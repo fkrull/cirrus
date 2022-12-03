@@ -1,5 +1,6 @@
-use std::marker::PhantomData;
-use std::{fmt::Debug, future::Future, hash::Hash};
+use futures::stream::StreamExt;
+use std::time::Duration;
+use std::{fmt::Debug, future::Future, hash::Hash, marker::PhantomData};
 
 pub mod menu;
 pub mod menubuilder;
@@ -160,10 +161,25 @@ impl<M: Clone + Send + Sync + 'static> Handle<M> {
     }
 
     pub async fn register(&self) -> zbus::Result<()> {
-        let watcher = watcher::StatusNotifierWatcherProxy::new(&self.conn).await?;
-        watcher
-            .register_status_notifier_item(&String::from(self.name))
-            .await?;
+        let mut watcher = watcher::StatusNotifierWatcherProxy::new(&self.conn).await?;
+        let name = String::from(self.name);
+        watcher.register_status_notifier_item(&name).await?;
+
+        // TODO: implement properly
+        tokio::spawn(async move {
+            let mut owner_changed = watcher.receive_owner_changed().await.unwrap();
+            while let Some(name2) = owner_changed.next().await {
+                //let args = signal.args().unwrap();
+                if name2.is_some() {
+                    dbg!("watcher owned by new name {:?}", name2.unwrap());
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    watcher.register_status_notifier_item(&name).await.unwrap();
+                } else {
+                    dbg!("watcher disappeared?");
+                }
+            }
+        });
+
         Ok(())
     }
 

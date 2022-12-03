@@ -72,7 +72,7 @@ async fn main() {
     )
     .await
     .unwrap();
-    handle.register().await.unwrap();
+    tokio::spawn(handle.run_register_loop());
     while let Some(event) = recv.recv().await {
         println!("event={event:?}");
         match event {

@@ -89,7 +89,6 @@ impl StatusNotifierItem {
         let (send, recv) = tokio::sync::mpsc::unbounded_channel();
         let send2 = send.clone();
         let handle = snisni::Handle::new(
-            snisni::SniName::new(0),
             sni_model(&model),
             menu(&model),
             Box::new(snisni::DiscardEvents),
@@ -113,9 +112,9 @@ impl StatusNotifierItem {
 
     #[tracing::instrument(name = "StatusNotifierItem", skip_all)]
     async fn run(&mut self) -> eyre::Result<()> {
-        let run_register_loop = self.handle.run_register_loop();
+        let handle = self.handle.clone();
         tokio::spawn(async move {
-            if let Err(error) = run_register_loop.await {
+            if let Err(error) = handle.register_loop().await {
                 tracing::warn!(%error, "error registering or re-registering the status icon");
             }
         });

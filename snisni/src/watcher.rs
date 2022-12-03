@@ -1,3 +1,6 @@
+use futures::StreamExt;
+use zbus::names::BusName;
+
 /// DBus interface proxy for `org.kde.StatusNotifierWatcher`
 #[zbus::dbus_proxy(
     interface = "org.kde.StatusNotifierWatcher",
@@ -37,4 +40,41 @@ pub(crate) trait StatusNotifierWatcher {
     /// RegisteredStatusNotifierItems property
     #[dbus_proxy(property)]
     fn registered_status_notifier_items(&self) -> zbus::Result<Vec<String>>;
+}
+
+impl<'a> StatusNotifierWatcherProxy<'a> {
+    pub async fn register_loop(&self, name: &BusName<'_>) -> zbus::Result<()> {
+        let name = name.to_string();
+        if let Err(error) = self.register_status_notifier_item(&name).await {
+            tracing::debug!(%error, "failed to initially register StatusNotifierItem");
+        }
+        let mut owner_changed = self.receive_owner_changed().await?;
+        while let Some(new_name) = owner_changed.next().await {
+            if let Some(new_name) = new_name {
+                tracing::debug!(%new_name, "StatusNotifierWatcher owner changed");
+                self.register_status_notifier_item(&name).await?;
+            } else {
+                tracing::debug!("StatusNotifierWatcher disappeared")
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'a> StatusNotifierWatcherProxyBlocking<'a> {
+    pub fn register_loop(&self, name: &BusName<'_>) -> zbus::Result<()> {
+        let name = name.to_string();
+        if let Err(error) = self.register_status_notifier_item(&name) {
+            tracing::debug!(%error, "failed to initially register StatusNotifierItem");
+        }
+        for new_name in self.receive_owner_changed()? {
+            if let Some(new_name) = new_name {
+                tracing::debug!(%new_name, "StatusNotifierWatcher owner changed");
+                self.register_status_notifier_item(&name)?;
+            } else {
+                tracing::debug!("StatusNotifierWatcher disappeared")
+            }
+        }
+        Ok(())
+    }
 }

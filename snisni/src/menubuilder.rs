@@ -1,5 +1,4 @@
-use crate::menu;
-use crate::menu::Item;
+use crate::menu::{Item, Type};
 
 #[derive(Debug, Clone)]
 enum SubMenuItem<M> {
@@ -40,7 +39,7 @@ impl<M> MenuBuilder<M> {
 
     pub fn separator(self) -> Self {
         self.item(Item {
-            r#type: menu::Type::Separator,
+            r#type: Type::Separator,
             ..Item::default()
         })
     }
@@ -48,7 +47,7 @@ impl<M> MenuBuilder<M> {
     pub fn standard_item(self, label: impl Into<String>, message: M) -> Self {
         self.item(Item {
             message: Some(message),
-            r#type: menu::Type::Standard,
+            r#type: Type::Standard,
             label: label.into(),
             ..Item::default()
         })
@@ -56,7 +55,7 @@ impl<M> MenuBuilder<M> {
 
     pub fn disabled(self, label: impl Into<String>) -> Self {
         self.item(Item {
-            r#type: menu::Type::Standard,
+            r#type: Type::Standard,
             label: label.into(),
             enabled: false,
             ..Item::default()
@@ -99,6 +98,6 @@ impl<M> MenuBuilder<M> {
                 }
             }
         }
-        vec[root_idx].r#type = menu::Type::SubMenu { children };
+        vec[root_idx].r#type = Type::SubMenu { children };
     }
 }

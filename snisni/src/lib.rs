@@ -1,37 +1,9 @@
-use futures::stream::StreamExt;
 use std::{fmt::Debug, future::Future, hash::Hash, marker::PhantomData};
 
 pub mod menu;
 pub mod menubuilder;
 pub mod sni;
 pub mod watcher;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct SniName {
-    pid: u32,
-    app_internal_id: u32,
-}
-
-impl SniName {
-    pub fn new(app_internal_id: u32) -> SniName {
-        SniName {
-            pid: std::process::id(),
-            app_internal_id,
-        }
-    }
-}
-
-impl From<SniName> for String {
-    fn from(v: SniName) -> Self {
-        format!("org.kde.StatusNotifierItem-{}-{}", v.pid, v.app_internal_id)
-    }
-}
-
-impl From<SniName> for zbus::names::WellKnownName<'static> {
-    fn from(v: SniName) -> Self {
-        zbus::names::WellKnownName::try_from(String::from(v)).expect("valid name")
-    }
-}
 
 pub trait OnEvent<Ev>: Send + Sync {
     fn on_event(&self, event: Ev) -> Box<dyn Future<Output = ()> + Send>;
@@ -106,16 +78,14 @@ impl Hasher {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Handle<M> {
-    name: SniName,
     conn: zbus::Connection,
     _m: PhantomData<M>,
 }
 
 impl<M: Clone + Send + Sync + 'static> Handle<M> {
     pub async fn new_with_connection(
-        name: SniName,
         model: sni::Model,
         menu_model: menu::Model<M>,
         on_event: Box<dyn OnEvent<sni::Event>>,
@@ -123,7 +93,6 @@ impl<M: Clone + Send + Sync + 'static> Handle<M> {
         conn_builder: zbus::ConnectionBuilder<'_>,
     ) -> zbus::Result<Self> {
         let conn = conn_builder
-            .name(String::from(name))?
             .serve_at(
                 ITEM_OBJECT_PATH,
                 sni::StatusNotifierItem::new(model, on_event),
@@ -135,21 +104,18 @@ impl<M: Clone + Send + Sync + 'static> Handle<M> {
             .build()
             .await?;
         Ok(Handle {
-            name,
             conn,
             _m: PhantomData,
         })
     }
 
     pub async fn new(
-        name: SniName,
         model: sni::Model,
         menu_model: menu::Model<M>,
         on_event: Box<dyn OnEvent<sni::Event>>,
         on_menu_event: Box<dyn OnEvent<menu::Event<M>>>,
     ) -> zbus::Result<Self> {
         Handle::new_with_connection(
-            name,
             model,
             menu_model,
             on_event,
@@ -159,25 +125,12 @@ impl<M: Clone + Send + Sync + 'static> Handle<M> {
         .await
     }
 
-    pub fn run_register_loop(&self) -> impl Future<Output = zbus::Result<()>> + 'static {
-        let conn = self.conn.clone();
-        let name = String::from(self.name);
-        async move {
-            let watcher = watcher::StatusNotifierWatcherProxy::new(&conn).await?;
-            if let Err(error) = watcher.register_status_notifier_item(&name).await {
-                tracing::debug!(%error, "failed to initially register StatusNotifierItem");
-            }
-            let mut owner_changed = watcher.receive_owner_changed().await?;
-            while let Some(new_name) = owner_changed.next().await {
-                if let Some(new_name) = new_name {
-                    tracing::debug!(%new_name, "StatusNotifierWatcher owner changed");
-                    watcher.register_status_notifier_item(&name).await?;
-                } else {
-                    tracing::debug!("StatusNotifierWatcher disappeared")
-                }
-            }
-            Ok(())
-        }
+    pub async fn register_loop(&self) -> zbus::Result<()> {
+        let name = self.conn.unique_name().ok_or(zbus::Error::Names(
+            zbus::names::Error::InvalidUniqueName("connection is missing unique name".to_string()),
+        ))?;
+        let watcher = watcher::StatusNotifierWatcherProxy::new(&self.conn).await?;
+        watcher.register_loop(&name.into()).await
     }
 
     pub async fn update(&self, f: impl FnOnce(&mut sni::Model)) -> zbus::Result<()> {

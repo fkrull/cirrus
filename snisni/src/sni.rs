@@ -258,13 +258,6 @@ impl StatusNotifierItem {
         Ok(())
     }
 
-    pub async fn replace(&mut self, ctx: &SignalContext<'_>, model: Model) -> zbus::Result<()> {
-        self.update(ctx, |m| {
-            *m = model;
-        })
-        .await
-    }
-
     async fn on_event(&self, event: Event) {
         let pinned = Box::into_pin(self.on_event.on_event(event));
         pinned.await;

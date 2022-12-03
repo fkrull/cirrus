@@ -62,9 +62,7 @@ fn menu_model(activated: bool) -> menu::Model<u32> {
 async fn main() {
     let mut activated = false;
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
-    let name = SniName::new(1);
     let handle = Handle::new(
-        name,
         sni_model(activated),
         menu_model(activated),
         Box::new(send.clone()),
@@ -72,7 +70,8 @@ async fn main() {
     )
     .await
     .unwrap();
-    tokio::spawn(handle.run_register_loop());
+    let handle2 = handle.clone();
+    tokio::spawn(async move { handle2.register_loop().await.unwrap() });
     while let Some(event) = recv.recv().await {
         println!("event={event:?}");
         match event {

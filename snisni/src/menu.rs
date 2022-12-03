@@ -545,13 +545,6 @@ impl<M: Clone + Send + Sync + 'static> DBusMenu<M> {
         }
         Ok(())
     }
-
-    pub async fn replace(&mut self, ctx: &SignalContext<'_>, model: Model<M>) -> zbus::Result<()> {
-        self.update(ctx, |m| {
-            *m = model;
-        })
-        .await
-    }
 }
 
 #[zbus::dbus_interface(interface = "com.canonical.dbusmenu")]

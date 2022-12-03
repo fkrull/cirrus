@@ -1,4 +1,5 @@
 use snisni::*;
+use zbus::names::BusName;
 
 #[derive(Debug)]
 enum Event {
@@ -21,7 +22,6 @@ impl From<menu::Event<u32>> for Event {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
-    let name = SniName::new(1);
     let model = sni::Model {
         id: "tokio-channels".to_string(),
         title: "Tokio channels example".to_string(),
@@ -39,8 +39,6 @@ async fn main() {
     };
     let conn = zbus::ConnectionBuilder::session()
         .unwrap()
-        .name(name)
-        .unwrap()
         .serve_at(
             ITEM_OBJECT_PATH,
             sni::StatusNotifierItem::new(model, Box::new(send.clone())),
@@ -57,10 +55,8 @@ async fn main() {
     let watcher = watcher::StatusNotifierWatcherProxy::new(&conn)
         .await
         .unwrap();
-    watcher
-        .register_status_notifier_item(&String::from(name))
-        .await
-        .unwrap();
+    let name = conn.unique_name().unwrap().clone();
+    tokio::spawn(async move { watcher.register_loop(&BusName::from(&name)).await });
 
     while let Some(event) = recv.recv().await {
         println!("event={event:?}");

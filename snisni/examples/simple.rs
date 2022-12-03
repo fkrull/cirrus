@@ -1,8 +1,8 @@
 use snisni::*;
-use std::time::Duration;
+use zbus::names::{BusName, OwnedWellKnownName};
 
 fn main() {
-    let name = SniName::new(1);
+    let name = OwnedWellKnownName::try_from("io.github.fkrull.snisni-example-simple").unwrap();
     let model = sni::Model {
         icon: sni::Icon {
             name: "network-cellular-5g-symbolic".to_string(),
@@ -14,7 +14,7 @@ fn main() {
     };
     let conn = zbus::blocking::ConnectionBuilder::session()
         .unwrap()
-        .name(name)
+        .name(&name)
         .unwrap()
         .serve_at(
             ITEM_OBJECT_PATH,
@@ -27,10 +27,5 @@ fn main() {
         .build()
         .unwrap();
     let watcher = watcher::StatusNotifierWatcherProxyBlocking::new(&conn).unwrap();
-    watcher
-        .register_status_notifier_item(&String::from(name))
-        .unwrap();
-    loop {
-        std::thread::sleep(Duration::from_secs(3600));
-    }
+    watcher.register_loop(&BusName::from(&name)).unwrap();
 }

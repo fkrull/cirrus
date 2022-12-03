@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/rust
-      - run: carg test --workspace
+      - run: cargo test --workspace
 
   build-scripts:
     runs-on: ubuntu-latest

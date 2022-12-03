@@ -12,7 +12,7 @@ serde = { version = "1.0.148", features = ["derive"] }
 thiserror = "1.0.20"
 toml = "0.5.6"
 time = { version = "0.3.17", features = ["local-offset"] }
-libc = "0.2.137"
+libc = "0.2.138"
 tokio = { version = "1.22.0", features = ["fs", "process", "io-util", "time"] }
 tracing = "0.1.37"
 

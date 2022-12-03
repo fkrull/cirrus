@@ -83,7 +83,7 @@ jobs:
       - run: chmod +x ./_build
       - uses: ./.github/actions/rust
         with:
-          target: ${{ env.target }}
+          targets: ${{ env.target }}
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go-version }}
@@ -129,7 +129,7 @@ jobs:
       - run: chmod +x ./_build
       - uses: ./.github/actions/rust
         with:
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
           cache-key: ${{matrix.target }}
       - uses: actions/setup-go@v3
         with:

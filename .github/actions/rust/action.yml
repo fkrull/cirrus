@@ -20,7 +20,7 @@ inputs:
     default: ''
 
 runs:
-  using: actions
+  using: composite
   steps:
     - name: Install Rust
       run: |

@@ -113,7 +113,12 @@ impl StatusNotifierItem {
 
     #[tracing::instrument(name = "StatusNotifierItem", skip_all)]
     async fn run(&mut self) -> eyre::Result<()> {
-        self.handle.register().await?;
+        let run_register_loop = self.handle.run_register_loop();
+        tokio::spawn(async move {
+            if let Err(error) = run_register_loop.await {
+                tracing::warn!(%error, "error registering or re-registering the status icon");
+            }
+        });
         while let Some(ev) = self.recv.recv().await {
             if let super::HandleEventOutcome::UpdateView = self.model.handle_event(ev)? {
                 self.handle.update(|m| *m = sni_model(&self.model)).await?;

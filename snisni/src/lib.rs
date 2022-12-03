@@ -1,5 +1,4 @@
 use futures::stream::StreamExt;
-use std::time::Duration;
 use std::{fmt::Debug, future::Future, hash::Hash, marker::PhantomData};
 
 pub mod menu;
@@ -160,27 +159,25 @@ impl<M: Clone + Send + Sync + 'static> Handle<M> {
         .await
     }
 
-    pub async fn register(&self) -> zbus::Result<()> {
-        let mut watcher = watcher::StatusNotifierWatcherProxy::new(&self.conn).await?;
+    pub fn run_register_loop(&self) -> impl Future<Output = zbus::Result<()>> + 'static {
+        let conn = self.conn.clone();
         let name = String::from(self.name);
-        watcher.register_status_notifier_item(&name).await?;
-
-        // TODO: implement properly
-        tokio::spawn(async move {
-            let mut owner_changed = watcher.receive_owner_changed().await.unwrap();
-            while let Some(name2) = owner_changed.next().await {
-                //let args = signal.args().unwrap();
-                if name2.is_some() {
-                    dbg!("watcher owned by new name {:?}", name2.unwrap());
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                    watcher.register_status_notifier_item(&name).await.unwrap();
+        async move {
+            let watcher = watcher::StatusNotifierWatcherProxy::new(&conn).await?;
+            if let Err(error) = watcher.register_status_notifier_item(&name).await {
+                tracing::debug!(%error, "failed to initially register StatusNotifierItem");
+            }
+            let mut owner_changed = watcher.receive_owner_changed().await?;
+            while let Some(new_name) = owner_changed.next().await {
+                if let Some(new_name) = new_name {
+                    tracing::debug!(%new_name, "StatusNotifierWatcher owner changed");
+                    watcher.register_status_notifier_item(&name).await?;
                 } else {
-                    dbg!("watcher disappeared?");
+                    tracing::debug!("StatusNotifierWatcher disappeared")
                 }
             }
-        });
-
-        Ok(())
+            Ok(())
+        }
     }
 
     pub async fn update(&self, f: impl FnOnce(&mut sni::Model)) -> zbus::Result<()> {

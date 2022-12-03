@@ -14,62 +14,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/rust
         with:
-          toolchain: stable
-          profile: minimal
           components: rustfmt
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - run: cargo fmt --all -- --check
 
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/rust
         with:
-          toolchain: stable
-          profile: minimal
           components: clippy
-      - uses: Swatinem/rust-cache@v2
-      - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace
+      - run: cargo clippy --workspace
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-      - uses: Swatinem/rust-cache@v2
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace
+      - uses: ./.github/actions/rust
+      - run: carg test --workspace
 
   build-scripts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/rust
       - name: Build build-scripts
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --package build-scripts
+        run: cargo build --package build-scripts
       - run: cp target/debug/build-scripts ./_build
       - uses: actions/upload-artifact@v3
         with:
@@ -109,11 +81,9 @@ jobs:
         with:
           name: build-scripts
       - run: chmod +x ./_build
-      - uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/rust
         with:
-          toolchain: stable
           target: ${{ env.target }}
-          profile: minimal
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.go-version }}
@@ -121,7 +91,6 @@ jobs:
           cache-dependency-path: vendor/restic/go.sum
       - name: Install mingw cross compiler
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
-      - uses: Swatinem/rust-cache@v2
       - name: Build package
         run: >
           ./_build package
@@ -158,11 +127,10 @@ jobs:
         with:
           name: build-scripts
       - run: chmod +x ./_build
-      - uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/rust
         with:
-          toolchain: stable
           target: ${{ matrix.target }}
-          profile: minimal
+          cache-key: ${{matrix.target }}
       - uses: actions/setup-go@v3
         with:
           go-version: ${{env.go-version }}
@@ -172,9 +140,6 @@ jobs:
         uses: goto-bus-stop/setup-zig@v2
         with:
           version: ${{ env.zig-version }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{matrix.target }}
       - name: Build package
         run: >
           ./_build package

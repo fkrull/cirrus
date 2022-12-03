@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 the version numbers are *not* semantic.
 
 ## UNRELEASED
+
+## 2.1.1 - 2022-12-04
 * Replace StatusNotifierItem impl to get rid of libdbus dependency.
 
 ## 2.1.0 - 2022-11-06

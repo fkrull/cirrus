@@ -152,9 +152,21 @@ async fn update_repo_index(
     cache: &Cache,
     mut cancellation: oneshot::Receiver<job::CancellationReason>,
 ) -> eyre::Result<Result<(), job::CancellationReason>> {
-    // TODO implement
-
     // update snapshots
+    let mut db = cirrus_index::Database::new(cache.get().await?, &spec.repo_name).await?;
+    let repo_with_secrets = secrets.get_secrets(&spec.repo)?;
+    let num_snapshots = cirrus_index::index_snapshots(restic, &mut db, &repo_with_secrets).await?;
+    tracing::debug!(num_snapshots, "indexed snapshots");
+
+    match cancellation.try_recv() {
+        Err(oneshot::error::TryRecvError::Empty) => (),
+        Ok(cancellation_reason) => {
+            tracing::debug!("cancelled after indexing snapshots");
+            return Ok(Err(cancellation_reason));
+        }
+        Err(err) => return Err(err.into()),
+    }
+
     // loop:
     //   go by trees (timestamp of tree: timestamp of newest snapshot using it)
     //   if holes:
@@ -169,5 +181,6 @@ async fn update_repo_index(
     //     else:
     //       break
 
-    todo!()
+    // TODO implement more
+    Ok(Ok(()))
 }

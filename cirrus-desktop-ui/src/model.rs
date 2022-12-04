@@ -142,6 +142,7 @@ impl Model {
     }
 
     pub(crate) fn status_text(&self) -> Cow<'static, str> {
+        // TODO: just show backups probably
         if self.suspend.is_suspended() {
             "Suspended".into()
         } else if self.running_jobs.is_empty() {
@@ -150,6 +151,7 @@ impl Model {
             let job = self.running_jobs.values().next().unwrap();
             match &job.spec {
                 job::Spec::Backup(b) => format!("Backing up '{}'", b.backup_name.0).into(),
+                _ => "Running a job".into(),
             }
         } else {
             format!("Running {} jobs", self.running_jobs.len()).into()

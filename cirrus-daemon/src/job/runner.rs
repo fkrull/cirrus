@@ -71,13 +71,14 @@ async fn run(
     cancellation: oneshot::Receiver<job::CancellationReason>,
 ) -> eyre::Result<Result<(), job::CancellationReason>> {
     match spec {
-        job::Spec::Backup(backup_spec) => {
-            run_backup(&backup_spec, &restic, &secrets, cancellation).await
+        job::Spec::Backup(spec) => run_backup(&spec, &restic, &secrets, cancellation).await,
+        job::Spec::RepoIndex(spec) => {
+            update_repo_index(&spec, &restic, &secrets, cancellation).await
         }
     }
 }
 
-const TERMINATE_GRACE_PERIOD: Duration = Duration::from_secs(2);
+const TERMINATE_GRACE_PERIOD: Duration = Duration::from_secs(5);
 
 async fn run_backup(
     spec: &job::BackupSpec,
@@ -132,4 +133,14 @@ async fn run_backup(
     }
 
     Ok(Ok(process.check_wait().await?))
+}
+
+async fn update_repo_index(
+    spec: &job::RepoIndexSpec,
+    restic: &Restic,
+    secrets: &Secrets,
+    mut cancellation: oneshot::Receiver<job::CancellationReason>,
+) -> eyre::Result<Result<(), job::CancellationReason>> {
+    // TODO implement
+    todo!()
 }

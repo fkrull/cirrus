@@ -11,7 +11,7 @@ pub struct ShutdownRequested {
 #[derive(Debug, Clone)]
 pub struct ShutdownAcknowledged;
 
-const SHUTDOWN_GRACE_PERIOD: Duration = Duration::from_secs(5);
+const SHUTDOWN_GRACE_PERIOD: Duration = Duration::from_secs(30);
 
 fn shutdown(graceful: bool) {
     if !graceful {

@@ -43,6 +43,7 @@ impl Job {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Spec {
     Backup(BackupSpec),
+    RepoIndex(RepoIndexSpec),
 }
 
 impl From<BackupSpec> for Spec {
@@ -51,22 +52,31 @@ impl From<BackupSpec> for Spec {
     }
 }
 
+impl From<RepoIndexSpec> for Spec {
+    fn from(spec: RepoIndexSpec) -> Self {
+        Spec::RepoIndex(spec)
+    }
+}
+
 impl Spec {
     pub(crate) fn repo_name(&self) -> &repo::Name {
         match self {
             Spec::Backup(spec) => &spec.repo_name,
+            Spec::RepoIndex(spec) => &spec.repo_name,
         }
     }
 
     pub(crate) fn repo(&self) -> &repo::Definition {
         match self {
             Spec::Backup(spec) => &spec.repo,
+            Spec::RepoIndex(spec) => &spec.repo,
         }
     }
 
     pub fn label(&self) -> String {
         match self {
             Spec::Backup(spec) => format!("backup.{}", spec.backup_name.0),
+            Spec::RepoIndex(spec) => format!("repo-index.{}", spec.repo_name.0),
         }
     }
 }
@@ -77,6 +87,12 @@ pub struct BackupSpec {
     pub backup_name: backup::Name,
     pub repo: repo::Definition,
     pub backup: backup::Definition,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct RepoIndexSpec {
+    pub repo_name: repo::Name,
+    pub repo: repo::Definition,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

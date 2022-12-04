@@ -1,57 +1,15 @@
 use crate::cli;
-use cirrus_core::cache::Cache;
-use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
+use cirrus_core::{cache::Cache, config::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
 use std::{path::PathBuf, sync::Arc};
 use tokio::process::Command;
 
-async fn setup_daemon_logger(level: cli::LogLevel, log_file: Option<&PathBuf>) -> eyre::Result<()> {
-    use tracing_subscriber::{
-        filter::LevelFilter,
-        fmt::{format::FmtSpan, layer, time::LocalTime},
-        layer::SubscriberExt,
-        util::SubscriberInitExt,
-        Registry,
-    };
-
-    let builder = Registry::default()
-        .with(LevelFilter::from_level(level.into()))
-        .with(layer().with_ansi(true).with_target(false).without_time());
-
-    if let Some(log_file) = log_file {
-        let time_format = time::macros::format_description!(
-            "[year]-[month]-[day] [hour repr:24]:[minute]:[second][offset_hour sign:mandatory]:[offset_minute]"
-        );
-
-        let file = std::fs::File::options()
-            .append(true)
-            .create(true)
-            .open(log_file)?;
-        builder
-            .with(
-                layer()
-                    .with_ansi(false)
-                    .with_span_events(FmtSpan::CLOSE)
-                    .with_timer(LocalTime::new(time_format))
-                    .with_writer(file),
-            )
-            .try_init()?;
-    } else {
-        builder.try_init()?;
-    }
-
-    Ok(())
-}
-
 async fn run_daemon(
-    args: cli::daemon::Cli,
     restic: Restic,
     secrets: Secrets,
-    config: Config,
     cache: Cache,
+    config: Config,
 ) -> eyre::Result<()> {
-    setup_daemon_logger(args.log_level, args.log_file.as_ref()).await?;
-
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
     let config = Arc::new(config);
@@ -114,6 +72,7 @@ async fn log_file_dir() -> eyre::Result<PathBuf> {
 }
 
 async fn run_supervisor() -> eyre::Result<()> {
+    // TODO: maybe change into a separate top-level thing?
     let cirrus_exe = std::env::current_exe()?;
     let log_file = log_file_dir().await?.join("cirrus.log");
     loop {
@@ -132,7 +91,7 @@ async fn run_supervisor() -> eyre::Result<()> {
     Ok(())
 }
 
-pub async fn run(
+pub async fn main(
     args: cli::daemon::Cli,
     restic: Restic,
     secrets: Secrets,
@@ -142,6 +101,6 @@ pub async fn run(
     if args.supervisor {
         run_supervisor().await
     } else {
-        run_daemon(args, restic, secrets, config, cache).await
+        run_daemon(restic, secrets, cache, config).await
     }
 }

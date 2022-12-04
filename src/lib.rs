@@ -1,7 +1,13 @@
-use crate::cli::ResticArg;
+use crate::cli::{LogLevel, ResticArg};
 use cirrus_core::{cache::Cache, config::Config, restic, secrets::Secrets};
 use dirs_next as dirs;
 use std::path::PathBuf;
+use tracing_subscriber::{
+    filter::{LevelFilter, Targets},
+    fmt::{format::FmtSpan, layer, time::LocalTime},
+    prelude::*,
+    registry,
+};
 
 mod cli;
 mod commands;
@@ -54,6 +60,73 @@ fn restic_config(restic_arg: ResticArg) -> eyre::Result<restic::Config> {
     Ok(config)
 }
 
+fn setup_cli_logger(log_level: Option<LogLevel>) -> eyre::Result<()> {
+    tracing_subscriber::registry()
+        .with(
+            layer()
+                .without_time()
+                .with_level(false)
+                .with_target(false)
+                .with_file(false)
+                .with_line_number(false)
+                .with_filter(Targets::new().with_target("cli", LevelFilter::INFO)),
+        )
+        .with(
+            layer()
+                .with_ansi(true)
+                .with_target(false)
+                .without_time()
+                .with_filter(
+                    Targets::new()
+                        .with_target("cli", LevelFilter::OFF)
+                        .with_default(log_level.map(Into::into)),
+                ),
+        )
+        .try_init()?;
+
+    Ok(())
+}
+
+fn setup_daemon_logger(log_level: LogLevel, log_file: Option<&PathBuf>) -> eyre::Result<()> {
+    let builder = registry()
+        .with(LevelFilter::from_level(log_level.into()))
+        .with(layer().with_ansi(true).with_target(false).without_time());
+
+    if let Some(log_file) = log_file {
+        let time_format = time::macros::format_description!(
+            "[year]-[month]-[day] [hour repr:24]:[minute]:[second][offset_hour sign:mandatory]:[offset_minute]"
+        );
+
+        let file = std::fs::File::options()
+            .append(true)
+            .create(true)
+            .open(log_file)?;
+        builder
+            .with(
+                layer()
+                    .with_ansi(false)
+                    .with_span_events(FmtSpan::CLOSE)
+                    .with_timer(LocalTime::new(time_format))
+                    .with_writer(file),
+            )
+            .try_init()?;
+    } else {
+        builder.try_init()?;
+    }
+
+    Ok(())
+}
+
+fn setup_logger(args: &cli::Cli) -> eyre::Result<()> {
+    match &args.subcommand {
+        cli::Cmd::Daemon(daemon_args) => setup_daemon_logger(
+            args.log_level.unwrap_or(LogLevel::Info),
+            daemon_args.log_file.as_ref(),
+        ),
+        _ => setup_cli_logger(args.log_level),
+    }
+}
+
 pub async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
@@ -66,6 +139,7 @@ pub async fn main() -> eyre::Result<()> {
 
     use clap::Parser as _;
     let args: cli::Cli = cli::Cli::parse();
+    setup_logger(&args)?;
     let maybe_config = load_config(&args).await;
     let restic = restic::Restic::new(restic_config(args.restic)?);
     let secrets = Secrets;
@@ -76,7 +150,7 @@ pub async fn main() -> eyre::Result<()> {
 
     match args.subcommand {
         cli::Cmd::Daemon(args) => {
-            commands::daemon::run(args, restic, secrets, maybe_config?, cache).await
+            commands::daemon::main(args, restic, secrets, maybe_config?, cache).await
         }
         cli::Cmd::Backup(args) => commands::backup(&restic, &secrets, &maybe_config?, args).await,
         cli::Cmd::Config => commands::config(&maybe_config?),
@@ -88,7 +162,7 @@ pub async fn main() -> eyre::Result<()> {
         #[cfg(feature = "cirrus-self")]
         cli::Cmd::SelfCommands(args) => cirrus_self::self_action(args),
         cli::Cmd::Files(args) => {
-            commands::files::main(restic, secrets, maybe_config?, cache, args).await
+            commands::files::main(restic, secrets, cache, maybe_config?, args).await
         }
         cli::Cmd::RepoContents(args) => {
             commands::repo_contents::repo_contents(&restic, &secrets, &maybe_config?, &cache, args)

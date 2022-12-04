@@ -5,16 +5,14 @@ use cirrus_core::{
     restic::Restic,
     secrets::Secrets,
 };
-use cirrus_daemon::job::Status;
-use cirrus_daemon::shutdown::RequestShutdown;
-use cirrus_daemon::suspend::Suspend;
+use cirrus_daemon::{job::Status, shutdown::RequestShutdown, suspend::Suspend};
 use std::sync::Arc;
 
 pub async fn main(
     restic: Restic,
     secrets: Secrets,
-    config: Config,
     cache: Cache,
+    config: Config,
     args: Cli,
 ) -> eyre::Result<()> {
     let repo_name = repo::Name(args.repository);

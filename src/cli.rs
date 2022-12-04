@@ -122,12 +122,6 @@ pub enum LogLevel {
     Error,
 }
 
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel::Info
-    }
-}
-
 impl From<LogLevel> for tracing::Level {
     fn from(level: LogLevel) -> Self {
         match level {
@@ -170,6 +164,10 @@ pub struct Cli {
     #[arg(long, default_value_t, value_name = "special value or PATH", value_parser = ResticArgParser)]
     pub restic: ResticArg,
 
+    /// Set the log level
+    #[arg(long, value_enum)]
+    pub log_level: Option<LogLevel>,
+
     #[command(subcommand)]
     pub subcommand: Cmd,
 }
@@ -208,18 +206,13 @@ pub enum Cmd {
 }
 
 pub mod daemon {
-    use crate::cli::LogLevel;
     use std::path::PathBuf;
 
     #[derive(clap::Parser)]
     pub struct Cli {
         /// Run the daemon under the built-in supervisor
-        #[arg(long)]
+        #[arg(long, hide = true)]
         pub supervisor: bool,
-
-        /// Set the log level
-        #[arg(long, value_enum, default_value_t)]
-        pub log_level: LogLevel,
 
         /// Send all output to the given log file
         #[arg(long)]

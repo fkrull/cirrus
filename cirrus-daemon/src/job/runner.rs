@@ -152,11 +152,13 @@ async fn update_repo_index(
     cache: &Cache,
     mut cancellation: oneshot::Receiver<job::CancellationReason>,
 ) -> eyre::Result<Result<(), job::CancellationReason>> {
+    tracing::info!(target: "cli", "Indexing snapshots...");
+
     // update snapshots
     let mut db = cirrus_index::Database::new(cache.get().await?, &spec.repo_name).await?;
     let repo_with_secrets = secrets.get_secrets(&spec.repo)?;
     let num_snapshots = cirrus_index::index_snapshots(restic, &mut db, &repo_with_secrets).await?;
-    tracing::debug!(num_snapshots, "indexed snapshots");
+    tracing::info!(target: "cli", "{num_snapshots} snapshots in repository.");
 
     match cancellation.try_recv() {
         Err(oneshot::error::TryRecvError::Empty) => (),

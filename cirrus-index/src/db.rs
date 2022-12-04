@@ -4,7 +4,7 @@ use futures::{Stream, StreamExt};
 use rusqlite::{params, CachedStatement, Connection, OptionalExtension, Transaction};
 use std::path::Path;
 
-async fn b<T>(f: impl FnOnce() -> T) -> T {
+fn b<T>(f: impl FnOnce() -> T) -> T {
     tokio::task::block_in_place(f)
 }
 
@@ -28,15 +28,14 @@ pub struct Database {
 impl Database {
     pub async fn new(cache_dir: &Path, repo: &repo::Name) -> eyre::Result<Self> {
         let file_path = cache_dir.join(format!("index-{}.sqlite", repo.0));
-        let mut conn = b(|| Connection::open(&file_path)).await?;
+        let mut conn = b(|| Connection::open(&file_path))?;
         b(|| {
             conn.pragma_update(None, "journal_mode", "wal")?;
             conn.pragma_update(None, "synchronous", "normal")?;
             conn.pragma_update(None, "foreign_keys", "on")?;
             Ok::<_, eyre::Report>(())
-        })
-        .await?;
-        b(|| migrations().to_latest(&mut conn)).await?;
+        })?;
+        b(|| migrations().to_latest(&mut conn))?;
         Ok(Database { conn })
     }
 
@@ -45,7 +44,7 @@ impl Database {
         let mut stmt = self
             .conn
             .prepare_cached("SELECT * FROM snapshots ORDER BY time DESC")?;
-        let rows = b(|| stmt.query(())).await?;
+        let rows = b(|| stmt.query(()))?;
         let snapshots = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
         Ok(snapshots)
     }
@@ -63,7 +62,7 @@ GROUP BY snapshots.tree_hash
 ORDER BY MAX(snapshots.time) DESC
 LIMIT ?",
         )?;
-        let rows = b(|| stmt.query([limit])).await?;
+        let rows = b(|| stmt.query([limit]))?;
         let snapshots = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
         Ok(snapshots)
     }
@@ -109,7 +108,7 @@ ORDER BY files.type, files.name
 LIMIT :limit",
         )?;
         let params = serde_rusqlite::to_params_named(Params { parent, limit })?;
-        let rows = b(|| stmt.query(&*params.to_slice())).await?;
+        let rows = b(|| stmt.query(&*params.to_slice()))?;
         let files = serde_rusqlite::from_rows::<RowResult>(rows)
             .map(|row| {
                 let row = row?;
@@ -123,17 +122,16 @@ LIMIT :limit",
         &mut self,
         snapshots: impl IntoIterator<Item = Snapshot>,
     ) -> eyre::Result<u64> {
-        let tx = b(|| self.conn.transaction()).await?;
+        let tx = b(|| self.conn.transaction())?;
         //language=SQLite
         let prev_gen =
             b(|| tx.query_row("SELECT generation FROM snapshots LIMIT 1", (), |r| r.get(0)))
-                .await
                 .optional()?
                 .unwrap_or(0);
         let generation = prev_gen + 1;
         let mut count = 0;
         for snapshot in snapshots {
-            insert_snapshot(&tx, &snapshot, generation).await?;
+            insert_snapshot(&tx, &snapshot, generation)?;
             count += 1;
         }
         b(|| {
@@ -142,9 +140,8 @@ LIMIT :limit",
                 "DELETE FROM snapshots WHERE generation != ? ",
                 [generation],
             )
-        })
-        .await?;
-        b(|| tx.commit()).await?;
+        })?;
+        b(|| tx.commit())?;
         Ok(count)
     }
 
@@ -153,15 +150,15 @@ LIMIT :limit",
         snapshot: &Snapshot,
         files: impl Stream<Item = eyre::Result<(File, Version)>>,
     ) -> eyre::Result<u64> {
-        let tx = b(|| self.conn.transaction()).await?;
-        let tree_id = insert_tree(&tx, snapshot).await?;
+        let tx = b(|| self.conn.transaction())?;
+        let tree_id = insert_tree(&tx, snapshot)?;
         let mut count = 0;
         tokio::pin!(files);
         while let Some(file_and_version) = files.next().await {
             let (file, version) = file_and_version?;
-            let file_id = upsert_file(&tx, &file).await?;
-            let version_id = upsert_version(&tx, file_id, &version).await?;
-            insert_version_tree_map(&tx, version_id, tree_id).await?;
+            let file_id = upsert_file(&tx, &file)?;
+            let version_id = upsert_version(&tx, file_id, &version)?;
+            insert_version_tree_map(&tx, version_id, tree_id)?;
             count += 1;
         }
         //language=SQLite
@@ -170,18 +167,13 @@ LIMIT :limit",
                 "UPDATE trees SET file_count = ? WHERE id = ?",
                 params![count, tree_id.0],
             )
-        })
-        .await?;
-        b(|| tx.commit()).await?;
+        })?;
+        b(|| tx.commit())?;
         Ok(count)
     }
 }
 
-async fn insert_snapshot(
-    tx: &Transaction<'_>,
-    snapshot: &Snapshot,
-    generation: u64,
-) -> eyre::Result<()> {
+fn insert_snapshot(tx: &Transaction<'_>, snapshot: &Snapshot, generation: u64) -> eyre::Result<()> {
     #[derive(serde::Serialize)]
     struct Insert<'a> {
         generation: u64,
@@ -217,22 +209,22 @@ VALUES (:generation,
         generation,
         snapshot,
     })?;
-    b(|| stmt.execute(&*params.to_slice())).await?;
+    b(|| stmt.execute(&*params.to_slice()))?;
     Ok(())
 }
 
-async fn insert_tree(tx: &Transaction<'_>, snapshot: &Snapshot) -> eyre::Result<TreeId> {
+fn insert_tree(tx: &Transaction<'_>, snapshot: &Snapshot) -> eyre::Result<TreeId> {
     //language=SQLite
     let mut delete_stmt = tx.prepare_cached("DELETE FROM trees WHERE hash = ?")?;
     //language=SQLite
     let mut stmt =
         tx.prepare_cached("INSERT INTO trees (hash, file_count) VALUES (?, 0) RETURNING id")?;
-    b(|| delete_stmt.execute([&snapshot.tree_hash.0])).await?;
-    let id = b(|| stmt.query_row([&snapshot.tree_hash.0], |r| r.get(0))).await?;
+    b(|| delete_stmt.execute([&snapshot.tree_hash.0]))?;
+    let id = b(|| stmt.query_row([&snapshot.tree_hash.0], |r| r.get(0)))?;
     Ok(TreeId(id))
 }
 
-async fn upsert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<FileId> {
+fn upsert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<FileId> {
     //language=SQLite
     let get_stmt = tx.prepare_cached(
         "SELECT id FROM files WHERE parent = :parent AND name = :name AND type = :type",
@@ -242,10 +234,10 @@ async fn upsert_file(tx: &Transaction<'_>, file: &File) -> eyre::Result<FileId> 
         "INSERT INTO files (parent, name, type) VALUES (:parent, :name, :type) RETURNING id",
     )?;
     let params = serde_rusqlite::to_params_named(file)?;
-    Ok(FileId(upsert(get_stmt, insert_stmt, params).await?))
+    Ok(FileId(upsert(get_stmt, insert_stmt, params)?))
 }
 
-async fn upsert_version(
+fn upsert_version(
     tx: &Transaction<'_>,
     file: FileId,
     version: &Version,
@@ -278,10 +270,10 @@ VALUES (:file, :uid, :gid, :size, :mode, :mtime, :ctime)
 RETURNING id",
     )?;
     let params = serde_rusqlite::to_params_named(Insert { file, version })?;
-    Ok(VersionId(upsert(get_stmt, insert_stmt, params).await?))
+    Ok(VersionId(upsert(get_stmt, insert_stmt, params)?))
 }
 
-async fn insert_version_tree_map(
+fn insert_version_tree_map(
     tx: &Transaction<'_>,
     version: VersionId,
     tree: TreeId,
@@ -289,21 +281,19 @@ async fn insert_version_tree_map(
     //language=SQLite
     let mut stmt =
         tx.prepare_cached("INSERT INTO version_tree_map (version, tree) VALUES (?, ?);")?;
-    b(|| stmt.execute([version.0, tree.0])).await?;
+    b(|| stmt.execute([version.0, tree.0]))?;
     Ok(())
 }
 
-async fn upsert(
+fn upsert(
     mut get_stmt: CachedStatement<'_>,
     mut insert_stmt: CachedStatement<'_>,
     params: serde_rusqlite::NamedParamSlice,
 ) -> eyre::Result<i64> {
-    let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0)))
-        .await
-        .optional()?;
+    let id = b(|| get_stmt.query_row(&*params.to_slice(), |r| r.get(0))).optional()?;
     let id = match id {
         Some(id) => id,
-        None => b(|| insert_stmt.query_row(&*params.to_slice(), |r| r.get(0))).await?,
+        None => b(|| insert_stmt.query_row(&*params.to_slice(), |r| r.get(0)))?,
     };
     Ok(id)
 }

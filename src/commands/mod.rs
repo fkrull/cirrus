@@ -6,6 +6,7 @@ use cirrus_core::{
 };
 
 pub mod daemon;
+pub mod files;
 pub mod repo_contents;
 pub mod secret;
 

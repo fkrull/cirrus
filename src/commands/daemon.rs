@@ -1,4 +1,5 @@
 use crate::cli;
+use cirrus_core::cache::Cache;
 use cirrus_core::{config::Config, restic::Restic, secrets::Secrets};
 use cirrus_daemon::*;
 use std::{path::PathBuf, sync::Arc};
@@ -47,6 +48,7 @@ async fn run_daemon(
     restic: Restic,
     secrets: Secrets,
     config: Config,
+    cache: Cache,
 ) -> eyre::Result<()> {
     setup_daemon_logger(args.log_level, args.log_file.as_ref()).await?;
 
@@ -60,6 +62,7 @@ async fn run_daemon(
         &mut events,
         restic.clone(),
         secrets.clone(),
+        cache.clone(),
         *suspend_service.get_suspend(),
     );
     let mut scheduler = scheduler::Scheduler::new(config.clone(), &mut events);
@@ -134,10 +137,11 @@ pub async fn run(
     restic: Restic,
     secrets: Secrets,
     config: Config,
+    cache: Cache,
 ) -> eyre::Result<()> {
     if args.supervisor {
         run_supervisor().await
     } else {
-        run_daemon(args, restic, secrets, config).await
+        run_daemon(args, restic, secrets, config, cache).await
     }
 }

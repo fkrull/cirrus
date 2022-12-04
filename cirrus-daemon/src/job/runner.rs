@@ -1,5 +1,6 @@
 use crate::job;
 use cirrus_core::{
+    cache::Cache,
     restic::{Options, Output, Restic, Verbosity},
     secrets::Secrets,
 };
@@ -14,14 +15,21 @@ pub(super) struct Runner {
     sender: events::Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
+    cache: Cache,
 }
 
 impl Runner {
-    pub(super) fn new(sender: events::Sender, restic: Arc<Restic>, secrets: Arc<Secrets>) -> Self {
+    pub(super) fn new(
+        sender: events::Sender,
+        restic: Arc<Restic>,
+        secrets: Arc<Secrets>,
+        cache: Cache,
+    ) -> Self {
         Runner {
             sender,
             restic,
             secrets,
+            cache,
         }
     }
 
@@ -37,6 +45,7 @@ impl Runner {
             job.spec.clone(),
             self.restic.clone(),
             self.secrets.clone(),
+            self.cache.clone(),
             cancellation,
         )
         .await;
@@ -68,12 +77,13 @@ async fn run(
     spec: job::Spec,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
+    cache: Cache,
     cancellation: oneshot::Receiver<job::CancellationReason>,
 ) -> eyre::Result<Result<(), job::CancellationReason>> {
     match spec {
         job::Spec::Backup(spec) => run_backup(&spec, &restic, &secrets, cancellation).await,
         job::Spec::RepoIndex(spec) => {
-            update_repo_index(&spec, &restic, &secrets, cancellation).await
+            update_repo_index(&spec, &restic, &secrets, &cache, cancellation).await
         }
     }
 }
@@ -139,8 +149,25 @@ async fn update_repo_index(
     spec: &job::RepoIndexSpec,
     restic: &Restic,
     secrets: &Secrets,
+    cache: &Cache,
     mut cancellation: oneshot::Receiver<job::CancellationReason>,
 ) -> eyre::Result<Result<(), job::CancellationReason>> {
     // TODO implement
+
+    // update snapshots
+    // loop:
+    //   go by trees (timestamp of tree: timestamp of newest snapshot using it)
+    //   if holes:
+    //     fetch newest in hole
+    //     if over limit:
+    //       delete oldest tree and GC until under limit
+    //     continue
+    //   if no hole:
+    //     if under limit:
+    //       fetch newest missing
+    //       continue
+    //     else:
+    //       break
+
     todo!()
 }

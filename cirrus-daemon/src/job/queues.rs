@@ -3,7 +3,7 @@ use crate::{
     shutdown::{ShutdownAcknowledged, ShutdownRequested},
     suspend::Suspend,
 };
-use cirrus_core::{config, restic::Restic, secrets::Secrets};
+use cirrus_core::{cache::Cache, config, restic::Restic, secrets::Secrets};
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
@@ -23,6 +23,7 @@ struct RepositoryQueue {
     sender: events::Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
+    cache: Cache,
     queue: VecDeque<job::Job>,
     parallel_jobs: usize,
     running: HashMap<job::Id, RunningJob>,
@@ -34,12 +35,14 @@ impl RepositoryQueue {
         sender: events::Sender,
         restic: Arc<Restic>,
         secrets: Arc<Secrets>,
+        cache: Cache,
     ) -> Self {
         let parallel_jobs = repo.parallel_jobs.unwrap_or(DEFAULT_PARALLEL_JOBS) as usize;
         RepositoryQueue {
             sender,
             restic,
             secrets,
+            cache,
             queue: VecDeque::new(),
             parallel_jobs,
             running: HashMap::with_capacity(parallel_jobs),
@@ -76,6 +79,7 @@ impl RepositoryQueue {
                     self.sender.clone(),
                     self.restic.clone(),
                     self.secrets.clone(),
+                    self.cache.clone(),
                 );
                 let cloned_job = job.clone();
                 let (send, recv) = oneshot::channel();
@@ -130,6 +134,7 @@ pub struct JobQueues {
     events: Subscriptions,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
+    cache: Cache,
     suspend: Suspend,
     repo_queues: HashMap<config::repo::Name, RepositoryQueue>,
 }
@@ -139,12 +144,14 @@ impl JobQueues {
         events: &mut events::Builder,
         restic: Arc<Restic>,
         secrets: Arc<Secrets>,
+        cache: Cache,
         suspend: Suspend,
     ) -> Self {
         JobQueues {
             events: Subscriptions::subscribe(events),
             restic,
             secrets,
+            cache,
             suspend,
             repo_queues: HashMap::new(),
         }
@@ -159,6 +166,7 @@ impl JobQueues {
                     self.events.sender.clone(),
                     self.restic.clone(),
                     self.secrets.clone(),
+                    self.cache.clone(),
                 )
             })
             .push(job);

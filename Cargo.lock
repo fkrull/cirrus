@@ -469,6 +469,7 @@ name = "cirrus-daemon"
 version = "0.1.0"
 dependencies = [
  "cirrus-core",
+ "cirrus-index",
  "events",
  "eyre",
  "notify",

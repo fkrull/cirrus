@@ -126,9 +126,11 @@ impl<M: Clone + Send + Sync + 'static> Handle<M> {
     }
 
     pub async fn register_loop(&self) -> zbus::Result<()> {
-        let name = self.conn.unique_name().ok_or(zbus::Error::Names(
-            zbus::names::Error::InvalidUniqueName("connection is missing unique name".to_string()),
-        ))?;
+        let name = self.conn.unique_name().ok_or_else(|| {
+            zbus::Error::Names(zbus::names::Error::InvalidUniqueName(
+                "connection is missing unique name".to_string(),
+            ))
+        })?;
         let watcher = watcher::StatusNotifierWatcherProxy::new(&self.conn).await?;
         watcher.register_loop(&name.into()).await
     }

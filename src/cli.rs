@@ -279,6 +279,8 @@ pub mod restic {
 }
 
 pub mod files {
+    use std::time::Duration;
+
     #[derive(clap::Parser)]
     pub struct Cli {
         /// The repository to use
@@ -292,7 +294,14 @@ pub mod files {
     #[derive(clap::Parser)]
     pub enum Cmd {
         /// Update the files index for the repository
-        Update,
+        Index(Index),
+    }
+
+    #[derive(clap::Parser)]
+    pub struct Index {
+        /// Set the timeframe for indexing snapshot contents, overwriting the timeframe in the config file
+        #[arg(long, value_parser = humantime::parse_duration)]
+        pub max_age: Option<Duration>,
     }
 }
 

@@ -82,8 +82,8 @@ async fn run(
 ) -> eyre::Result<Result<(), job::CancellationReason>> {
     match spec {
         job::Spec::Backup(spec) => run_backup(&spec, &restic, &secrets, cancellation).await,
-        job::Spec::RepoIndex(spec) => {
-            update_repo_index(&spec, &restic, &secrets, &cache, cancellation).await
+        job::Spec::FilesIndex(spec) => {
+            update_files_index(&spec, &restic, &secrets, &cache, cancellation).await
         }
     }
 }
@@ -145,8 +145,8 @@ async fn run_backup(
     Ok(Ok(process.check_wait().await?))
 }
 
-async fn update_repo_index(
-    spec: &job::RepoIndexSpec,
+async fn update_files_index(
+    spec: &job::FilesIndexSpec,
     restic: &Restic,
     secrets: &Secrets,
     cache: &Cache,
@@ -167,6 +167,13 @@ async fn update_repo_index(
             return Ok(Err(cancellation_reason));
         }
         Err(err) => return Err(err.into()),
+    }
+
+    if let Some(max_age) = spec.max_age.or(spec.repo.build_index) {
+        tracing::info!(target: "cli", "Indexing snapshot contents for the past {}...", humantime::format_duration(max_age));
+        todo!()
+    } else {
+        tracing::info!(target: "cli", "Not indexing any snapshot contents.");
     }
 
     // loop:

@@ -1,4 +1,4 @@
-use crate::cli::files::{Cli, Cmd};
+use crate::cli::files::{Cli, Cmd, Index};
 use cirrus_core::{
     cache::Cache,
     config::{repo, Config},
@@ -21,7 +21,7 @@ pub async fn main(
         .get(&repo_name)
         .ok_or_else(|| eyre::eyre!("unknown repository {}", repo_name.0))?;
     match args.subcommand {
-        Cmd::Update => update(restic, secrets, cache, repo_name, repo.clone()).await,
+        Cmd::Index(args) => update(restic, secrets, cache, repo_name, repo.clone(), args).await,
     }
 }
 
@@ -31,6 +31,7 @@ async fn update(
     cache: Cache,
     repo_name: repo::Name,
     repo: repo::Definition,
+    args: Index,
 ) -> eyre::Result<()> {
     let restic = Arc::new(restic);
     let secrets = Arc::new(secrets);
@@ -51,7 +52,11 @@ async fn update(
     tokio::spawn(async move { shutdown_service.run().await.unwrap() });
     tokio::spawn(async move { signal_handler.run().await.unwrap() });
 
-    let spec = cirrus_daemon::job::RepoIndexSpec { repo_name, repo };
+    let spec = cirrus_daemon::job::FilesIndexSpec {
+        repo_name,
+        repo,
+        max_age: args.max_age,
+    };
     let job = cirrus_daemon::job::Job::new(spec.into());
     let id = job.id;
     events.typed_sender::<cirrus_daemon::job::Job>().send(job);

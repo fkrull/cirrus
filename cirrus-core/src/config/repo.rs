@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -52,6 +52,8 @@ pub struct Definition {
     pub url: Url,
     #[serde(alias = "parallel-jobs")]
     pub parallel_jobs: Option<u32>,
+    #[serde(default, with = "humantime_serde", alias = "build-index")]
+    pub build_index: Option<Duration>,
     pub password: Secret,
     #[serde(default)]
     pub secrets: HashMap<SecretName, Secret>,

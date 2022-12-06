@@ -106,9 +106,10 @@ impl Config {
 mod tests {
     use super::*;
     use maplit::hashmap;
+    use std::time::Duration;
 
     #[test]
-    fn should_parse_complex_config() -> eyre::Result<()> {
+    fn should_parse_complex_config() {
         let input: toml::Value = toml::from_str(
             //language=TOML
             r#"
@@ -119,6 +120,7 @@ mod tests {
             [repositories.sftp]
             url = "sftp:user@host:repo/path"
             parallel-jobs = 6
+            build-index = "6 months"
             password = { env-var = "SSH_PASSWORD" }
             
             [repositories.sftp.secrets.UNUSED_SECRET]
@@ -147,9 +149,10 @@ mod tests {
             disable-triggers = true
             triggers = []
             "#,
-        )?;
+        )
+        .unwrap();
 
-        let config: Config = input.try_into()?;
+        let config: Config = input.try_into().unwrap();
 
         assert_eq!(
             config,
@@ -158,12 +161,14 @@ mod tests {
                     repo::Name("local".to_string()) => repo::Definition {
                         url: repo::Url("/srv/restic-repo".to_string()),
                         parallel_jobs: None,
+                        build_index: None,
                         password: repo::Secret::FromEnvVar { env_var: "LOCAL_PASSWORD".to_string() },
                         secrets: HashMap::new(),
                     },
                     repo::Name("sftp".to_string()) => repo::Definition {
                         url: repo::Url("sftp:user@host:repo/path".to_string()),
                         parallel_jobs: Some(6),
+                        build_index: Some(humantime_serde::re::humantime::parse_duration("6 months").unwrap()),
                         password: repo::Secret::FromEnvVar { env_var: "SSH_PASSWORD".to_string() },
                         secrets: hashmap! {
                             repo::SecretName("UNUSED_SECRET".to_string()) => repo::Secret::FromEnvVar {
@@ -205,17 +210,17 @@ mod tests {
                 source: None,
             }
         );
-        Ok(())
     }
 
     #[test]
-    fn should_support_underscores_instead_of_dashes_in_settings() -> eyre::Result<()> {
+    fn should_support_underscores_instead_of_dashes_in_settings() {
         let input: toml::Value = toml::from_str(
             //language=TOML
             r#"
             [repositories.test]
             url = "/url"
             parallel_jobs = 8
+            build_index = "1s"
             password = { env_var = "var" }
 
             [backups.test]
@@ -226,9 +231,10 @@ mod tests {
             extra_args = [""]
             disable_triggers = true
             "#,
-        )?;
+        )
+        .unwrap();
 
-        let config: Config = input.try_into()?;
+        let config: Config = input.try_into().unwrap();
 
         assert_eq!(
             config,
@@ -237,6 +243,7 @@ mod tests {
                     repo::Name("test".to_string()) => repo::Definition {
                         url: repo::Url("/url".to_string()),
                         parallel_jobs: Some(8),
+                        build_index: Some(Duration::from_secs(1)),
                         password: repo::Secret::FromEnvVar { env_var: "var".to_string() },
                         secrets: HashMap::new(),
                     },
@@ -256,6 +263,5 @@ mod tests {
                 source: None,
             }
         );
-        Ok(())
     }
 }

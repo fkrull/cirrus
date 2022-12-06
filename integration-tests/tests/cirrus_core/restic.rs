@@ -47,7 +47,6 @@ async fn should_run_restic_with_repo_parameter_and_secrets() {
     let restic = Restic::new_with_path(workdir.test_binary());
     let repo = repo::Definition {
         url: repo::Url("local:/srv/repo".to_owned()),
-        parallel_jobs: None,
         password: repo::Secret::FromEnvVar {
             env_var: "REPO_PWD".to_owned(),
         },
@@ -57,6 +56,7 @@ async fn should_run_restic_with_repo_parameter_and_secrets() {
             repo::SecretName("SECRET2".to_owned()) =>
                 repo::Secret::FromEnvVar { env_var: "SECRET2_SOURCE".to_owned() },
         },
+        ..Default::default()
     };
     let repo_with_secrets = secrets::RepoWithSecrets {
         repo: &repo,
@@ -88,7 +88,7 @@ async fn should_run_restic_with_repo_parameter_and_secrets() {
 #[cfg(windows)]
 const EXCLUDE_PARAM: &'static str = "--iexclude";
 #[cfg(not(windows))]
-const EXCLUDE_PARAM: &'static str = "--exclude";
+const EXCLUDE_PARAM: &str = "--exclude";
 
 #[tokio::test]
 async fn should_run_restic_backup() {
@@ -96,11 +96,11 @@ async fn should_run_restic_backup() {
     let restic = Restic::new_with_path(workdir.test_binary());
     let repo = repo::Definition {
         url: repo::Url("local:/srv/repo".to_owned()),
-        parallel_jobs: None,
         password: repo::Secret::FromEnvVar {
             env_var: "".to_owned(),
         },
         secrets: HashMap::new(),
+        ..Default::default()
     };
     let repo_with_secrets = secrets::RepoWithSecrets {
         repo: &repo,

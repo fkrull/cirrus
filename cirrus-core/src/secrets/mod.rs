@@ -221,8 +221,6 @@ mod tests {
             .unwrap();
         let toml_path = tmp.path().to_str().unwrap().to_owned();
         let repo = repo::Definition {
-            url: repo::Url("local:/srv/repo".to_owned()),
-            parallel_jobs: None,
             password: Secret::FromToml {
                 toml: toml_path.clone(),
                 key: "password".to_owned(),
@@ -236,6 +234,7 @@ mod tests {
                     key: "toml-secret2".to_owned()
                 },
             },
+            ..Default::default()
         };
         let _guard = set_env("ENV_SECRET", "env-secret-value");
 

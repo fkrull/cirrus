@@ -3,6 +3,7 @@ use cirrus_core::config::repo;
 use futures::{Stream, StreamExt};
 use rusqlite::{params, CachedStatement, Connection, OptionalExtension, Transaction};
 use std::path::Path;
+use time::OffsetDateTime;
 
 fn b<T>(f: impl FnOnce() -> T) -> T {
     tokio::task::block_in_place(f)
@@ -49,7 +50,30 @@ impl Database {
         Ok(snapshots)
     }
 
-    pub async fn get_unindexed_snapshots(&mut self, limit: u64) -> eyre::Result<Vec<Snapshot>> {
+    pub async fn get_unindexed_snapshots(
+        &mut self,
+        newer_than: OffsetDateTime,
+    ) -> eyre::Result<Vec<Snapshot>> {
+        //language=SQLite
+        let mut stmt = self.conn.prepare_cached(
+            "--
+SELECT snapshots.*
+FROM snapshots
+         LEFT JOIN trees ON snapshots.tree_hash = trees.hash
+WHERE (file_count IS NULL OR file_count = 0)
+  AND snapshots.time >= ?
+GROUP BY snapshots.tree_hash
+ORDER BY MAX(snapshots.time) DESC",
+        )?;
+        let rows = b(|| stmt.query([newer_than.unix_timestamp()]))?;
+        let snapshots = serde_rusqlite::from_rows(rows).collect::<Result<_, _>>()?;
+        Ok(snapshots)
+    }
+
+    pub async fn get_unindexed_snapshots_number(
+        &mut self,
+        limit: u64,
+    ) -> eyre::Result<Vec<Snapshot>> {
         //language=SQLite
         let mut stmt = self.conn.prepare_cached(
             "--
@@ -369,6 +393,7 @@ mod tests {
     use super::*;
     use crate::{Gid, Mode, Owner, Parent, SnapshotId, TreeHash, Type, Uid};
     use cirrus_core::{config::backup, tag::Tag};
+    use std::time::Duration;
     use time::macros::datetime;
     use tokio_stream::StreamExt;
 
@@ -510,6 +535,20 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn should_get_unindexed_snapshots_limit() {
+        let snapshots = snapshots1();
+        let tmp = tempfile::tempdir().unwrap();
+        let mut db = Database::new(tmp.path(), &test_repo()).await.unwrap();
+
+        db.import_snapshots(snapshots.clone()).await.unwrap();
+
+        let result = db.get_unindexed_snapshots_number(10).await.unwrap();
+        assert_eq!(&result, &snapshots);
+        let result = db.get_unindexed_snapshots_number(1).await.unwrap();
+        assert_eq!(&result, &snapshots[..1]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn should_get_unindexed_snapshots() {
         let snapshots = snapshots1();
         let tmp = tempfile::tempdir().unwrap();
@@ -517,9 +556,15 @@ mod tests {
 
         db.import_snapshots(snapshots.clone()).await.unwrap();
 
-        let result = db.get_unindexed_snapshots(10).await.unwrap();
+        let result = db
+            .get_unindexed_snapshots(OffsetDateTime::UNIX_EPOCH)
+            .await
+            .unwrap();
         assert_eq!(&result, &snapshots);
-        let result = db.get_unindexed_snapshots(1).await.unwrap();
+        let result = db
+            .get_unindexed_snapshots(snapshots[1].time + Duration::from_secs(1))
+            .await
+            .unwrap();
         assert_eq!(&result, &snapshots[..1]);
     }
 

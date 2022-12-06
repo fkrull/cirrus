@@ -43,7 +43,7 @@ async fn index(
     let snapshots = cirrus_index::index_snapshots(restic, &mut db, &repo_with_secrets).await?;
     println!("{snapshots} snapshots saved");
     let to_index = db
-        .get_unindexed_snapshots(args.snapshots_count as u64)
+        .get_unindexed_snapshots_number(args.snapshots_count as u64)
         .await?;
     println!("indexing {} snapshots...", to_index.len());
     for snapshot in &to_index {

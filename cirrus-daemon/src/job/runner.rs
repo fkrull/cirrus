@@ -5,6 +5,7 @@ use cirrus_core::{
     secrets::Secrets,
 };
 use std::{sync::Arc, time::Duration};
+use time::OffsetDateTime;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     sync::oneshot,
@@ -50,26 +51,44 @@ impl Runner {
         )
         .await;
         match run_result {
-            Ok(Ok(_)) => {
+            Ok(_) => {
                 tracing::info!("finished successfully");
                 self.sender.send(job::StatusChange::new(
                     job,
                     job::Status::FinishedSuccessfully,
                 ));
             }
-            Ok(Err(cancellation_reason)) => {
+            Err(JobOutcome::Cancelled(cancellation_reason)) => {
                 tracing::info!(reason = ?cancellation_reason, "cancelled");
                 self.sender.send(job::StatusChange::new(
                     job,
                     job::Status::Cancelled(cancellation_reason),
                 ));
             }
-            Err(error) => {
+            Err(JobOutcome::Error(error)) => {
                 tracing::error!(%error, "failed");
                 self.sender
                     .send(job::StatusChange::new(job, job::Status::FinishedWithError));
             }
         }
+    }
+}
+
+#[derive(Debug)]
+enum JobOutcome {
+    Error(eyre::Report),
+    Cancelled(job::CancellationReason),
+}
+
+impl<E: Into<eyre::Report>> From<E> for JobOutcome {
+    fn from(e: E) -> Self {
+        JobOutcome::Error(e.into())
+    }
+}
+
+impl From<job::CancellationReason> for JobOutcome {
+    fn from(r: job::CancellationReason) -> Self {
+        JobOutcome::Cancelled(r)
     }
 }
 
@@ -79,7 +98,7 @@ async fn run(
     secrets: Arc<Secrets>,
     cache: Cache,
     cancellation: oneshot::Receiver<job::CancellationReason>,
-) -> eyre::Result<Result<(), job::CancellationReason>> {
+) -> Result<(), JobOutcome> {
     match spec {
         job::Spec::Backup(spec) => run_backup(&spec, &restic, &secrets, cancellation).await,
         job::Spec::FilesIndex(spec) => {
@@ -95,7 +114,7 @@ async fn run_backup(
     restic: &Restic,
     secrets: &Secrets,
     mut cancellation: oneshot::Receiver<job::CancellationReason>,
-) -> eyre::Result<Result<(), job::CancellationReason>> {
+) -> Result<(), JobOutcome> {
     let repo_with_secrets = secrets.get_secrets(&spec.repo)?;
     let mut process = restic.backup(
         &repo_with_secrets,
@@ -137,12 +156,22 @@ async fn run_backup(
             },
             cancellation_reason = &mut cancellation => {
                 process.terminate(TERMINATE_GRACE_PERIOD).await?;
-                return Ok(Err(cancellation_reason?));
+                return Err(cancellation_reason?.into());
             }
         }
     }
 
-    Ok(Ok(process.check_wait().await?))
+    Ok(process.check_wait().await?)
+}
+
+fn check_cancellation(
+    cancellation: &mut oneshot::Receiver<job::CancellationReason>,
+) -> Result<(), JobOutcome> {
+    match cancellation.try_recv() {
+        Err(oneshot::error::TryRecvError::Empty) => Ok(()),
+        Ok(cancellation_reason) => Err(cancellation_reason.into()),
+        Err(err) => Err(err.into()),
+    }
 }
 
 async fn update_files_index(
@@ -151,7 +180,7 @@ async fn update_files_index(
     secrets: &Secrets,
     cache: &Cache,
     mut cancellation: oneshot::Receiver<job::CancellationReason>,
-) -> eyre::Result<Result<(), job::CancellationReason>> {
+) -> Result<(), JobOutcome> {
     tracing::info!(target: "cli", "Indexing snapshots...");
 
     // update snapshots
@@ -160,36 +189,28 @@ async fn update_files_index(
     let num_snapshots = cirrus_index::index_snapshots(restic, &mut db, &repo_with_secrets).await?;
     tracing::info!(target: "cli", "{num_snapshots} snapshots in repository.");
 
-    match cancellation.try_recv() {
-        Err(oneshot::error::TryRecvError::Empty) => (),
-        Ok(cancellation_reason) => {
-            tracing::debug!("cancelled after indexing snapshots");
-            return Ok(Err(cancellation_reason));
-        }
-        Err(err) => return Err(err.into()),
-    }
+    check_cancellation(&mut cancellation)?;
 
     if let Some(max_age) = spec.max_age.or(spec.repo.build_index) {
-        tracing::info!(target: "cli", "Indexing snapshot contents for the past {}...", humantime::format_duration(max_age));
-        todo!()
+        let newer_than = OffsetDateTime::now_utc() - max_age;
+        let snapshots = db.get_unindexed_snapshots(newer_than).await?;
+        tracing::info!(
+            target: "cli",
+            "Indexing snapshot contents for the past {} ({} snapshots)...",
+            humantime::format_duration(max_age),
+            snapshots.len()
+        );
+        check_cancellation(&mut cancellation)?;
+        for snapshot in &snapshots {
+            tracing::info!(target: "cli", "Indexing {}...", snapshot.short_id());
+            // TODO fix async handling and reenable
+            //cirrus_index::index_files(restic, &mut db, &repo_with_secrets, snapshot).await?;
+            check_cancellation(&mut cancellation)?;
+        }
+        tracing::info!(target: "cli", "Finished indexing snapshot contents ({} snapshots).", snapshots.len());
     } else {
         tracing::info!(target: "cli", "Not indexing any snapshot contents.");
     }
 
-    // loop:
-    //   go by trees (timestamp of tree: timestamp of newest snapshot using it)
-    //   if holes:
-    //     fetch newest in hole
-    //     if over limit:
-    //       delete oldest tree and GC until under limit
-    //     continue
-    //   if no hole:
-    //     if under limit:
-    //       fetch newest missing
-    //       continue
-    //     else:
-    //       break
-
-    // TODO implement more
-    Ok(Ok(()))
+    Ok(())
 }

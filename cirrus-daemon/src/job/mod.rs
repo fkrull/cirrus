@@ -77,7 +77,7 @@ impl Spec {
     pub fn label(&self) -> String {
         match self {
             Spec::Backup(spec) => format!("backup.{}", spec.backup_name.0),
-            Spec::FilesIndex(spec) => format!("repo-index.{}", spec.repo_name.0),
+            Spec::FilesIndex(spec) => format!("files-index.{}", spec.repo_name.0),
         }
     }
 }

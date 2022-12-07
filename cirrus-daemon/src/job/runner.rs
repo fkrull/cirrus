@@ -203,8 +203,7 @@ async fn update_files_index(
         check_cancellation(&mut cancellation)?;
         for snapshot in &snapshots {
             tracing::info!(target: "cli", "Indexing {}...", snapshot.short_id());
-            // TODO fix async handling and reenable
-            //cirrus_index::index_files(restic, &mut db, &repo_with_secrets, snapshot).await?;
+            cirrus_index::index_files(restic, &mut db, &repo_with_secrets, snapshot).await?;
             check_cancellation(&mut cancellation)?;
         }
         tracing::info!(target: "cli", "Finished indexing snapshot contents ({} snapshots).", snapshots.len());

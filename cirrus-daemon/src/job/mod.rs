@@ -117,6 +117,7 @@ impl StatusChange {
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Status {
     Started,
+    // TODO it might be convenient to merge these into a single enum value
     FinishedSuccessfully,
     FinishedWithError,
     Cancelled(CancellationReason),

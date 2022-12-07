@@ -66,17 +66,12 @@ async fn update(
         if status_change.job.id == id {
             match status_change.new_status {
                 Status::Cancelled(_) | Status::FinishedSuccessfully | Status::FinishedWithError => {
-                    // TODO what do we do?!?!?!!!
                     events
                         .typed_sender::<RequestShutdown>()
                         .send(RequestShutdown);
-                    break;
                 }
                 Status::Started => (),
             }
         }
     }
-
-    // TODO: not pretty, can I avoid that?
-    futures::future::pending::<eyre::Result<()>>().await
 }

@@ -220,7 +220,7 @@ impl JobQueues {
         }
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, _shutdown))]
     async fn handle_shutdown(&mut self, _shutdown: ShutdownRequested) -> eyre::Result<()> {
         tracing::debug!("received shutdown event");
         self.cancel_all(job::CancellationReason::Shutdown);

@@ -52,10 +52,8 @@ impl ShutdownService {
     #[tracing::instrument(name = "ShutdownService", skip_all)]
     pub async fn run(&mut self) -> eyre::Result<()> {
         let _ = self.events.RequestShutdown.recv().await?;
-        tracing::info!(
-            grace_period_secs = self.grace_period.as_secs_f64(),
-            "shutdown requested"
-        );
+        let grace_period = humantime::format_duration(self.grace_period);
+        tracing::info!(%grace_period, "shutdown requested");
         let grace_deadline = Instant::now() + self.grace_period;
         let mut required_acks = self.events.send(ShutdownRequested { grace_deadline });
         if required_acks == 0 {

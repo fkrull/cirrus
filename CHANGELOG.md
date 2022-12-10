@@ -6,8 +6,13 @@ the version numbers are *not* semantic.
 
 ## UNRELEASED
 ### Files
-* Limit files index history by age.
 * Update index after each backup run. 
+* Repository setting `build_index` determines how far back to download snapshot contents.
+
+### Backup
+* Setting `ignore_unreadable_source_files` to true considers a backup run successful even if some source files could not be read.
+  * Can sometimes be useful on Windows to ignore unopenable WSL files.
+  * Corresponds to restic's exit status 3.
 
 ## 2.1.1 - 2022-12-04
 * Replace StatusNotifierItem impl to get rid of libdbus dependency.

@@ -31,16 +31,6 @@ impl ExitStatus {
     }
 }
 
-impl From<std::process::ExitStatus> for ExitStatus {
-    fn from(status: std::process::ExitStatus) -> Self {
-        if status.success() {
-            ExitStatus::Successful
-        } else {
-            ExitStatus::Failed(status.code())
-        }
-    }
-}
-
 #[cfg(unix)]
 fn ask_to_terminate(child: &mut Child) -> Result<(), Error> {
     // TODO maybe not expect?
@@ -58,33 +48,41 @@ fn ask_to_terminate(child: &mut Child) -> Result<(), Error> {
 }
 
 #[derive(Debug)]
-pub struct ResticProcess(pub(crate) Child);
+pub struct ResticProcess {
+    pub(crate) child: Child,
+    pub(crate) extra_success_status: Option<i32>,
+}
 
 impl ResticProcess {
     pub fn stdout(&mut self) -> &mut Option<ChildStdout> {
-        &mut self.0.stdout
+        &mut self.child.stdout
     }
 
     pub fn stderr(&mut self) -> &mut Option<ChildStderr> {
-        &mut self.0.stderr
+        &mut self.child.stderr
     }
 
     pub async fn wait(&mut self) -> Result<ExitStatus, Error> {
-        self.0
+        let proc_status = self
+            .child
             .wait()
             .await
-            .map(ExitStatus::from)
-            .map_err(Error::SubprocessStatusError)
+            .map_err(Error::SubprocessStatusError)?;
+        if proc_status.success() || proc_status.code() == self.extra_success_status {
+            Ok(ExitStatus::Successful)
+        } else {
+            Ok(ExitStatus::Failed(proc_status.code()))
+        }
     }
 
     pub async fn check_wait(&mut self) -> Result<(), Error> {
         self.wait().await?.check_status()
     }
 
-    #[tracing::instrument(level = "debug", skip_all, fields(pid = self.0.id(), grace_period_secs = grace_period.as_secs_f64()))]
+    #[tracing::instrument(level = "debug", skip_all, fields(pid = self.child.id(), grace_period_secs = grace_period.as_secs_f64()))]
     pub async fn terminate(&mut self, grace_period: Duration) -> Result<(), Error> {
         tracing::debug!("trying to terminate gracefully");
-        ask_to_terminate(&mut self.0)?;
+        ask_to_terminate(&mut self.child)?;
         match tokio::time::timeout(grace_period, self.wait()).await {
             Ok(result) => {
                 tracing::debug!("process terminated before timeout");
@@ -92,36 +90,12 @@ impl ResticProcess {
             }
             Err(_) => {
                 tracing::debug!("process did not terminate before timeout, killing it instead");
-                self.0
+                self.child
                     .kill()
                     .await
                     .map_err(Error::SubprocessTerminateError)?;
             }
         };
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    mod exit_status {
-        use super::*;
-
-        #[test]
-        fn should_be_ok_for_successful_exit_status() {
-            assert!(ExitStatus::Successful.check_status().is_ok());
-        }
-
-        #[test]
-        fn should_be_err_for_failed_exit_status() {
-            assert!(ExitStatus::Failed(Some(1)).check_status().is_err());
-        }
-
-        #[test]
-        fn should_be_err_for_failed_exit_status_without_code() {
-            assert!(ExitStatus::Failed(None).check_status().is_err());
-        }
     }
 }

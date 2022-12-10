@@ -186,7 +186,11 @@ impl Restic {
             args.push(arg.clone());
         }
 
-        self.run(Some(repo_with_secrets), &args, options)
+        let mut process = self.run(Some(repo_with_secrets), &args, options)?;
+        if definition.ignore_unreadable_source_files {
+            process.extra_success_status = Some(3);
+        }
+        Ok(process)
     }
 
     fn run_with_config(
@@ -227,6 +231,9 @@ impl Restic {
         }
 
         let child = cmd.spawn().map_err(Error::FailedToStartResticProcess)?;
-        Ok(ResticProcess(child))
+        Ok(ResticProcess {
+            child,
+            extra_success_status: None,
+        })
     }
 }

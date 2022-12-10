@@ -114,6 +114,7 @@ async fn should_run_restic_backup() {
         excludes: vec![backup::Exclude(".Trash".to_owned())],
         exclude_caches: true,
         exclude_larger_than: Some("1T".to_string()),
+        ignore_unreadable_source_files: false,
         extra_args: vec!["--one-file-system".to_owned()],
         disable_triggers: false,
         triggers: vec![],

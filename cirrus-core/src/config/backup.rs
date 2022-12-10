@@ -26,6 +26,8 @@ pub struct Definition {
     pub exclude_caches: bool,
     #[serde(default, alias = "exclude-larger-than")]
     pub exclude_larger_than: Option<String>,
+    #[serde(default, alias = "ignore-unreadable-source-files")]
+    pub ignore_unreadable_source_files: bool,
     #[serde(default, alias = "extra-args")]
     pub extra_args: Vec<String>,
     #[serde(default, alias = "disable-triggers")]

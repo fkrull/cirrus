@@ -135,6 +135,7 @@ mod tests {
             ]
             exclude-caches = true
             exclude-larger-than = "1G"
+            ignore-unreadable-source-files = true
             extra-args = ["--one-file-system"]
 
             [[backups.home.triggers]]
@@ -187,6 +188,7 @@ mod tests {
                         ],
                         exclude_caches: true,
                         exclude_larger_than: Some("1G".to_string()),
+                        ignore_unreadable_source_files: true,
                         disable_triggers: false,
                         extra_args: vec!["--one-file-system".to_string()],
                         triggers: vec![
@@ -202,6 +204,7 @@ mod tests {
                         excludes: vec![],
                         exclude_caches: false,
                         exclude_larger_than: None,
+                        ignore_unreadable_source_files: false,
                         disable_triggers: true,
                         extra_args: vec![],
                         triggers: vec![]
@@ -228,6 +231,7 @@ mod tests {
             path = "/"
             exclude_caches = true
             exclude_larger_than = "1G"
+            ignore_unreadable_source_files = true
             extra_args = [""]
             disable_triggers = true
             "#,
@@ -255,6 +259,7 @@ mod tests {
                         excludes: vec![],
                         exclude_caches: true,
                         exclude_larger_than: Some("1G".to_string()),
+                        ignore_unreadable_source_files: true,
                         disable_triggers: true,
                         extra_args: vec!["".to_string()],
                         triggers: vec![]

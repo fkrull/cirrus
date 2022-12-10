@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 the version numbers are *not* semantic.
 
 ## UNRELEASED
+### Files
+* Limit files index history by age.
+* Update index after each backup run. 
 
 ## 2.1.1 - 2022-12-04
 * Replace StatusNotifierItem impl to get rid of libdbus dependency.

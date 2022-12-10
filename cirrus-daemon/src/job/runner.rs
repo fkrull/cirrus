@@ -44,6 +44,7 @@ impl Runner {
             .send(job::StatusChange::new(job.clone(), job::Status::Started));
         let run_result = run(
             job.spec.clone(),
+            self.sender.clone(),
             self.restic.clone(),
             self.secrets.clone(),
             self.cache.clone(),
@@ -94,13 +95,16 @@ impl From<job::CancellationReason> for JobOutcome {
 
 async fn run(
     spec: job::Spec,
+    mut sender: events::Sender,
     restic: Arc<Restic>,
     secrets: Arc<Secrets>,
     cache: Cache,
     cancellation: oneshot::Receiver<job::CancellationReason>,
 ) -> Result<(), JobOutcome> {
     match spec {
-        job::Spec::Backup(spec) => run_backup(&spec, &restic, &secrets, cancellation).await,
+        job::Spec::Backup(spec) => {
+            run_backup(&spec, &mut sender, &restic, &secrets, cancellation).await
+        }
         job::Spec::FilesIndex(spec) => {
             update_files_index(&spec, &restic, &secrets, &cache, cancellation).await
         }
@@ -111,6 +115,7 @@ const TERMINATE_GRACE_PERIOD: Duration = Duration::from_secs(5);
 
 async fn run_backup(
     spec: &job::BackupSpec,
+    sender: &mut events::Sender,
     restic: &Restic,
     secrets: &Secrets,
     mut cancellation: oneshot::Receiver<job::CancellationReason>,
@@ -161,7 +166,15 @@ async fn run_backup(
         }
     }
 
-    Ok(process.check_wait().await?)
+    process.check_wait().await?;
+    // TODO: this should probably happen somewhere else at some point; separate service keyed off some event?
+    tracing::debug!("requesting files index update");
+    sender.send(job::Job::new(job::Spec::FilesIndex(job::FilesIndexSpec {
+        repo_name: spec.repo_name.clone(),
+        repo: spec.repo.clone(),
+        max_age: None,
+    })));
+    Ok(())
 }
 
 fn check_cancellation(
@@ -193,20 +206,20 @@ async fn update_files_index(
 
     if let Some(max_age) = spec.max_age.or(spec.repo.build_index) {
         let newer_than = OffsetDateTime::now_utc() - max_age;
-        let snapshots = db.get_unindexed_snapshots(newer_than).await?;
+        let unique_snapshots = db.get_unindexed_snapshots(newer_than).await?;
         tracing::info!(
             target: "cli",
-            "Indexing snapshot contents for the past {} ({} snapshots)...",
+            "Indexing snapshot contents for the past {} ({} unique snapshots)...",
             humantime::format_duration(max_age),
-            snapshots.len()
+            unique_snapshots.len()
         );
         check_cancellation(&mut cancellation)?;
-        for snapshot in &snapshots {
+        for snapshot in &unique_snapshots {
             tracing::info!(target: "cli", "Indexing {}...", snapshot.short_id());
             cirrus_index::index_files(restic, &mut db, &repo_with_secrets, snapshot).await?;
             check_cancellation(&mut cancellation)?;
         }
-        tracing::info!(target: "cli", "Finished indexing snapshot contents ({} snapshots).", snapshots.len());
+        tracing::info!(target: "cli", "Finished indexing snapshot contents ({} unique snapshots).", unique_snapshots.len());
     } else {
         tracing::info!(target: "cli", "Not indexing any snapshot contents.");
     }

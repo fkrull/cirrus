@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 enumset = "1.0.6"
 nom = "7.1.0"
-serde = { version = "1.0.148", features = ["derive"], optional = true }
+serde = { version = "1.0.150", features = ["derive"], optional = true }
 thiserror = "1.0.30"
 time = { version = "0.3.17", optional = true }
 

@@ -10,5 +10,5 @@ eyre = "0.6.3"
 tar = "0.4.38"
 tempfile = "3.2.0"
 time = { version = "0.3.17", default-features = false, features = ["std"] }
-xshell = "0.2.2"
+xshell = "0.2.3"
 xz2 = { version = "0.1.7", features = ["static"] }

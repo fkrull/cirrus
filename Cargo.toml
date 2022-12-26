@@ -26,7 +26,7 @@ cirrus-desktop-ui = { path = "cirrus-desktop-ui" }
 cirrus-index = { version = "0.1.0", path = "cirrus-index" }
 cirrus-self = { path = "cirrus-self", optional = true }
 eyre = "0.6.1"
-clap = { version = "4.0.29", features = ["derive", "env"] }
+clap = { version = "4.0.32", features = ["derive", "env"] }
 hostname = "0.3.1"
 rpassword = "7.2.0"
 termcolor = "1.1.0"

@@ -12,6 +12,6 @@ notify = { version = "5.0.0", default-features = false }
 tracing = "0.1.23"
 time = "0.3.17"
 events = { version = "0.2.0", path = "../events" }
-tokio = { version = "1.23.1", features = ["fs", "signal", "time", "rt"] }
+tokio = { version = "1.24.1", features = ["fs", "signal", "time", "rt"] }
 cirrus-index = { version = "0.1.0", path = "../cirrus-index" }
 humantime = "2.1.0"
